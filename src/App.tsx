@@ -1,9 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { DetachedNoteWindow } from './components/DetachedNoteWindow';
+import { DragGhost } from './components/DragGhost';
+import { SettingsPanel } from './components/SettingsPanel';
 import { useDetachedWindowsStore } from './stores/detached-windows-store';
+import { useConfigStore } from './stores/config-store';
+import { useSaveStatus } from './hooks/use-save-status';
+import { useWindowTransparency } from './hooks/use-window-transparency';
+import { noteSyncService, useNoteSync } from './services/note-sync';
 
 interface Note {
   id: string;
@@ -11,9 +18,11 @@ interface Note {
   content: string;
   createdAt: string;
   updatedAt: string;
+  tags: string[];
 }
 
 function App() {
+  const { config } = useConfigStore();
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -24,10 +33,37 @@ function App() {
   const [commandQuery, setCommandQuery] = useState('');
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    noteId: string;
+  } | null>(null);
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean;
+    noteId: string | null;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    justCompleted: boolean;
+  }>({
+    isDragging: false,
+    noteId: null,
+    startX: 0,
+    startY: 0,
+    currentX: 0,
+    currentY: 0,
+    justCompleted: false,
+  });
 
   // Detached window detection
   const [isDetachedWindow, setIsDetachedWindow] = useState(false);
   const [detachedNoteId, setDetachedNoteId] = useState<string | null>(null);
+  
+  // Drag ghost detection
+  const [isDragGhost, setIsDragGhost] = useState(false);
+  const [dragGhostTitle, setDragGhostTitle] = useState<string>('');
   
   // Detached windows store
   const { 
@@ -37,16 +73,40 @@ function App() {
     loadWindows 
   } = useDetachedWindowsStore();
 
+  // Config store
+  const { loadConfig } = useConfigStore();
+
+  // Save status tracking
+  const saveStatus = useSaveStatus();
+  
+  // Window transparency hook - handles opacity changes
+  useWindowTransparency();
+
   const selectedNote = notes.find(note => note.id === selectedNoteId);
 
-  // Detect if this is a detached window
+  // Real-time sync for selected note
+  useNoteSync(selectedNoteId, (updatedNote) => {
+    setNotes(prev => prev.map(note => 
+      note.id === updatedNote.id ? updatedNote : note
+    ));
+    if (selectedNoteId === updatedNote.id) {
+      setCurrentContent(updatedNote.content);
+    }
+  });
+
+  // Detect if this is a detached window or drag ghost
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const noteParam = urlParams.get('note');
+    const ghostParam = urlParams.get('ghost');
+    const titleParam = urlParams.get('title');
     
     if (noteParam) {
       setIsDetachedWindow(true);
       setDetachedNoteId(noteParam);
+    } else if (ghostParam === 'true' && titleParam) {
+      setIsDragGhost(true);
+      setDragGhostTitle(decodeURIComponent(titleParam));
     }
   }, []);
 
@@ -54,10 +114,22 @@ function App() {
   useEffect(() => {
     loadNotes();
     loadWindows();
+    loadConfig();
     if (!isDetachedWindow) {
       checkGlobalShortcutPermissions();
     }
-  }, [isDetachedWindow]);
+  }, [isDetachedWindow, loadConfig]);
+
+  // Listen for menu events
+  useEffect(() => {
+    const unlistenNewNote = listen('menu-new-note', () => {
+      createNewNote();
+    });
+
+    return () => {
+      unlistenNewNote.then(fn => fn());
+    };
+  }, []);
 
   const checkGlobalShortcutPermissions = async () => {
     // Check if user has already dismissed the prompt
@@ -74,19 +146,21 @@ function App() {
   const extractTitleFromContent = (content: string): string => {
     if (!content.trim()) return 'Untitled';
     
-    // Look for first header (# Title)
-    const headerMatch = content.match(/^#+\s*(.+)$/m);
-    if (headerMatch) {
-      return headerMatch[1].trim();
-    }
-    
-    // Fallback to first non-empty line
+    // Always use first non-empty line as title
     const firstLine = content.split('\n').find(line => line.trim());
-    if (firstLine) {
-      return firstLine.trim().substring(0, 50);
-    }
+    if (!firstLine) return 'Untitled';
     
-    return 'Untitled';
+    // Clean up the line and extract title
+    let title = firstLine.trim();
+    
+    // Remove markdown formatting if present
+    title = title.replace(/^#+\s*/, ''); // Remove markdown headers
+    title = title.replace(/^\*\*(.+)\*\*$/, '$1'); // Remove bold
+    title = title.replace(/^\*(.+)\*$/, '$1'); // Remove italic
+    title = title.replace(/^[-*+]\s+/, ''); // Remove list markers
+    
+    // Limit length and ensure we have something
+    return title.substring(0, 50).trim() || 'Untitled';
   };
 
   // Command palette logic
@@ -129,34 +203,32 @@ function App() {
           setIsPreviewMode(!isPreviewMode);
         },
         category: 'action'
+      },
+      {
+        id: 'open-settings',
+        title: 'Open Settings',
+        description: 'Configure app appearance and behavior',
+        action: () => {
+          setShowCommandPalette(false);
+          setCurrentView('settings');
+          setSidebarVisible(true);
+        },
+        category: 'action'
       }
     ];
 
-    // Add detach/attach window commands for selected note
+    // Add detach window command for selected note
     if (selectedNote && !isDetachedWindow) {
-      if (isWindowOpen(selectedNote.id)) {
-        commands.push({
-          id: 'close-detached-window',
-          title: 'Close Detached Window',
-          description: `Close the detached window for "${extractTitleFromContent(selectedNote.content)}"`,
-          action: async () => {
-            setShowCommandPalette(false);
-            await closeWindow(selectedNote.id);
-          },
-          category: 'action'
-        });
-      } else {
-        commands.push({
-          id: 'detach-window',
-          title: 'Detach Window',
-          description: `Open "${extractTitleFromContent(selectedNote.content)}" in a separate window`,
-          action: async () => {
-            setShowCommandPalette(false);
-            await createWindow(selectedNote.id);
-          },
-          category: 'action'
-        });
-      }
+      commands.push({
+        id: 'open-in-window',
+        title: 'Open in New Window',
+        description: `Open "${extractTitleFromContent(selectedNote.content)}" in a new window`,
+        action: async () => {
+          setShowCommandPalette(false);
+          await createWindow(selectedNote.id);
+        },
+        category: 'action'
+      });
     }
 
     // Continue with existing note commands
@@ -209,6 +281,119 @@ function App() {
   };
 
   // Handle keyboard shortcuts
+  // Enhanced drag handlers with external ghost window
+  useEffect(() => {
+    const handleGlobalMouseMove = async (e: MouseEvent) => {
+      if (dragState.noteId) {
+        const deltaX = Math.abs(e.clientX - dragState.startX);
+        const deltaY = Math.abs(e.clientY - dragState.startY);
+        const threshold = 15;
+        const isDragging = deltaX > threshold || deltaY > threshold;
+
+        setDragState(prev => ({
+          ...prev,
+          currentX: e.clientX,
+          currentY: e.clientY,
+          isDragging: prev.isDragging || isDragging
+        }));
+
+        // Create ghost window if we just started dragging
+        if (isDragging && !dragState.isDragging) {
+          const note = notes.find(n => n.id === dragState.noteId);
+          if (note) {
+            const title = extractTitleFromContent(note.content);
+            try {
+              await invoke('create_drag_ghost', {
+                noteTitle: title,
+                x: e.screenX - 150,
+                y: e.screenY - 40
+              });
+            } catch (error) {
+              console.error('Failed to create drag ghost:', error);
+            }
+          }
+        }
+
+        // Update ghost position if dragging
+        if (dragState.isDragging) {
+          try {
+            await invoke('update_drag_ghost_position', {
+              x: e.screenX - 150,
+              y: e.screenY - 40
+            });
+          } catch (error) {
+            // Silently ignore positioning errors
+          }
+        }
+      }
+    };
+
+    const handleGlobalMouseUp = async (e: MouseEvent) => {
+      if (dragState.isDragging && dragState.noteId) {
+        // Destroy ghost window
+        try {
+          await invoke('destroy_drag_ghost');
+        } catch (error) {
+          console.error('Failed to destroy drag ghost:', error);
+        }
+
+        const deltaX = Math.abs(e.clientX - dragState.startX);
+        const deltaY = Math.abs(e.clientY - dragState.startY);
+        const detachThreshold = 60;
+        
+        if ((deltaX > detachThreshold || deltaY > detachThreshold) && !isWindowOpen(dragState.noteId)) {
+          // Position window exactly where the ghost window was (matching ghost offset)
+          await createWindow(dragState.noteId, e.screenX - 150, e.screenY - 40);
+          
+          // Show completion state briefly
+          setDragState({
+            isDragging: false,
+            noteId: dragState.noteId,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            justCompleted: true,
+          });
+          
+          // Clear completion state after animation
+          setTimeout(() => {
+            setDragState({
+              isDragging: false,
+              noteId: null,
+              startX: 0,
+              startY: 0,
+              currentX: 0,
+              currentY: 0,
+              justCompleted: false,
+            });
+          }, 1000);
+          return;
+        }
+      }
+      
+      setDragState({
+        isDragging: false,
+        noteId: null,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        justCompleted: false,
+      });
+    };
+
+    if (dragState.noteId) {
+      document.addEventListener('mousemove', handleGlobalMouseMove);
+      document.addEventListener('mouseup', handleGlobalMouseUp);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleGlobalMouseMove);
+        document.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [dragState, createWindow, isWindowOpen, notes]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Command Palette - Cmd+K
@@ -243,16 +428,36 @@ function App() {
         return;
       }
 
+      // Cmd+N to create new note (standard shortcut)
+      if (e.metaKey && e.key === 'n' && !e.shiftKey && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        createNewNote();
+        return;
+      }
+
       // Hyperkey + N (Cmd+Ctrl+Alt+Shift+N) to create new note
-      if (e.metaKey && e.ctrlKey && e.altKey && e.shiftKey && e.key === 'N') {
+      if (e.metaKey && e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         createNewNote();
       }
 
       // Cmd+Shift+P to toggle preview mode
-      if (e.metaKey && e.shiftKey && e.key === 'P' && selectedNote) {
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'p' && selectedNote) {
         e.preventDefault();
         setIsPreviewMode(!isPreviewMode);
+      }
+
+      // Cmd+Shift+N to open current note in new window
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'n' && selectedNote) {
+        e.preventDefault();
+        createWindow(selectedNote.id);
+      }
+
+      // Cmd+, to open settings (standard shortcut)
+      if (e.metaKey && e.key === ',') {
+        e.preventDefault();
+        setCurrentView('settings');
+        setSidebarVisible(true);
       }
     };
 
@@ -298,26 +503,31 @@ function App() {
     setCurrentContent(content);
     if (selectedNoteId) {
       try {
-        // Extract title from content
-        const extractedTitle = extractTitleFromContent(content);
+        saveStatus.startSaving();
         
         const updatedNote = await invoke<Note>('update_note', {
           id: selectedNoteId,
           request: {
-            title: extractedTitle,
             content: content
           }
         });
+        
         if (updatedNote) {
           setNotes(prev => prev.map(note => 
             note.id === selectedNoteId ? updatedNote : note
           ));
+          saveStatus.saveSuccess();
+          
+          // Notify other windows of the update
+          noteSyncService.noteUpdated(updatedNote);
         }
       } catch (error) {
         console.error('Failed to update note:', error);
+        saveStatus.setSaveError('Failed to save note');
       }
     }
   };
+
 
   const selectNote = (noteId: string) => {
     const note = notes.find(n => n.id === noteId);
@@ -327,14 +537,101 @@ function App() {
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent, noteId: string) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      noteId,
+    });
+  };
+
+  const handleCloseNoteWindow = async () => {
+    if (contextMenu) {
+      await closeWindow(contextMenu.noteId);
+      setContextMenu(null);
+    }
+  };
+
+  const handleOpenInWindow = async () => {
+    if (contextMenu && !isWindowOpen(contextMenu.noteId)) {
+      await createWindow(contextMenu.noteId);
+      setContextMenu(null);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      const success = await invoke<boolean>('delete_note', { id: noteId });
+      if (success) {
+        setNotes(prev => prev.filter(note => note.id !== noteId));
+        
+        // If we deleted the currently selected note, clear selection
+        if (selectedNoteId === noteId) {
+          setSelectedNoteId(null);
+          setCurrentContent('');
+        }
+        
+        // Close any detached window for this note
+        if (isWindowOpen(noteId)) {
+          await closeWindow(noteId);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+  };
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClickOutside = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [contextMenu]);
+
+  // Drag-to-detach handlers
+  const handleMouseDown = (e: React.MouseEvent, noteId: string) => {
+    // Don't start drag on right click
+    if (e.button !== 0) return;
+    
+    setDragState({
+      isDragging: false,
+      noteId,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: e.clientX,
+      currentY: e.clientY,
+      justCompleted: false,
+    });
+  };
+
 
   // If this is a detached window, render the detached note component
   if (isDetachedWindow && detachedNoteId) {
     return <DetachedNoteWindow noteId={detachedNoteId} />;
   }
 
+  // If this is a drag ghost window, render the drag ghost component
+  if (isDragGhost && dragGhostTitle) {
+    return <DragGhost noteTitle={dragGhostTitle} distance={100} threshold={60} />;
+  }
+
   return (
-    <div className="w-screen h-screen text-foreground flex flex-col" style={{ background: 'rgba(18, 19, 23, 0.95)' }}>
+    <div 
+      className={`w-screen h-screen text-foreground flex flex-col transition-all duration-300 overflow-hidden ${
+        dragState.isDragging ? 'bg-blue-500/5' : 'bg-background'
+      }`}
+      onClick={async () => {
+        // Bring main window to focus when clicked
+        try {
+          await invoke('set_window_focus');
+        } catch (error) {
+          console.log('Focus command not available:', error);
+        }
+      }}
+    >
       {/* Ultra-thin top bar - edge to edge, draggable */}
       <div 
         className="h-6 bg-background border-b border-border/30 flex items-center justify-center px-3 cursor-move"
@@ -343,54 +640,89 @@ function App() {
         <span className="text-xs text-soft/50 tracking-wide">Notes</span>
       </div>
 
+      {/* Drop zone indicator during drag */}
+      {dragState.isDragging && (
+        <div className="absolute inset-0 pointer-events-none z-10">
+          <div className="absolute inset-0 border-2 border-dashed border-blue-500/40 rounded-lg m-2 bg-blue-500/5 animate-pulse"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-400/60 text-sm font-medium">
+            Drag outside to create window
+          </div>
+        </div>
+      )}
+
       {/* Main content area */}
       <div className="flex-1 flex">
-        {/* Sidebar toggle */}
-        <div className={`w-8 bg-background flex flex-col items-center ${!sidebarVisible ? 'border-r border-border/30' : ''}`}>
-          <button 
-            onClick={() => setSidebarVisible(!sidebarVisible)}
-            className="mt-3 w-5 h-5 flex items-center justify-center text-soft/50 hover:text-soft transition-colors rounded hover:bg-white/5"
-            title={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-          >
-            {sidebarVisible ? (
-              // Collapse icon (chevron left)
+        {/* Left sidebar - navigation */}
+        <div className="w-8 bg-background flex flex-col items-center justify-between border-r border-border/30">
+          <div className="flex flex-col items-center">
+            {/* Notes view icon */}
+            <button 
+              onClick={() => {
+                setCurrentView('notes');
+                setSidebarVisible(true);
+              }}
+              className={`mt-3 w-5 h-5 flex items-center justify-center transition-colors rounded ${
+                currentView === 'notes'
+                  ? 'text-primary bg-primary/10' 
+                  : 'text-primary/60 hover:text-primary hover:bg-primary/10'
+              }`}
+              title="Notes"
+            >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15,18 9,12 15,6"/>
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14,2 14,8 20,8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <line x1="10" y1="9" x2="8" y2="9"/>
               </svg>
-            ) : (
-              // Expand icon (chevron right)
+            </button>
+          </div>
+          
+          <div className="flex flex-col items-center mb-3">
+            {/* Settings */}
+            <button
+              onClick={() => {
+                setCurrentView('settings');
+                setSidebarVisible(true);
+              }}
+              className={`w-5 h-5 flex items-center justify-center transition-colors rounded ${
+                currentView === 'settings'
+                  ? 'text-primary bg-primary/10' 
+                  : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/10'
+              }`}
+              title="Settings (⌘,)"
+            >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="9,18 15,12 9,6"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
               </svg>
-            )}
-          </button>
+            </button>
+          </div>
         </div>
 
-      {/* Expandable sidebar */}
-      {sidebarVisible && (
-        <div className="w-64 bg-card border-r border-border/30 p-4 flex flex-col">
-          {/* Header with separator */}
-          <div className="pb-3 mb-3 border-b border-border/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-primary rounded-full"></div>
-                <h2 className="text-sm font-semibold text-foreground">Notes</h2>
-              </div>
-              <button 
-                onClick={createNewNote}
-                className="w-5 h-5 flex items-center justify-center text-soft/50 hover:text-primary transition-colors rounded hover:bg-primary/10"
-                title="New note"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-            </div>
+      {/* Expandable sidebar - only for notes view */}
+      {sidebarVisible && currentView === 'notes' && (
+        <div 
+          className="w-64 bg-card border-r border-border/30 p-4 flex flex-col"
+          data-sidebar
+        >
+          {/* Clean header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1"></div>
+            <button 
+              onClick={createNewNote}
+              className="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all duration-200 rounded"
+              title="New note (⌘N)"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
           </div>
           
           {/* Notes list */}
-          <div className="space-y-0 flex-1 overflow-y-auto">
+          <div className="space-y-0 flex-1 overflow-y-auto scrollbar-hide">
             {loading ? (
               <div className="text-xs text-soft/40 p-3">Loading...</div>
             ) : notes.length === 0 ? (
@@ -400,31 +732,63 @@ function App() {
                 <div 
                   key={note.id}
                   onClick={() => selectNote(note.id)}
-                  className={`group relative mx-1 px-3 py-3 cursor-pointer transition-all duration-200 rounded-lg ${
+                  onDoubleClick={async () => {
+                    if (!isWindowOpen(note.id)) {
+                      await createWindow(note.id);
+                    }
+                  }}
+                  onContextMenu={(e) => handleContextMenu(e, note.id)}
+                  onMouseDown={(e) => handleMouseDown(e, note.id)}
+                  className={`group relative px-3 py-2.5 cursor-pointer transition-all duration-200 rounded-md select-none ${
                     selectedNoteId === note.id 
-                      ? 'bg-primary/12 shadow-sm ring-1 ring-primary/25' 
-                      : 'hover:bg-background/60'
-                  }`}
+                      ? 'bg-primary/10 border border-primary/20' 
+                      : 'hover:bg-white/5 border border-transparent'
+                  } ${dragState.isDragging && dragState.noteId === note.id ? 'opacity-40 scale-95 bg-blue-500/20 border-blue-500/40' : ''}`}
                 >
-                  {/* Note title with hierarchy */}
-                  <div className={`text-xs truncate pr-6 transition-all ${
-                    selectedNoteId === note.id 
-                      ? 'text-foreground font-medium' 
-                      : 'text-soft/70 font-normal group-hover:text-foreground'
-                  }`}>
-                    {extractTitleFromContent(note.content)}
-                  </div>
-                  
-                  {/* Date - subtle and right-aligned */}
-                  <div className={`absolute right-3 top-2.5 text-xs transition-opacity ${
-                    selectedNoteId === note.id 
-                      ? 'text-primary/60' 
-                      : 'text-soft/30 group-hover:text-soft/40'
-                  }`}>
-                    {note.updatedAt ? new Date(note.updatedAt).toLocaleDateString('en-US', { 
-                      month: 'numeric', 
-                      day: 'numeric' 
-                    }) : ''}
+                  <div className="flex items-center gap-2">
+                    {/* Note title */}
+                    <div className={`text-xs truncate flex-1 transition-all ${
+                      selectedNoteId === note.id 
+                        ? 'text-foreground font-medium' 
+                        : 'text-muted-foreground/80 group-hover:text-foreground'
+                    }`}>
+                      {extractTitleFromContent(note.content)}
+                    </div>
+                    
+                    {/* Status indicators */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isWindowOpen(note.id) && (
+                        <div className="w-1.5 h-1.5 bg-blue-500/70 rounded-full" title="Open in window"></div>
+                      )}
+                      
+                      {/* Delete button - shows on hover */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 w-4 h-4 flex items-center justify-center text-red-400/60 hover:text-red-400 transition-all duration-200 rounded hover:bg-red-500/10"
+                        title="Delete note"
+                      >
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3,6 5,6 21,6"/>
+                          <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/>
+                          <path d="M10,11v6"/>
+                          <path d="M14,11v6"/>
+                        </svg>
+                      </button>
+                      
+                      <div className={`text-xs transition-opacity ${
+                        selectedNoteId === note.id 
+                          ? 'text-primary/50' 
+                          : 'text-muted-foreground/40 group-hover:text-muted-foreground/60'
+                      }`}>
+                        {note.updatedAt ? new Date(note.updatedAt).toLocaleDateString('en-US', { 
+                          month: 'numeric', 
+                          day: 'numeric' 
+                        }) : ''}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))
@@ -433,115 +797,133 @@ function App() {
         </div>
       )}
       
-        {/* Main editor - full focus */}
-        <div className="flex-1 flex flex-col">
-          {/* Header with mode toggle */}
-          {selectedNote && (
-            <div className="px-6 py-4 border-b border-border/15 flex items-center justify-between bg-card/30">
-              <div className="text-sm text-muted-foreground font-medium">
-                {extractTitleFromContent(currentContent)}
-              </div>
-              <div className="flex items-center gap-3">
-                {/* Detach button */}
-                <button
-                  onClick={async () => {
-                    if (isWindowOpen(selectedNote.id)) {
-                      await closeWindow(selectedNote.id);
-                    } else {
-                      await createWindow(selectedNote.id);
-                    }
-                  }}
-                  className="px-3 py-1.5 text-xs font-medium bg-card border border-border/40 rounded-lg shadow-sm text-muted-foreground hover:text-foreground hover:bg-background/40 transition-all duration-200"
-                  title={isWindowOpen(selectedNote.id) ? "Close detached window" : "Open in separate window"}
-                >
-                  {isWindowOpen(selectedNote.id) ? (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 6L6 18M6 6l12 12"/>
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 9V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/>
-                      <path d="M21 15v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2"/>
-                      <path d="M9 9h1m4 0h1"/>
-                    </svg>
-                  )}
-                </button>
-                
-                <div className="flex bg-card border border-border/40 rounded-lg shadow-sm">
-                <button
-                  onClick={() => setIsPreviewMode(false)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 rounded-l-lg ${
-                    !isPreviewMode 
-                      ? 'bg-primary/15 text-primary shadow-sm' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
-                  }`}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setIsPreviewMode(true)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 rounded-r-lg border-l border-border/20 ${
-                    isPreviewMode 
-                      ? 'bg-primary/15 text-primary shadow-sm' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
-                  }`}
-                >
-                  Preview
-                </button>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Editor/Preview area */}
+        {/* Main content area - Notes or Settings */}
+        {currentView === 'notes' ? (
           <div className="flex-1 flex flex-col">
-            <div className="flex-1 p-6 pt-4 relative">
-              {/* Always-available textarea */}
-              <textarea 
-                className={`content-font w-full h-full bg-transparent text-foreground resize-none outline-none leading-relaxed placeholder-muted-foreground/40 transition-opacity ${
-                  isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
-                }`}
-                style={{ fontSize: '15px', padding: '1rem 0' }}
-                placeholder={selectedNote ? "Start writing..." : "Create a new note to start writing..."}
-                value={currentContent}
-                onChange={(e) => updateNoteContent(e.target.value)}
-                disabled={!selectedNote}
-                autoFocus={!isPreviewMode}
-              />
-              
-              {/* Preview overlay */}
-              {isPreviewMode && selectedNote && (
-                <div 
-                  className="content-font w-full h-full overflow-y-auto prose prose-invert prose-sm max-w-none cursor-text"
-                  onDoubleClick={() => setIsPreviewMode(false)}
-                  title="Double-click to edit"
-                  style={{ fontSize: '15px', padding: '1rem 0' }}
-                >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {currentContent || '*Empty note*'}
-                  </ReactMarkdown>
-                </div>
-              )}
-            </div>
-            
-            {/* Note-specific footer */}
+            {/* Header with hacker-style minimal controls */}
             {selectedNote && (
-              <div className="bg-card/20 border-t border-border/15 px-6 py-3 flex items-center justify-end">
-                <div className="flex items-center gap-4 text-xs text-muted-foreground/50 font-light">
-                  {currentContent && (
-                    <span style={{ fontSize: '10px' }}>
-                      {currentContent.split(/\s+/).filter(word => word.length > 0).length} words • {currentContent.length} characters
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <span style={{ fontSize: '10px' }}>Saved</span>
-                    <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
-                  </div>
+              <div className="px-6 py-2 border-b border-border/15 flex items-center justify-between bg-card/20">
+                <div 
+                  className="text-xs text-muted-foreground/50 font-mono tracking-wide truncate cursor-move hover:text-muted-foreground/70 transition-colors"
+                  onMouseDown={(e) => handleMouseDown(e, selectedNote.id)}
+                  title="Drag to open in new window"
+                  style={{ fontSize: '11px' }}
+                >
+                  {extractTitleFromContent(selectedNote.content)}
+                </div>
+                <div className="flex items-center bg-background/40 border border-border/30 rounded-md">
+                  <button
+                    onClick={() => setIsPreviewMode(false)}
+                    className={`w-6 h-5 flex items-center justify-center rounded-sm transition-all duration-200 ${
+                      !isPreviewMode 
+                        ? 'bg-primary/25 text-primary shadow-sm' 
+                        : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    }`}
+                    title="Edit mode"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setIsPreviewMode(true)}
+                    className={`w-6 h-5 flex items-center justify-center rounded-sm transition-all duration-200 ${
+                      isPreviewMode 
+                        ? 'bg-primary/25 text-primary shadow-sm' 
+                        : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    }`}
+                    title="Preview mode"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
             )}
+            
+            {/* Editor/Preview area */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex-1 p-6 pt-6 relative">
+                {/* Always-available textarea */}
+                <textarea 
+                  className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
+                    isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
+                  }`}
+                  style={{ 
+                    fontSize: `${config.appearance.fontSize}px`, 
+                    fontFamily: config.appearance.editorFontFamily,
+                    lineHeight: config.appearance.lineHeight,
+                    padding: '1rem 0' 
+                  }}
+                  placeholder={selectedNote ? "Start writing..." : "Create a new note to start writing..."}
+                  value={currentContent}
+                  onChange={(e) => updateNoteContent(e.target.value)}
+                  disabled={!selectedNote}
+                  autoFocus={!isPreviewMode}
+                />
+                
+                {/* Preview overlay */}
+                {isPreviewMode && selectedNote && (
+                  <div 
+                    className="w-full h-full overflow-y-auto prose prose-invert prose-sm max-w-none cursor-text"
+                    onDoubleClick={() => setIsPreviewMode(false)}
+                    title="Double-click to edit"
+                    style={{ 
+                      fontSize: `${config.appearance.fontSize}px`,
+                      fontFamily: config.appearance.editorFontFamily,
+                      lineHeight: config.appearance.lineHeight,
+                      padding: '1rem 0' 
+                    }}
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {currentContent || '*Empty note*'}
+                    </ReactMarkdown>
+                  </div>
+                )}
+              </div>
+              
+              {/* Note-specific footer */}
+              {selectedNote && (
+                <div className="bg-card/20 border-t border-border/15 px-6 py-3 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    {saveStatus.isSaving ? (
+                      <>
+                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
+                        <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+                      </>
+                    ) : saveStatus.saveError ? (
+                      <>
+                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
+                        <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+                      </>
+                    ) : saveStatus.lastSaved ? (
+                      <>
+                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+                        <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
+                        <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
+                      </>
+                    )}
+                  </div>
+                  
+                  {currentContent && (
+                    <span className="text-xs text-muted-foreground/40 font-light" style={{ fontSize: '10px' }}>
+                      {currentContent.split(/\s+/).filter(word => word.length > 0).length} words
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <SettingsPanel />
+        )}
       </div>
 
       {/* Global IDE-style footer */}
@@ -557,9 +939,7 @@ function App() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <span className="mono-font">⌘K Command Palette</span>
-          <div className="w-px h-3 bg-border/30"></div>
+        <div className="flex items-center gap-2">
           <span>Ready</span>
           <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
         </div>
@@ -682,6 +1062,65 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Context Menu for Detached Notes */}
+      {contextMenu && (
+        <div 
+          className="fixed z-50 bg-card border border-border/40 rounded-lg shadow-lg py-1 min-w-[140px]"
+          style={{ 
+            left: contextMenu.x, 
+            top: contextMenu.y,
+            transform: 'translate(-50%, -10px)'
+          }}
+        >
+          {!isWindowOpen(contextMenu.noteId) ? (
+            <button
+              onClick={handleOpenInWindow}
+              className="w-full px-3 py-2 text-xs text-left hover:bg-background/60 transition-colors flex items-center gap-2"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 9V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/>
+                <path d="M21 15v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2"/>
+                <path d="M9 9h1m4 0h1"/>
+              </svg>
+              Open in New Window
+            </button>
+          ) : (
+            <button
+              onClick={handleCloseNoteWindow}
+              className="w-full px-3 py-2 text-xs text-left hover:bg-background/60 transition-colors flex items-center gap-2"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Close Window
+            </button>
+          )}
+          
+          <div className="border-t border-border/20 my-1"></div>
+          
+          <button
+            onClick={() => {
+              if (contextMenu) {
+                handleDeleteNote(contextMenu.noteId);
+                setContextMenu(null);
+              }
+            }}
+            className="w-full px-3 py-2 text-xs text-left hover:bg-red-500/10 text-red-400/80 hover:text-red-400 transition-colors flex items-center gap-2"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3,6 5,6 21,6"/>
+              <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/>
+              <path d="M10,11v6"/>
+              <path d="M14,11v6"/>
+            </svg>
+            Delete Note
+          </button>
+        </div>
+      )}
+
+
     </div>
   );
 }
