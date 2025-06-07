@@ -254,8 +254,8 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
       {/* Content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className={`flex-1 p-6 pt-5 relative overflow-hidden ${
-          config.appearance.backgroundPattern && config.appearance.backgroundPattern !== 'none' 
-            ? `bg-pattern-${config.appearance.backgroundPattern}` 
+          config.appearance?.backgroundPattern && config.appearance?.backgroundPattern !== 'none' 
+            ? `bg-pattern-${config.appearance?.backgroundPattern}` 
             : ''
         }`}>
           {/* Editor */}
@@ -264,9 +264,9 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
               isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
             }`}
             style={{ 
-              fontSize: `${config.appearance.fontSize}px`,
-              fontFamily: config.appearance.editorFontFamily,
-              lineHeight: config.appearance.lineHeight,
+              fontSize: `${config.appearance?.fontSize || 15}px`,
+              fontFamily: config.appearance?.editorFontFamily || 'system-ui',
+              lineHeight: config.appearance?.lineHeight || 1.6,
               padding: '0' 
             }}
             placeholder="Start writing..."
@@ -282,15 +282,15 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
               onDoubleClick={() => setIsPreviewMode(false)}
               title="Double-click to edit"
               style={{ 
-                fontSize: `${config.appearance.fontSize}px`,
-                fontFamily: config.appearance.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                lineHeight: config.appearance.lineHeight,
+                fontSize: `${config.appearance?.contentFontSize || config.appearance?.fontSize || 16}px`,
+                fontFamily: config.appearance?.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                lineHeight: config.appearance?.lineHeight || 1.6,
                 padding: '0' 
               }}
             >
               <ReactMarkdown 
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={config.appearance.syntaxHighlighting ? [rehypeHighlight] : []}
+                rehypePlugins={config.appearance?.syntaxHighlighting ? [rehypeHighlight] : []}
               >
                 {content || '*Empty note*'}
               </ReactMarkdown>

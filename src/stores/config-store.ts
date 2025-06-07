@@ -71,10 +71,31 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   updateConfig: async (configUpdate: Partial<AppConfig>) => {
     const { config } = get();
-    const updatedConfig = { ...config, ...configUpdate };
+    // Deep merge to handle nested objects properly
+    const updatedConfig: AppConfig = {
+      ...config,
+      ...configUpdate,
+      appearance: {
+        ...config.appearance,
+        ...(configUpdate.appearance || {})
+      },
+      shortcuts: {
+        ...config.shortcuts,
+        ...(configUpdate.shortcuts || {})
+      },
+      window: {
+        ...config.window,
+        ...(configUpdate.window || {})
+      }
+    };
+    
+    console.log('Updating config from:', config);
+    console.log('With update:', configUpdate);
+    console.log('Result:', updatedConfig);
     
     try {
       const newConfig = await configApi.updateConfig(updatedConfig);
+      console.log('Received from backend:', newConfig);
       set({ config: newConfig });
     } catch (error) {
       set({ 

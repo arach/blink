@@ -5,18 +5,20 @@ import { invoke } from '@tauri-apps/api/core';
 type SettingsSection = 'general' | 'appearance' | 'ai';
 
 export function SettingsPanel() {
-  const { config, updateConfig, loadConfig, isLoading } = useConfigStore();
+  const { config, updateConfig, isLoading } = useConfigStore();
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [localConfig, setLocalConfig] = useState(config);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   useEffect(() => {
     // Set localConfig to match the loaded config directly
+    console.log('Config changed in SettingsPanel:', JSON.stringify(config, null, 2));
     setLocalConfig(config);
   }, [config]);
 
   const handleSave = async () => {
-    console.log('Saving config:', localConfig);
+    console.log('Saving config:', JSON.stringify(localConfig, null, 2));
+    console.log('Appearance being saved:', JSON.stringify(localConfig.appearance, null, 2));
     setSaveStatus('saving');
     try {
       await updateConfig(localConfig);
@@ -77,18 +79,21 @@ export function SettingsPanel() {
           </svg>
           About
         </h3>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between items-center p-3 bg-background/30 rounded border border-border/20">
-            <span className="text-muted-foreground">Application</span>
-            <span className="text-foreground">Tauri Notes</span>
+        <div className="space-y-3 text-xs">
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-muted-foreground/80 font-mono w-28">Application</span>
+            <div className="flex-1"></div>
+            <span className="text-foreground font-mono">Tauri Notes</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-background/30 rounded border border-border/20">
-            <span className="text-muted-foreground">Version</span>
-            <span className="text-foreground">1.0.0</span>
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-muted-foreground/80 font-mono w-28">Version</span>
+            <div className="flex-1"></div>
+            <span className="text-foreground font-mono">1.0.0</span>
           </div>
-          <div className="flex justify-between items-center p-3 bg-background/30 rounded border border-border/20">
-            <span className="text-muted-foreground">Author</span>
-            <span className="text-foreground">AI-Native Spatial Notes</span>
+          <div className="flex justify-between items-center gap-3">
+            <span className="text-muted-foreground/80 font-mono w-28">Author</span>
+            <div className="flex-1"></div>
+            <span className="text-foreground font-mono">AI-Native Spatial Notes</span>
           </div>
         </div>
       </div>
@@ -646,34 +651,46 @@ function calculateMetrics(data) {
 
   const renderAISection = () => (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-base font-medium text-foreground mb-4">AI Integration</h3>
-        <div className="p-4 bg-background/30 rounded border border-border/20 text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-lg flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary">
-              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
+      <div className="bg-card/20 rounded p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+          AI Integration
+        </h3>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/80 font-mono w-28">Status</span>
+            <div className="flex-1"></div>
+            <span className="text-xs text-muted-foreground/60 font-mono">coming soon</span>
           </div>
-          <h4 className="text-sm font-medium text-foreground mb-2">AI Features Coming Soon</h4>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
-            AI-powered note understanding, conversational interfaces, and intelligent spatial organization will be available in Phase 2.
-          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/80 font-mono w-28">Features</span>
+            <div className="flex-1"></div>
+            <span className="text-xs text-muted-foreground/60 font-mono">phase 2</span>
+          </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-base font-medium text-foreground mb-4">Plugins</h3>
-        <div className="p-4 bg-background/30 rounded border border-border/20 text-center">
-          <div className="w-12 h-12 mx-auto mb-3 bg-muted/10 rounded-lg flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
-            </svg>
+      <div className="bg-card/20 rounded p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
+          </svg>
+          Plugins
+        </h3>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/80 font-mono w-28">System</span>
+            <div className="flex-1"></div>
+            <span className="text-xs text-muted-foreground/60 font-mono">extensible</span>
           </div>
-          <h4 className="text-sm font-medium text-foreground mb-2">Plugin System</h4>
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
-            Extensible plugin architecture for custom integrations and workflows.
-          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground/80 font-mono w-28">Integrations</span>
+            <div className="flex-1"></div>
+            <span className="text-xs text-muted-foreground/60 font-mono">custom workflows</span>
+          </div>
         </div>
       </div>
     </div>
@@ -723,7 +740,7 @@ function calculateMetrics(data) {
 
       {/* Settings Content */}
       <div className="flex-1 flex flex-col">
-        <div className="flex-1 p-6 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+        <div className="flex-1 p-6 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100vh - 60px)', paddingBottom: '60px' }}>
           <div className="w-full">
             {renderSectionContent()}
           </div>

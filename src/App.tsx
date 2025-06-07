@@ -958,8 +958,8 @@ function App() {
             {/* Editor/Preview area */}
             <div className="flex-1 flex flex-col">
               <div className={`flex-1 p-6 pt-6 relative ${
-                config.appearance?.backgroundPattern && config.appearance.backgroundPattern !== 'none' 
-                  ? `bg-pattern-${config.appearance.backgroundPattern}` 
+                config.appearance?.backgroundPattern && config.appearance?.backgroundPattern !== 'none' 
+                  ? `bg-pattern-${config.appearance?.backgroundPattern}` 
                   : ''
               }`}>
                 {/* Always-available textarea */}
@@ -967,11 +967,11 @@ function App() {
                   ref={textareaRef}
                   className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
                     isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
-                  } ${config.appearance.typewriterMode ? 'typewriter-mode' : ''}`}
+                  } ${config.appearance?.typewriterMode ? 'typewriter-mode' : ''}`}
                   style={{ 
-                    fontSize: `${config.appearance.fontSize}px`, 
-                    fontFamily: config.appearance.editorFontFamily,
-                    lineHeight: config.appearance.lineHeight,
+                    fontSize: `${config.appearance?.fontSize || 15}px`, 
+                    fontFamily: config.appearance?.editorFontFamily || 'system-ui',
+                    lineHeight: config.appearance?.lineHeight || 1.6,
                     padding: '1rem 0' 
                   }}
                   placeholder={selectedNote ? "Start writing..." : "Create a new note to start writing..."}
@@ -988,15 +988,15 @@ function App() {
                     onDoubleClick={() => setIsPreviewMode(false)}
                     title="Double-click to edit"
                     style={{ 
-                      fontSize: `${config.appearance.fontSize}px`,
-                      fontFamily: config.appearance.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                      lineHeight: config.appearance.lineHeight,
+                      fontSize: `${config.appearance?.contentFontSize || config.appearance?.fontSize || 16}px`,
+                      fontFamily: config.appearance?.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+                      lineHeight: config.appearance?.lineHeight || 1.6,
                       padding: '1rem 0' 
                     }}
                   >
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm]}
-                      rehypePlugins={config.appearance.syntaxHighlighting ? [rehypeHighlight] : []}
+                      rehypePlugins={config.appearance?.syntaxHighlighting ? [rehypeHighlight] : []}
                     >
                       {currentContent || '*Empty note*'}
                     </ReactMarkdown>
