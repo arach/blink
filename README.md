@@ -2,7 +2,7 @@
 
 *From static documents to living, autonomous knowledge agents*
 
-![Tauri Notes App - Spatial Note Management](https://github.com/user-attachments/assets/screenshot-placeholder)
+![Tauri Notes App - Spatial Note Management](docs/screenshots/main-interface.png)
 
 ## Vision: The Future of Note-Taking
 
@@ -141,20 +141,15 @@ pnpm run tauri build
 
 ## 📸 Screenshots
 
-### Main Interface with Settings Panel
+### Main Interface
+*Clean, minimal design with powerful spatial note management*
+
+![Main Interface](docs/screenshots/main-interface.png)
+
+### Settings Panel
 *Hacker-oriented settings with compact, terminal-like design*
 
-![Settings Interface](https://github.com/user-attachments/assets/settings-screenshot-placeholder)
-
-### Detached Note Windows
-*Drag any note out to create floating, transparent windows*
-
-![Detached Windows](https://github.com/user-attachments/assets/detached-windows-placeholder)
-
-### Focus Mode
-*Distraction-free writing with all UI elements hidden*
-
-![Focus Mode](https://github.com/user-attachments/assets/focus-mode-placeholder)
+![Settings Interface](docs/screenshots/settings.png)
 
 ## 🎯 Unique Differentiators
 
