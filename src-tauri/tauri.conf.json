@@ -41,20 +41,51 @@
   "app": {
     "macOSPrivateApi": true,
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Capability for the main window",
+          "windows": ["main"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-always-on-top",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-set-focus",
+            "core:window:allow-is-visible",
+            "core:webview:allow-create-webview-window"
+          ]
+        },
+        {
+          "identifier": "note-window-capability",
+          "description": "Capability for detached note windows",
+          "windows": ["note-*"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-always-on-top",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-set-focus",
+            "core:window:allow-is-visible"
+          ]
+        }
+      ]
     },
     "windows": [
       {
+        "label": "main",
         "title": "Tauri Notes App",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
+        "width": 1000,
+        "height": 700,
+        "minWidth": 600,
+        "minHeight": 500,
         "resizable": true,
         "fullscreen": false,
         "transparent": true,
-        "decorations": true,
-        "alwaysOnTop": false
+        "decorations": false,
+        "alwaysOnTop": false,
+        "titleBarStyle": "Overlay"
       }
     ]
   },

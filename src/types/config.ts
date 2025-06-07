@@ -13,13 +13,13 @@ export interface AppConfig {
 }
 
 export const defaultConfig: AppConfig = {
-  opacity: 0.9,
+  opacity: 0.55,
   alwaysOnTop: false,
   shortcuts: {
-    toggleVisibility: 'CommandOrControl+Shift+N',
+    toggleVisibility: 'Cmd+Ctrl+Alt+Shift+N',
   },
   window: {
-    width: 1200,
-    height: 800,
+    width: 1000,
+    height: 700,
   },
 };

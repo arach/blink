@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{Manager, State};
+use tauri::{Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -52,13 +52,32 @@ pub struct WindowConfig {
     pub y: Option<f64>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DetachedWindow {
+    pub note_id: String,
+    pub window_label: String,
+    pub position: (f64, f64),
+    pub size: (f64, f64),
+    pub always_on_top: bool,
+    pub opacity: f64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CreateDetachedWindowRequest {
+    pub note_id: String,
+    pub x: Option<f64>,
+    pub y: Option<f64>,
+    pub width: Option<f64>,
+    pub height: Option<f64>,
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             opacity: 0.9,
             always_on_top: false,
             shortcuts: ShortcutConfig {
-                toggle_visibility: "CommandOrControl+Shift+N".to_string(),
+                toggle_visibility: "Cmd+Ctrl+Alt+Shift+N".to_string(),
             },
             window: WindowConfig {
                 width: 1200.0,
@@ -72,6 +91,7 @@ impl Default for AppConfig {
 
 type NotesState = Mutex<HashMap<String, Note>>;
 type ConfigState = Mutex<AppConfig>;
+type DetachedWindowsState = Mutex<HashMap<String, DetachedWindow>>;
 
 #[tauri::command]
 async fn get_notes(notes: State<'_, NotesState>) -> Result<Vec<Note>, String> {
@@ -193,12 +213,12 @@ async fn set_window_opacity(app: tauri::AppHandle, opacity: f64) -> Result<(), S
     #[cfg(target_os = "macos")]
     {
         // On macOS, we can try using the native window
-        use cocoa::appkit::{NSWindow, NSWindowTitleVisibility};
-        use cocoa::base::{id, nil};
+        use cocoa::base::id;
         use objc::{msg_send, sel, sel_impl};
         
         let ns_window = window.ns_window().map_err(|e| e.to_string())? as id;
         unsafe {
+            #[allow(unexpected_cfgs)]
             let _: () = msg_send![ns_window, setAlphaValue: opacity];
         }
     }
@@ -215,6 +235,150 @@ async fn set_window_opacity(app: tauri::AppHandle, opacity: f64) -> Result<(), S
 async fn set_window_always_on_top(app: tauri::AppHandle, always_on_top: bool) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("Window not found")?;
     window.set_always_on_top(always_on_top).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_system_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn()
+            .map_err(|e| format!("Failed to open System Settings: {}", e))?;
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        return Err("System Settings only available on macOS".to_string());
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn create_detached_window(
+    request: CreateDetachedWindowRequest,
+    app: tauri::AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+    notes: State<'_, NotesState>,
+) -> Result<DetachedWindow, String> {
+    // Check if note exists
+    let notes_lock = notes.lock().await;
+    if !notes_lock.contains_key(&request.note_id) {
+        return Err("Note not found".to_string());
+    }
+    drop(notes_lock);
+
+    // Check if window already exists for this note
+    let mut windows_lock = detached_windows.lock().await;
+    if windows_lock.values().any(|w| w.note_id == request.note_id) {
+        return Err("Window already exists for this note".to_string());
+    }
+
+    let window_label = format!("note-{}", request.note_id);
+    let width = request.width.unwrap_or(600.0);
+    let height = request.height.unwrap_or(400.0);
+    let x = request.x.unwrap_or(100.0);
+    let y = request.y.unwrap_or(100.0);
+
+    // Create the window
+    let _webview_window = WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        WebviewUrl::App(format!("index.html?note={}", request.note_id).into()),
+    )
+    .title(&format!("Note - {}", request.note_id))
+    .inner_size(width, height)
+    .position(x, y)
+    .resizable(true)
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(false)
+    .build()
+    .map_err(|e| format!("Failed to create window: {}", e))?;
+
+    let detached_window = DetachedWindow {
+        note_id: request.note_id.clone(),
+        window_label: window_label.clone(),
+        position: (x, y),
+        size: (width, height),
+        always_on_top: false,
+        opacity: 0.95,
+    };
+
+    windows_lock.insert(window_label, detached_window.clone());
+    save_detached_windows_to_disk(&windows_lock).await?;
+
+    Ok(detached_window)
+}
+
+#[tauri::command]
+async fn close_detached_window(
+    note_id: String,
+    app: tauri::AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<bool, String> {
+    let mut windows_lock = detached_windows.lock().await;
+    
+    // Find window by note_id
+    let window_label = if let Some((label, _)) = windows_lock.iter().find(|(_, w)| w.note_id == note_id) {
+        label.clone()
+    } else {
+        return Ok(false);
+    };
+
+    // Close the actual window
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.close().map_err(|e| format!("Failed to close window: {}", e))?;
+    }
+
+    // Remove from state
+    windows_lock.remove(&window_label);
+    save_detached_windows_to_disk(&windows_lock).await?;
+
+    Ok(true)
+}
+
+#[tauri::command]
+async fn get_detached_windows(
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<Vec<DetachedWindow>, String> {
+    let windows_lock = detached_windows.lock().await;
+    Ok(windows_lock.values().cloned().collect())
+}
+
+#[tauri::command]
+async fn update_detached_window_position(
+    window_label: String,
+    x: f64,
+    y: f64,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<(), String> {
+    let mut windows_lock = detached_windows.lock().await;
+    
+    if let Some(window) = windows_lock.get_mut(&window_label) {
+        window.position = (x, y);
+        save_detached_windows_to_disk(&windows_lock).await?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_detached_window_size(
+    window_label: String,
+    width: f64,
+    height: f64,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<(), String> {
+    let mut windows_lock = detached_windows.lock().await;
+    
+    if let Some(window) = windows_lock.get_mut(&window_label) {
+        window.size = (width, height);
+        save_detached_windows_to_disk(&windows_lock).await?;
+    }
+    
     Ok(())
 }
 
@@ -289,6 +453,37 @@ async fn load_config_from_disk() -> Result<AppConfig, String> {
     Ok(config)
 }
 
+async fn save_detached_windows_to_disk(windows: &HashMap<String, DetachedWindow>) -> Result<(), String> {
+    let notes_dir = get_notes_directory()?;
+    fs::create_dir_all(&notes_dir).map_err(|e| format!("Failed to create notes directory: {}", e))?;
+    
+    let windows_file = notes_dir.join("detached_windows.json");
+    let windows_json = serde_json::to_string_pretty(windows)
+        .map_err(|e| format!("Failed to serialize windows: {}", e))?;
+    
+    fs::write(windows_file, windows_json)
+        .map_err(|e| format!("Failed to write windows to disk: {}", e))?;
+    
+    Ok(())
+}
+
+async fn load_detached_windows_from_disk() -> Result<HashMap<String, DetachedWindow>, String> {
+    let notes_dir = get_notes_directory()?;
+    let windows_file = notes_dir.join("detached_windows.json");
+    
+    if !windows_file.exists() {
+        return Ok(HashMap::new());
+    }
+    
+    let windows_json = fs::read_to_string(windows_file)
+        .map_err(|e| format!("Failed to read windows from disk: {}", e))?;
+    
+    let windows: HashMap<String, DetachedWindow> = serde_json::from_str(&windows_json)
+        .map_err(|e| format!("Failed to parse windows JSON: {}", e))?;
+    
+    Ok(windows)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let notes_state = match tauri::async_runtime::block_on(load_notes_from_disk()) {
@@ -307,11 +502,20 @@ pub fn run() {
         }
     };
 
+    let detached_windows_state = match tauri::async_runtime::block_on(load_detached_windows_from_disk()) {
+        Ok(windows) => DetachedWindowsState::new(windows),
+        Err(e) => {
+            eprintln!("Failed to load detached windows from disk: {}", e);
+            DetachedWindowsState::new(HashMap::new())
+        }
+    };
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(notes_state)
         .manage(config_state)
+        .manage(detached_windows_state)
         .invoke_handler(tauri::generate_handler![
             get_notes,
             get_note,
@@ -322,20 +526,38 @@ pub fn run() {
             update_config,
             toggle_window_visibility,
             set_window_opacity,
-            set_window_always_on_top
+            set_window_always_on_top,
+            open_system_settings,
+            create_detached_window,
+            close_detached_window,
+            get_detached_windows,
+            update_detached_window_position,
+            update_detached_window_size
         ])
         .setup(|app| {
             let app_handle = app.handle().clone();
             
-            // Register global shortcut for toggle visibility  
+            // Register global shortcut for toggle visibility (Hyperkey+N)  
             let shortcut_manager = app.global_shortcut();
-            shortcut_manager.register("CommandOrControl+Shift+N")?;
+            match shortcut_manager.register("Cmd+Ctrl+Alt+Shift+N") {
+                Ok(_) => {
+                    println!("✅ Global shortcut Cmd+Ctrl+Alt+Shift+N registered successfully");
+                },
+                Err(e) => {
+                    eprintln!("❌ Failed to register global shortcut: {}", e);
+                    eprintln!("💡 You may need to grant accessibility permissions to this app in System Settings > Privacy & Security > Accessibility");
+                }
+            }
             
             // Listen to shortcut events
-            let _ = shortcut_manager.on_shortcut("CommandOrControl+Shift+N", move |_app, _shortcut, _event| {
+            let _ = shortcut_manager.on_shortcut("Cmd+Ctrl+Alt+Shift+N", move |_app, _shortcut, _event| {
+                println!("🎯 Global shortcut triggered!");
                 let app_handle_clone = app_handle.clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = toggle_window_visibility(app_handle_clone).await;
+                    match toggle_window_visibility(app_handle_clone).await {
+                        Ok(visible) => println!("🪟 Window visibility toggled: {}", visible),
+                        Err(e) => eprintln!("❌ Failed to toggle window: {}", e),
+                    }
                 });
             });
             

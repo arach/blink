@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react';
-import { getCurrent } from '@tauri-apps/api/window';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
 import { useConfigStore } from '../stores/config-store';
 
 export const useWindowTransparency = () => {
@@ -14,8 +15,7 @@ export const useWindowTransparency = () => {
   useEffect(() => {
     const applyOpacity = async () => {
       try {
-        const window = getCurrent();
-        await window.setOpacity(config.opacity);
+        await invoke('set_window_opacity', { opacity: config.opacity });
       } catch (error) {
         console.error('Failed to apply window opacity:', error);
       }
@@ -28,8 +28,7 @@ export const useWindowTransparency = () => {
   useEffect(() => {
     const applyAlwaysOnTop = async () => {
       try {
-        const window = getCurrent();
-        await window.setAlwaysOnTop(config.alwaysOnTop);
+        await invoke('set_window_always_on_top', { alwaysOnTop: config.alwaysOnTop });
       } catch (error) {
         console.error('Failed to apply always on top:', error);
       }
@@ -40,8 +39,7 @@ export const useWindowTransparency = () => {
 
   const updateOpacity = useCallback(async (newOpacity: number) => {
     try {
-      const window = getCurrent();
-      await window.setOpacity(newOpacity);
+      await invoke('set_window_opacity', { opacity: newOpacity });
       await updateOpacityConfig(newOpacity);
     } catch (error) {
       console.error('Failed to set window opacity:', error);
@@ -50,9 +48,9 @@ export const useWindowTransparency = () => {
 
   const toggleAlwaysOnTop = useCallback(async () => {
     try {
-      const window = getCurrent();
+      const window = getCurrentWebviewWindow();
       const current = await window.isAlwaysOnTop();
-      await window.setAlwaysOnTop(!current);
+      await invoke('set_window_always_on_top', { alwaysOnTop: !current });
       await updateAlwaysOnTop(!current);
       return !current;
     } catch (error) {

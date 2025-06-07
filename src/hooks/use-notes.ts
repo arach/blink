@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notesApi } from '../services/tauri-api';
-import { CreateNoteRequest, UpdateNoteRequest } from '../types/note';
+import { UpdateNoteRequest } from '../types/note';
 import { useNotesStore } from '../stores/notes-store';
 
 export function useNotes() {

@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { Note } from '../types/note';
 
 interface NotesState {
   selectedNoteId: string | null;
