@@ -25,8 +25,11 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   loadConfig: async () => {
     set({ isLoading: true, error: null });
     try {
+      console.log('Loading config from backend...');
       const rawConfig = await configApi.getConfig();
+      console.log('Raw config loaded:', rawConfig);
       const config = migrateConfig(rawConfig);
+      console.log('Migrated config:', config);
       set({ config, isLoading: false });
     } catch (error) {
       console.warn('Failed to load config, using defaults:', error);

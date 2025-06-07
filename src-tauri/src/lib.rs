@@ -46,10 +46,16 @@ pub struct AppConfig {
 fn default_appearance() -> AppearanceConfig {
     AppearanceConfig {
         font_size: 15.0,
+        content_font_size: Some(16.0),
         theme: "dark".to_string(),
         editor_font_family: "system-ui".to_string(),
+        preview_font_family: Some("Inter, -apple-system, BlinkMacSystemFont, sans-serif".to_string()),
         line_height: 1.6,
         accent_color: "#3b82f6".to_string(),
+        background_pattern: Some("none".to_string()),
+        syntax_highlighting: Some(true),
+        focus_mode: Some(false),
+        typewriter_mode: Some(false),
     }
 }
 
@@ -71,13 +77,31 @@ pub struct WindowConfig {
 pub struct AppearanceConfig {
     #[serde(rename = "fontSize")]
     pub font_size: f64,
+    #[serde(rename = "contentFontSize")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_font_size: Option<f64>,
     pub theme: String,
     #[serde(rename = "editorFontFamily")]
     pub editor_font_family: String,
+    #[serde(rename = "previewFontFamily")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_font_family: Option<String>,
     #[serde(rename = "lineHeight")]
     pub line_height: f64,
     #[serde(rename = "accentColor")]
     pub accent_color: String,
+    #[serde(rename = "backgroundPattern")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub background_pattern: Option<String>,
+    #[serde(rename = "syntaxHighlighting")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub syntax_highlighting: Option<bool>,
+    #[serde(rename = "focusMode")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focus_mode: Option<bool>,
+    #[serde(rename = "typewriterMode")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub typewriter_mode: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -102,14 +126,14 @@ pub struct CreateDetachedWindowRequest {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            opacity: 0.9,
+            opacity: 0.55,
             always_on_top: false,
             shortcuts: ShortcutConfig {
                 toggle_visibility: "Cmd+Ctrl+Alt+Shift+N".to_string(),
             },
             window: WindowConfig {
-                width: 1200.0,
-                height: 800.0,
+                width: 1000.0,
+                height: 700.0,
                 x: None,
                 y: None,
             },
@@ -202,6 +226,7 @@ async fn delete_note(id: String, notes: State<'_, NotesState>) -> Result<bool, S
 #[tauri::command]
 async fn get_config(config: State<'_, ConfigState>) -> Result<AppConfig, String> {
     let config_lock = config.lock().await;
+    println!("Returning config: {:?}", config_lock.clone());
     Ok(config_lock.clone())
 }
 
@@ -551,7 +576,9 @@ fn get_notes_directory() -> Result<PathBuf, String> {
     // Use project directory during development
     let current_dir = std::env::current_dir()
         .map_err(|e| format!("Failed to get current directory: {}", e))?;
-    Ok(current_dir.join("data"))
+    let data_dir = current_dir.join("data");
+    println!("Data directory path: {:?}", data_dir);
+    Ok(data_dir)
 }
 
 async fn save_config_to_disk(config: &AppConfig) -> Result<(), String> {
@@ -573,16 +600,21 @@ async fn load_config_from_disk() -> Result<AppConfig, String> {
     let config_file = notes_dir.join("config.json");
     
     if !config_file.exists() {
+        println!("Config file not found, creating default config");
         let default_config = AppConfig::default();
         save_config_to_disk(&default_config).await?;
         return Ok(default_config);
     }
     
-    let config_json = fs::read_to_string(config_file)
+    let config_json = fs::read_to_string(&config_file)
         .map_err(|e| format!("Failed to read config from disk: {}", e))?;
+    
+    println!("Loaded config JSON from disk: {}", config_json);
     
     let config: AppConfig = serde_json::from_str(&config_json)
         .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+    
+    println!("Parsed config: opacity={}, alwaysOnTop={}", config.opacity, config.always_on_top);
     
     Ok(config)
 }
@@ -831,7 +863,10 @@ pub fn run() {
     };
 
     let config_state = match tauri::async_runtime::block_on(load_config_from_disk()) {
-        Ok(config) => ConfigState::new(config),
+        Ok(config) => {
+            println!("Loaded config from disk: {:?}", config);
+            ConfigState::new(config)
+        },
         Err(e) => {
             eprintln!("Failed to load config from disk: {}", e);
             ConfigState::new(AppConfig::default())
@@ -931,35 +966,64 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
             
-            // Set up initial menu
-            let notes_state = app.state::<NotesState>();
-            let detached_windows_state = app.state::<DetachedWindowsState>();
+            // Clone all states upfront before any async operations
+            let notes_state = app.state::<NotesState>().clone();
+            let detached_windows_state = app.state::<DetachedWindowsState>().clone();
+            let config_state = app.state::<ConfigState>().clone();
             
+            // Set up initial menu
+            let app_handle_for_menu = app_handle.clone();
             tauri::async_runtime::block_on(async {
                 let notes_lock = notes_state.lock().await;
                 let windows_lock = detached_windows_state.lock().await;
-                if let Ok(menu) = build_app_menu(&app_handle, &*windows_lock, &*notes_lock) {
-                    let _ = app_handle.set_menu(menu);
+                if let Ok(menu) = build_app_menu(&app_handle_for_menu, &*windows_lock, &*notes_lock) {
+                    let _ = app_handle_for_menu.set_menu(menu);
                 }
             });
             
-            // Register global shortcut for toggle visibility (Hyperkey+N)  
-            let shortcut_manager = app.global_shortcut();
-            match shortcut_manager.register("Cmd+Ctrl+Alt+Shift+N") {
-                Ok(_) => {},
-                Err(e) => {
-                    eprintln!("Failed to register global shortcut: {}", e);
-                    eprintln!("You may need to grant accessibility permissions to this app in System Settings > Privacy & Security > Accessibility");
+            // Register global shortcut for toggle visibility (Hyperkey+N)
+            {
+                let shortcut_manager = app_handle.global_shortcut();
+                match shortcut_manager.register("Cmd+Ctrl+Alt+Shift+N") {
+                    Ok(_) => {},
+                    Err(e) => {
+                        eprintln!("Failed to register global shortcut: {}", e);
+                        eprintln!("You may need to grant accessibility permissions to this app in System Settings > Privacy & Security > Accessibility");
+                    }
                 }
+                
+                // Listen to shortcut events
+                let app_handle_for_shortcut = app_handle.clone();
+                let _ = shortcut_manager.on_shortcut("Cmd+Ctrl+Alt+Shift+N", move |_app, _shortcut, _event| {
+                    let app_handle_clone = app_handle_for_shortcut.clone();
+                    tauri::async_runtime::spawn(async move {
+                        let _ = toggle_window_visibility(app_handle_clone).await;
+                    });
+                });
             }
             
-            // Listen to shortcut events
-            let _ = shortcut_manager.on_shortcut("Cmd+Ctrl+Alt+Shift+N", move |_app, _shortcut, _event| {
-                let app_handle_clone = app_handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    let _ = toggle_window_visibility(app_handle_clone).await;
-                });
+            // Apply config settings synchronously
+            let config_for_init = tauri::async_runtime::block_on(async {
+                config_state.lock().await.clone()
             });
+            
+            println!("Applying initial config settings: opacity={}, alwaysOnTop={}", config_for_init.opacity, config_for_init.always_on_top);
+            
+            // Try to apply initial window settings immediately 
+            if let Some(window) = app.get_webview_window("main") {
+                // Make sure window is visible
+                if let Err(e) = window.show() {
+                    eprintln!("Failed to show window: {}", e);
+                }
+                
+                // Set always on top synchronously
+                if let Err(e) = window.set_always_on_top(config_for_init.always_on_top) {
+                    eprintln!("Failed to set initial always on top: {}", e);
+                }
+                
+                // For opacity, we still need to use the async command after window is ready
+                // We'll rely on the frontend useWindowTransparency hook to apply it
+            }
             
             Ok(())
         })

@@ -50,8 +50,8 @@
   
   body {
     @apply text-foreground;
-    /* Transparent background for window transparency */
-    background: transparent;
+    /* Semi-transparent background for window transparency effect */
+    background: rgba(18, 19, 23, 0.95); /* Rich dark gray with opacity */
     /* System font for UI elements */
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-feature-settings: 'liga' 1, 'calt' 1;
@@ -86,6 +86,50 @@
   h1 { font-size: 1.25rem; }
   h2 { font-size: 1.125rem; }
   h3 { font-size: 1rem; }
+  
+  /* Custom scrollbar styles - minimal and theme-appropriate */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.1);
+    border-radius: 3px;
+    transition: background 0.2s;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--foreground) / 0.2);
+  }
+  
+  /* Hide scrollbar by default, show on hover for specific containers */
+  .scrollbar-hide::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 0;
+    transition: width 0.2s;
+  }
+  
+  .scrollbar-thin:hover::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  /* Ensure scrollbar appears during active scrolling */
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground) / 0.1);
+  }
 }
 
 @layer utilities {
@@ -163,5 +207,138 @@
   }
   .scrollbar-hide::-webkit-scrollbar { 
     display: none;  /* Safari and Chrome */
+  }
+  
+  /* Background Patterns */
+  .bg-pattern-paper {
+    background-color: hsl(var(--background));
+    background-image: 
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        hsl(var(--border) / 0.05) 1px,
+        hsl(var(--border) / 0.05) 2px
+      );
+  }
+  
+  .bg-pattern-canvas {
+    background-color: hsl(var(--background));
+    background-image: 
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        hsl(var(--border) / 0.03) 10px,
+        hsl(var(--border) / 0.03) 11px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        hsl(var(--border) / 0.03) 10px,
+        hsl(var(--border) / 0.03) 11px
+      );
+  }
+  
+  .bg-pattern-grid {
+    background-color: hsl(var(--background));
+    background-image: 
+      linear-gradient(hsl(var(--border) / 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  .bg-pattern-dots {
+    background-color: hsl(var(--background));
+    background-image: 
+      radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.15) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  
+  /* Focus Mode */
+  .focus-mode .h-6[data-tauri-drag-region],
+  .focus-mode .h-5,
+  .focus-mode .w-8,
+  .focus-mode [data-sidebar] {
+    display: none;
+  }
+  
+  .focus-mode {
+    padding: 2rem;
+  }
+  
+  /* Typewriter Mode */
+  .typewriter-mode {
+    scroll-behavior: smooth;
+  }
+  
+  /* Enhanced slider with tick marks */
+  .slider-container {
+    position: relative;
+  }
+  
+  .slider-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: hsl(var(--border) / 0.5);
+    border-radius: 1.5px;
+    transform: translateY(-50%);
+  }
+  
+  .slider-ticks {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 100%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  
+  .slider-tick {
+    position: absolute;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    background: hsl(var(--border) / 0.4);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .slider-input {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  .slider-input::-webkit-slider-track {
+    @apply bg-transparent h-full;
+  }
+  
+  .slider-input::-webkit-slider-thumb {
+    @apply w-4 h-4 bg-primary rounded-full cursor-pointer appearance-none;
+    @apply shadow-md hover:shadow-lg transition-all hover:scale-110;
+    position: relative;
+    z-index: 3;
+  }
+  
+  .slider-input::-moz-range-track {
+    @apply bg-transparent h-full;
+  }
+  
+  .slider-input::-moz-range-thumb {
+    @apply w-4 h-4 bg-primary rounded-full cursor-pointer border-0;
+    @apply shadow-md hover:shadow-lg transition-all hover:scale-110;
+    position: relative;
+    z-index: 3;
   }
 }

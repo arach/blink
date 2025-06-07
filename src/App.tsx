@@ -3,13 +3,16 @@ import { listen } from '@tauri-apps/api/event';
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import { DetachedNoteWindow } from './components/DetachedNoteWindow';
 import { DragGhost } from './components/DragGhost';
 import { SettingsPanel } from './components/SettingsPanel';
+import { ResizablePanel } from './components/ResizablePanel';
 import { useDetachedWindowsStore } from './stores/detached-windows-store';
 import { useConfigStore } from './stores/config-store';
 import { useSaveStatus } from './hooks/use-save-status';
 import { useWindowTransparency } from './hooks/use-window-transparency';
+import { useTypewriterMode } from './hooks/use-typewriter-mode';
 import { noteSyncService, useNoteSync } from './services/note-sync';
 
 interface Note {
@@ -47,6 +50,7 @@ function App() {
     currentX: number;
     currentY: number;
     justCompleted: boolean;
+    updatePending?: boolean;
   }>({
     isDragging: false,
     noteId: null,
@@ -55,6 +59,7 @@ function App() {
     currentX: 0,
     currentY: 0,
     justCompleted: false,
+    updatePending: false,
   });
 
   // Detached window detection
@@ -74,15 +79,22 @@ function App() {
   } = useDetachedWindowsStore();
 
   // Config store
-  const { loadConfig } = useConfigStore();
+  const { loadConfig, updateConfig } = useConfigStore();
 
   // Save status tracking
   const saveStatus = useSaveStatus();
   
   // Window transparency hook - handles opacity changes
   useWindowTransparency();
+  
+  // Typewriter mode hook
+  const textareaRef = useTypewriterMode();
 
   const selectedNote = notes.find(note => note.id === selectedNoteId);
+  
+  // Debug logging
+  console.log('Config loaded:', config);
+  console.log('Focus mode:', config.appearance?.focusMode);
 
   // Real-time sync for selected note
   useNoteSync(selectedNoteId, (updatedNote) => {
@@ -112,13 +124,24 @@ function App() {
 
   // Load notes on startup and check permissions
   useEffect(() => {
-    loadNotes();
-    loadWindows();
-    loadConfig();
-    if (!isDetachedWindow) {
-      checkGlobalShortcutPermissions();
-    }
-  }, [isDetachedWindow, loadConfig]);
+    const initializeApp = async () => {
+      // Load config first and wait for it to complete
+      await loadConfig();
+      
+      // Small delay to ensure window is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Then load other data
+      loadNotes();
+      loadWindows();
+      
+      if (!isDetachedWindow) {
+        checkGlobalShortcutPermissions();
+      }
+    };
+    
+    initializeApp();
+  }, [isDetachedWindow]);
 
   // Listen for menu events
   useEffect(() => {
@@ -214,6 +237,23 @@ function App() {
           setSidebarVisible(true);
         },
         category: 'action'
+      },
+      {
+        id: 'toggle-focus',
+        title: 'Toggle Focus Mode',
+        description: config.appearance?.focusMode ? 'Exit focus mode' : 'Enter distraction-free writing',
+        action: () => {
+          setShowCommandPalette(false);
+          const newConfig = {
+            ...config,
+            appearance: {
+              ...config.appearance,
+              focusMode: !config.appearance?.focusMode
+            }
+          };
+          updateConfig(newConfig);
+        },
+        category: 'action'
       }
     ];
 
@@ -287,7 +327,7 @@ function App() {
       if (dragState.noteId) {
         const deltaX = Math.abs(e.clientX - dragState.startX);
         const deltaY = Math.abs(e.clientY - dragState.startY);
-        const threshold = 15;
+        const threshold = 8; // Reduced threshold for quicker response
         const isDragging = deltaX > threshold || deltaY > threshold;
 
         setDragState(prev => ({
@@ -303,6 +343,7 @@ function App() {
           if (note) {
             const title = extractTitleFromContent(note.content);
             try {
+              // Create ghost immediately without delay
               await invoke('create_drag_ghost', {
                 noteTitle: title,
                 x: e.screenX - 150,
@@ -314,15 +355,23 @@ function App() {
           }
         }
 
-        // Update ghost position if dragging
+        // Update ghost position if dragging - throttled for smoothness
         if (dragState.isDragging) {
-          try {
-            await invoke('update_drag_ghost_position', {
-              x: e.screenX - 150,
-              y: e.screenY - 40
+          // Use requestAnimationFrame for smoother updates
+          if (!dragState.updatePending) {
+            dragState.updatePending = true;
+            requestAnimationFrame(async () => {
+              try {
+                await invoke('update_drag_ghost_position', {
+                  x: e.screenX - 150,
+                  y: e.screenY - 40
+                });
+                dragState.updatePending = false;
+              } catch (error) {
+                // Silently ignore positioning errors
+                dragState.updatePending = false;
+              }
             });
-          } catch (error) {
-            // Silently ignore positioning errors
           }
         }
       }
@@ -339,11 +388,16 @@ function App() {
 
         const deltaX = Math.abs(e.clientX - dragState.startX);
         const deltaY = Math.abs(e.clientY - dragState.startY);
-        const detachThreshold = 60;
+        const detachThreshold = 50; // Slightly reduced for easier detachment
         
-        if ((deltaX > detachThreshold || deltaY > detachThreshold) && !isWindowOpen(dragState.noteId)) {
-          // Position window exactly where the ghost window was (matching ghost offset)
-          await createWindow(dragState.noteId, e.screenX - 150, e.screenY - 40);
+        if ((deltaX > detachThreshold || deltaY > detachThreshold) && dragState.noteId && !isWindowOpen(dragState.noteId)) {
+          // Small delay to ensure ghost window is properly positioned
+          setTimeout(async () => {
+            // Position window exactly where the ghost window was (matching ghost offset)
+            if (dragState.noteId) {
+              await createWindow(dragState.noteId, e.screenX - 150, e.screenY - 40);
+            }
+          }, 50);
           
           // Show completion state briefly
           setDragState({
@@ -405,12 +459,25 @@ function App() {
         return;
       }
 
-      // Escape to close command palette
-      if (e.key === 'Escape' && showCommandPalette) {
-        e.preventDefault();
-        setShowCommandPalette(false);
-        setCommandQuery('');
-        return;
+      // Escape to close command palette or exit focus mode
+      if (e.key === 'Escape') {
+        if (showCommandPalette) {
+          e.preventDefault();
+          setShowCommandPalette(false);
+          setCommandQuery('');
+          return;
+        } else if (config.appearance?.focusMode) {
+          e.preventDefault();
+          const newConfig = {
+            ...config,
+            appearance: {
+              ...config.appearance,
+              focusMode: false
+            }
+          };
+          updateConfig(newConfig);
+          return;
+        }
       }
 
       // Arrow navigation in command palette
@@ -435,6 +502,13 @@ function App() {
         return;
       }
 
+      // Cmd+Shift+N to create new note (alternative shortcut)
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        createNewNote();
+        return;
+      }
+
       // Hyperkey + N (Cmd+Ctrl+Alt+Shift+N) to create new note
       if (e.metaKey && e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -447,8 +521,8 @@ function App() {
         setIsPreviewMode(!isPreviewMode);
       }
 
-      // Cmd+Shift+N to open current note in new window
-      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'n' && selectedNote) {
+      // Cmd+Shift+O to open current note in new window
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'o' && selectedNote) {
         e.preventDefault();
         createWindow(selectedNote.id);
       }
@@ -459,11 +533,24 @@ function App() {
         setCurrentView('settings');
         setSidebarVisible(true);
       }
+
+      // Cmd+. to toggle focus mode
+      if (e.metaKey && e.key === '.') {
+        e.preventDefault();
+        const newConfig = {
+          ...config,
+          appearance: {
+            ...config.appearance,
+            focusMode: !config.appearance?.focusMode
+          }
+        };
+        updateConfig(newConfig);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showCommandPalette, selectedCommandIndex, commandQuery]);
+  }, [showCommandPalette, selectedCommandIndex, commandQuery, config.appearance?.focusMode, updateConfig]);
 
   const loadNotes = async () => {
     try {
@@ -621,8 +708,9 @@ function App() {
   return (
     <div 
       className={`w-screen h-screen text-foreground flex flex-col transition-all duration-300 overflow-hidden ${
-        dragState.isDragging ? 'bg-blue-500/5' : 'bg-background'
-      }`}
+        dragState.isDragging ? 'bg-blue-500/5' : 'bg-background/95'
+      } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}
+      style={{ backgroundColor: 'rgba(18, 19, 23, 0.95)' }}
       onClick={async () => {
         // Bring main window to focus when clicked
         try {
@@ -658,15 +746,21 @@ function App() {
             {/* Notes view icon */}
             <button 
               onClick={() => {
-                setCurrentView('notes');
-                setSidebarVisible(true);
+                if (currentView === 'notes' && sidebarVisible) {
+                  // Toggle sidebar if we're already in notes view
+                  setSidebarVisible(false);
+                } else {
+                  // Otherwise, show notes and sidebar
+                  setCurrentView('notes');
+                  setSidebarVisible(true);
+                }
               }}
               className={`mt-3 w-5 h-5 flex items-center justify-center transition-colors rounded ${
                 currentView === 'notes'
                   ? 'text-primary bg-primary/10' 
                   : 'text-primary/60 hover:text-primary hover:bg-primary/10'
               }`}
-              title="Notes"
+              title={sidebarVisible && currentView === 'notes' ? 'Hide sidebar' : 'Notes'}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -682,15 +776,21 @@ function App() {
             {/* Settings */}
             <button
               onClick={() => {
-                setCurrentView('settings');
-                setSidebarVisible(true);
+                if (currentView === 'settings' && sidebarVisible) {
+                  // Toggle settings panel if we're already in settings view
+                  setSidebarVisible(false);
+                } else {
+                  // Otherwise, show settings
+                  setCurrentView('settings');
+                  setSidebarVisible(true);
+                }
               }}
               className={`w-5 h-5 flex items-center justify-center transition-colors rounded ${
                 currentView === 'settings'
                   ? 'text-primary bg-primary/10' 
                   : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/10'
               }`}
-              title="Settings (⌘,)"
+              title={sidebarVisible && currentView === 'settings' ? 'Hide settings' : 'Settings (⌘,)'}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="3"/>
@@ -700,25 +800,32 @@ function App() {
           </div>
         </div>
 
-      {/* Expandable sidebar - only for notes view */}
-      {sidebarVisible && currentView === 'notes' && (
-        <div 
-          className="w-64 bg-card border-r border-border/30 p-4 flex flex-col"
-          data-sidebar
+      {/* Expandable sidebar with animation */}
+      <div className={`overflow-hidden transition-all duration-300 ease-out ${
+        sidebarVisible && currentView === 'notes' ? 'w-64' : 'w-0'
+      }`}>
+        <ResizablePanel
+          className="bg-card border-r border-border/30 flex flex-col"
+          defaultWidth={256}
+          minWidth={180}
+          maxWidth={400}
         >
+          <div className="p-4 flex flex-col h-full">
           {/* Clean header */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1"></div>
-            <button 
-              onClick={createNewNote}
-              className="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all duration-200 rounded"
-              title="New note (⌘N)"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
+          <div className="mb-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium text-foreground">Notes</h2>
+              <button 
+                onClick={createNewNote}
+                className="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all duration-200 rounded"
+                title="New note (⌘N)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            </div>
           </div>
           
           {/* Notes list */}
@@ -743,7 +850,7 @@ function App() {
                     selectedNoteId === note.id 
                       ? 'bg-primary/10 border border-primary/20' 
                       : 'hover:bg-white/5 border border-transparent'
-                  } ${dragState.isDragging && dragState.noteId === note.id ? 'opacity-40 scale-95 bg-blue-500/20 border-blue-500/40' : ''}`}
+                  } ${dragState.isDragging && dragState.noteId === note.id ? 'opacity-40 scale-95 bg-blue-500/20 border-blue-500/40 transition-all duration-200' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     {/* Note title */}
@@ -795,14 +902,16 @@ function App() {
             )}
           </div>
         </div>
-      )}
+      </ResizablePanel>
+      </div>
       
-        {/* Main content area - Notes or Settings */}
+      {/* Main content area - Notes or Settings */}
         {currentView === 'notes' ? (
           <div className="flex-1 flex flex-col">
             {/* Header with hacker-style minimal controls */}
             {selectedNote && (
               <div className="px-6 py-2 border-b border-border/15 flex items-center justify-between bg-card/20">
+                <div></div> {/* Left spacer */}
                 <div 
                   className="text-xs text-muted-foreground/50 font-mono tracking-wide truncate cursor-move hover:text-muted-foreground/70 transition-colors"
                   onMouseDown={(e) => handleMouseDown(e, selectedNote.id)}
@@ -811,6 +920,8 @@ function App() {
                 >
                   {extractTitleFromContent(selectedNote.content)}
                 </div>
+                
+                {/* Edit/Preview toggle */}
                 <div className="flex items-center bg-background/40 border border-border/30 rounded-md">
                   <button
                     onClick={() => setIsPreviewMode(false)}
@@ -819,7 +930,7 @@ function App() {
                         ? 'bg-primary/25 text-primary shadow-sm' 
                         : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
                     }`}
-                    title="Edit mode"
+                    title="Edit mode (⌘⇧P)"
                   >
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -833,7 +944,7 @@ function App() {
                         ? 'bg-primary/25 text-primary shadow-sm' 
                         : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
                     }`}
-                    title="Preview mode"
+                    title="Preview mode (⌘⇧P)"
                   >
                     <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -846,12 +957,17 @@ function App() {
             
             {/* Editor/Preview area */}
             <div className="flex-1 flex flex-col">
-              <div className="flex-1 p-6 pt-6 relative">
+              <div className={`flex-1 p-6 pt-6 relative ${
+                config.appearance?.backgroundPattern && config.appearance.backgroundPattern !== 'none' 
+                  ? `bg-pattern-${config.appearance.backgroundPattern}` 
+                  : ''
+              }`}>
                 {/* Always-available textarea */}
                 <textarea 
+                  ref={textareaRef}
                   className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
                     isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
-                  }`}
+                  } ${config.appearance.typewriterMode ? 'typewriter-mode' : ''}`}
                   style={{ 
                     fontSize: `${config.appearance.fontSize}px`, 
                     fontFamily: config.appearance.editorFontFamily,
@@ -873,12 +989,15 @@ function App() {
                     title="Double-click to edit"
                     style={{ 
                       fontSize: `${config.appearance.fontSize}px`,
-                      fontFamily: config.appearance.editorFontFamily,
+                      fontFamily: config.appearance.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
                       lineHeight: config.appearance.lineHeight,
                       padding: '1rem 0' 
                     }}
                   >
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={config.appearance.syntaxHighlighting ? [rehypeHighlight] : []}
+                    >
                       {currentContent || '*Empty note*'}
                     </ReactMarkdown>
                   </div>
@@ -888,28 +1007,31 @@ function App() {
               {/* Note-specific footer */}
               {selectedNote && (
                 <div className="bg-card/20 border-t border-border/15 px-6 py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    {saveStatus.isSaving ? (
-                      <>
-                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
-                        <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
-                      </>
-                    ) : saveStatus.saveError ? (
-                      <>
-                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
-                        <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
-                      </>
-                    ) : saveStatus.lastSaved ? (
-                      <>
-                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
-                        <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
-                        <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
-                      </>
-                    )}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      {saveStatus.isSaving ? (
+                        <>
+                          <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
+                          <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+                        </>
+                      ) : saveStatus.saveError ? (
+                        <>
+                          <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
+                          <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+                        </>
+                      ) : saveStatus.lastSaved ? (
+                        <>
+                          <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+                          <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
+                          <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
+                        </>
+                      )}
+                    </div>
+                    
                   </div>
                   
                   {currentContent && (
@@ -922,7 +1044,11 @@ function App() {
             </div>
           </div>
         ) : (
-          <SettingsPanel />
+          <div className={`transition-all duration-200 ease-out overflow-hidden flex ${
+            sidebarVisible ? 'flex-1' : 'w-0'
+          }`}>
+            <SettingsPanel />
+          </div>
         )}
       </div>
 
@@ -932,12 +1058,6 @@ function App() {
           <span>Tauri Notes</span>
           <div className="w-px h-3 bg-border/30"></div>
           <span>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
-          {selectedNote && (
-            <>
-              <div className="w-px h-3 bg-border/30"></div>
-              <span>{isPreviewMode ? 'Preview' : 'Edit'} mode</span>
-            </>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <span>Ready</span>

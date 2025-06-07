@@ -54,6 +54,9 @@
             "core:window:allow-hide",
             "core:window:allow-set-focus",
             "core:window:allow-is-visible",
+            "core:window:allow-center",
+            "core:window:allow-is-always-on-top",
+            "core:window:allow-minimize",
             "core:webview:allow-create-webview-window"
           ]
         },
@@ -85,7 +88,9 @@
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "visible": true,
+        "center": true
       }
     ]
   },

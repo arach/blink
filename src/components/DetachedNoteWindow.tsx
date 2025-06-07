@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 import { useDetachedWindowsStore } from '../stores/detached-windows-store';
 import { useConfigStore } from '../stores/config-store';
 import { useSaveStatus } from '../hooks/use-save-status';
@@ -252,7 +253,11 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
       {/* Content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 p-6 pt-5 relative overflow-hidden">
+        <div className={`flex-1 p-6 pt-5 relative overflow-hidden ${
+          config.appearance.backgroundPattern && config.appearance.backgroundPattern !== 'none' 
+            ? `bg-pattern-${config.appearance.backgroundPattern}` 
+            : ''
+        }`}>
           {/* Editor */}
           <textarea 
             className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
@@ -278,12 +283,15 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
               title="Double-click to edit"
               style={{ 
                 fontSize: `${config.appearance.fontSize}px`,
-                fontFamily: config.appearance.editorFontFamily,
+                fontFamily: config.appearance.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
                 lineHeight: config.appearance.lineHeight,
                 padding: '0' 
               }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={config.appearance.syntaxHighlighting ? [rehypeHighlight] : []}
+              >
                 {content || '*Empty note*'}
               </ReactMarkdown>
             </div>

@@ -4,17 +4,28 @@ import { invoke } from '@tauri-apps/api/core';
 import { useConfigStore } from '../stores/config-store';
 
 export const useWindowTransparency = () => {
-  const { config, updateOpacity: updateOpacityConfig, updateAlwaysOnTop, loadConfig } = useConfigStore();
+  const { config, updateOpacity: updateOpacityConfig, updateAlwaysOnTop } = useConfigStore();
 
-  // Load config on mount
+  // Ensure window is visible on mount
   useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+    const ensureVisible = async () => {
+      try {
+        const window = getCurrentWebviewWindow();
+        await window.show();
+        await window.center();
+      } catch (error) {
+        console.error('Failed to ensure window visibility:', error);
+      }
+    };
+    
+    ensureVisible();
+  }, []);
 
   // Apply opacity to window when config changes
   useEffect(() => {
     const applyOpacity = async () => {
       try {
+        console.log('Applying opacity:', config.opacity);
         await invoke('set_window_opacity', { opacity: config.opacity });
       } catch (error) {
         console.error('Failed to apply window opacity:', error);

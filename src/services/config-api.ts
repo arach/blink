@@ -7,7 +7,7 @@ export const configApi = {
   },
 
   async updateConfig(config: AppConfig): Promise<AppConfig> {
-    return await invoke('update_config', { newConfig: config });
+    return await invoke('update_config', { new_config: config });
   },
 
   async toggleWindowVisibility(): Promise<boolean> {
