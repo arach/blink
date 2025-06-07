@@ -35,9 +35,9 @@
       "timestampUrl": ""
     }
   },
-  "productName": "Tauri Notes App",
+  "productName": "Notes App",
   "version": "0.1.0",
-  "identifier": "com.taurinotesapp.dev",
+  "identifier": "com.notesapp.dev",
   "app": {
     "macOSPrivateApi": true,
     "security": {
@@ -78,7 +78,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Tauri Notes App",
+        "title": "Notes App",
         "width": 1000,
         "height": 700,
         "minWidth": 600,

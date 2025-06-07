@@ -2,7 +2,7 @@
 
 *From static documents to living, autonomous knowledge agents*
 
-![Tauri Notes App - Spatial Note Management](docs/screenshots/main-interface.png)
+![Notes App - Spatial Note Management](docs/screenshots/main-interface.png)
 
 ## Vision: The Future of Note-Taking
 
@@ -81,7 +81,7 @@ This isn't just another notes app—it's a paradigm shift toward **AI-native spa
 ```bash
 # Clone and install dependencies
 git clone <repository-url>
-cd tauri-notes-app
+cd notes-app
 pnpm install
 
 # Start development server

@@ -1,5 +1,5 @@
 [package]
-name = "tauri-notes-app"
+name = "notes-app"
 version = "0.1.0"
 description = "A modern notes application built with Tauri"
 authors = ["you"]
@@ -8,7 +8,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name = "tauri_notes_app_lib"
+name = "notes_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
