@@ -2,6 +2,8 @@
 
 *From static documents to living, autonomous knowledge agents*
 
+![Tauri Notes App - Spatial Note Management](https://github.com/user-attachments/assets/screenshot-placeholder)
+
 ## Vision: The Future of Note-Taking
 
 This isn't just another notes app—it's a paradigm shift toward **AI-native spatial knowledge management**. Instead of treating notes as static documents, we're building an ecosystem where each note becomes an intelligent, autonomous agent that can think, update, and contribute to your understanding without direct prompting.
@@ -21,32 +23,50 @@ This isn't just another notes app—it's a paradigm shift toward **AI-native spa
 ### ✨ Multi-Window Spatial Foundation (Phase 1 - **COMPLETED**)
 
 **Detached Note Windows** - Revolutionary spatial note management
-- **Pop-out any note** into its own independent window
+- **Drag-to-detach** - Simply drag any note out of the sidebar to create a floating window
 - **Spatial positioning** - Arrange notes anywhere on your screen with automatic position saving
 - **Smart window management** - Frameless, transparent windows with custom controls
 - **Seamless synchronization** - Changes sync instantly between main app and detached windows
-- **Keyboard shortcuts** - ⌘K command palette, ⌘⇧P preview toggle, ⌘W close window
+- **Visual drag feedback** - Ghost preview and drop zone indicators for intuitive interaction
 
 **Intelligent Interface**
 - **Command Palette** (⌘K) - Fast access to all functions with fuzzy search
-- **Live Preview** - Markdown rendering with seamless edit/preview switching
-- **Auto-save** - Instant saving with live word/character counts
+- **Live Preview** - Markdown rendering with seamless edit/preview switching (⌘⇧P)
+- **Auto-save** - Instant saving with visual status indicators
 - **Global shortcuts** - Hyperkey+N (⌘⌃⌥⇧N) for global app toggle
+- **Focus Mode** - Distraction-free writing that hides all UI elements (⌘.)
+
+### 🎨 Advanced Customization
+
+**Typography & Appearance**
+- **Dual font size controls** - Separate settings for editor and preview content
+- **Custom fonts** - Choose from system fonts or popular coding fonts
+- **Adjustable line height** - Fine-tune text spacing for comfort
+- **Background patterns** - Optional paper, canvas, grid, or dot patterns
+- **Accent colors** - Six pre-selected colors for UI theming
+
+**Window Settings**
+- **Transparency controls** - Adjustable window opacity (30%-100%)
+- **Always-on-top** - Keep notes above other applications
+- **Typewriter mode** - Center current line while typing
+- **Syntax highlighting** - Code blocks with language-specific coloring
 
 ### 📝 Core Note Management
 
-- **Markdown-first** with live preview and syntax highlighting
+- **Markdown-first** with GitHub Flavored Markdown support
 - **Smart title extraction** from content (headers or first line)
-- **Instant search** through command palette
+- **Instant search** through command palette with fuzzy matching
 - **Persistent storage** with automatic backups
-- **Transparency controls** with customizable opacity and always-on-top
+- **Real-time sync** across all open windows
+- **Resizable panels** - Adjust sidebar width to preference
 
 ## 🛠 Tech Stack
 
-- **Frontend**: React 18, TypeScript, TailwindCSS, Zustand state management
-- **Backend**: Rust (Tauri framework) for native performance and security
+- **Frontend**: React 18, TypeScript, TailwindCSS v4, Zustand state management
+- **Backend**: Rust (Tauri v2) for native performance and security
 - **Database**: File-based JSON storage (easily migratable to databases)
-- **UI**: Custom design system with glass morphism and spatial awareness
+- **UI**: Hacker-oriented design with glass morphism and spatial awareness
+- **Editor**: Custom textarea with typewriter mode and live preview
 - **Build**: Vite for fast development, cross-platform desktop app
 
 ## 🏃‍♂️ Quick Start
@@ -74,20 +94,25 @@ pnpm run tauri build
 ### Usage
 
 1. **⌘K** - Open command palette for quick actions
-2. **Create notes** - Click + or use "New Note" command
-3. **Detach windows** - Click the detach button or use "Detach Window" command
-4. **Arrange spatially** - Drag detached windows to create your workspace
-5. **⌘⇧P** - Toggle markdown preview mode
-6. **Hyperkey+N** - Global app visibility toggle (with accessibility permissions)
+2. **Create notes** - Click + or use ⌘N / ⌘⇧N
+3. **Detach windows** - Drag any note from the sidebar to create a floating window
+4. **Arrange spatially** - Position windows anywhere; locations are remembered
+5. **⌘⇧P** - Toggle between edit and preview modes
+6. **⌘,** - Open settings for customization
+7. **⌘.** - Toggle focus mode for distraction-free writing
+8. **Hyperkey+N** - Global app visibility toggle (requires accessibility permissions)
 
 ## 🗺 Development Roadmap
 
 ### ✅ Phase 1: Multi-Window Spatial Foundation
 *Status: **COMPLETED***
-- ✅ Detached note windows with spatial positioning
+- ✅ Drag-to-detach note windows with spatial positioning
 - ✅ Window state persistence and restoration
-- ✅ Command palette integration
+- ✅ Command palette with fuzzy search
 - ✅ Cross-window content synchronization
+- ✅ Advanced typography and appearance settings
+- ✅ Focus mode and typewriter mode
+- ✅ Resizable panels and customizable UI
 
 ### 🔄 Phase 2: AI Integration Foundation
 *Status: **NEXT***
@@ -113,6 +138,23 @@ pnpm run tauri build
 - 🔲 Ecosystem-level intelligence and synthesis
 - 🔲 Adaptive AI behavior learning
 - 🔲 Collaborative knowledge evolution
+
+## 📸 Screenshots
+
+### Main Interface with Settings Panel
+*Hacker-oriented settings with compact, terminal-like design*
+
+![Settings Interface](https://github.com/user-attachments/assets/settings-screenshot-placeholder)
+
+### Detached Note Windows
+*Drag any note out to create floating, transparent windows*
+
+![Detached Windows](https://github.com/user-attachments/assets/detached-windows-placeholder)
+
+### Focus Mode
+*Distraction-free writing with all UI elements hidden*
+
+![Focus Mode](https://github.com/user-attachments/assets/focus-mode-placeholder)
 
 ## 🎯 Unique Differentiators
 
@@ -147,6 +189,23 @@ pnpm run tauri build
 - Rust backend for native performance and security
 - Local-first with optional cloud sync
 - Zero-trust architecture with encrypted local storage
+
+## 🆕 Recent Updates
+
+### Version 1.1.0 - Hacker-Oriented UI & Enhanced Customization
+- **Redesigned Settings Panel** - Compact, terminal-like interface with mono fonts
+- **Improved Font Controls** - Separate editor and content font sizes with live preview
+- **Fixed Save Functionality** - Font size changes now persist correctly
+- **Enhanced Visual Consistency** - Unified design language across all UI elements
+- **Better Drag Experience** - Smoother drag-to-detach with visual feedback
+- **Optimized Layout** - Full-width settings with properly positioned save button
+
+### Version 1.0.0 - Initial Release
+- Multi-window spatial note management
+- Command palette with fuzzy search
+- Markdown editor with live preview
+- Customizable appearance settings
+- Cross-window synchronization
 
 ## 🤝 Contributing
 
