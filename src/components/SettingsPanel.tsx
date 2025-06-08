@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { invoke } from '@tauri-apps/api/core';
 
-type SettingsSection = 'general' | 'appearance' | 'ai';
+type SettingsSection = 'general' | 'appearance' | 'shortcuts' | 'ai';
 
 export function SettingsPanel() {
   const { config, updateConfig, isLoading } = useConfigStore();
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [localConfig, setLocalConfig] = useState(config);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [shortcutStatus, setShortcutStatus] = useState<'idle' | 'registering' | 'success' | 'error'>('idle');
+  const [shortcutMessage, setShortcutMessage] = useState<string>('');
 
   useEffect(() => {
     // Set localConfig to match the loaded config directly
@@ -55,6 +57,16 @@ export function SettingsPanel() {
           <line x1="16" y1="13" x2="8" y2="13"/>
           <line x1="16" y1="17" x2="8" y2="17"/>
           <line x1="10" y1="9" x2="8" y2="9"/>
+        </svg>
+      )
+    },
+    {
+      id: 'shortcuts' as SettingsSection,
+      name: 'Shortcuts',
+      icon: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="7" width="20" height="10" rx="1"/>
+          <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
         </svg>
       )
     },
@@ -649,6 +661,201 @@ function calculateMetrics(data) {
     </div>
   );
 
+  const renderShortcutsSection = () => (
+    <div className="space-y-6">
+      <div className="bg-card/20 rounded p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <rect x="2" y="7" width="20" height="10" rx="1"/>
+            <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
+          </svg>
+          Global Shortcuts
+        </h3>
+        <div className="space-y-4">
+          <div className="text-xs text-muted-foreground/70 mb-4">
+            Global shortcuts allow you to perform actions from anywhere on your system,
+            even when the app is in the background.
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-foreground/80 font-mono w-32">Create New Note</span>
+              <div className="flex-1 flex items-center gap-2">
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌃</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌥</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">N</kbd>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-foreground/80 font-mono w-32">Toggle Hover Mode</span>
+              <div className="flex-1 flex items-center gap-2">
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌃</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌥</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">H</kbd>
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-border/20">
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  setShortcutStatus('registering');
+                  setShortcutMessage('');
+                  try {
+                    const result = await invoke<string>('reregister_global_shortcuts');
+                    setShortcutStatus('success');
+                    setShortcutMessage(result);
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 5000);
+                  } catch (error: any) {
+                    setShortcutStatus('error');
+                    setShortcutMessage(error.toString());
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 10000);
+                  }
+                }}
+                disabled={shortcutStatus === 'registering'}
+                className="px-3 py-1.5 text-xs bg-primary/80 text-primary-foreground hover:bg-primary/90 rounded transition-all disabled:opacity-50 font-mono"
+              >
+                {shortcutStatus === 'registering' ? 'registering...' : 're-register shortcuts'}
+              </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('[NOTES-APP] [SETTINGS] Testing event emission...');
+                  try {
+                    const result = await invoke<string>('test_emit_new_note');
+                    console.log('[NOTES-APP] [SETTINGS] Test result:', result);
+                    setShortcutMessage('Test event emitted successfully');
+                    setShortcutStatus('success');
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 3000);
+                  } catch (error: any) {
+                    console.error('[NOTES-APP] [SETTINGS] Test failed:', error);
+                    setShortcutMessage('Test failed: ' + error.toString());
+                    setShortcutStatus('error');
+                  }
+                }}
+                className="px-3 py-1.5 text-xs bg-background/40 border border-border/40 hover:bg-background/60 rounded transition-all font-mono"
+              >
+                test event
+              </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('[NOTES-APP] [SETTINGS] Testing hover toggle...');
+                  try {
+                    const hoverState = await invoke<boolean>('toggle_all_windows_hover');
+                    console.log('[NOTES-APP] [SETTINGS] Hover state:', hoverState);
+                    setShortcutMessage(`Hover mode ${hoverState ? 'enabled' : 'disabled'} for all windows`);
+                    setShortcutStatus('success');
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 3000);
+                  } catch (error: any) {
+                    console.error('[NOTES-APP] [SETTINGS] Hover toggle failed:', error);
+                    setShortcutMessage('Hover toggle failed: ' + error.toString());
+                    setShortcutStatus('error');
+                  }
+                }}
+                className="px-3 py-1.5 text-xs bg-background/40 border border-border/40 hover:bg-background/60 rounded transition-all font-mono"
+              >
+                test hover
+              </button>
+            </div>
+            
+            {shortcutMessage && (
+              <div className={`mt-3 text-xs font-mono ${
+                shortcutStatus === 'success' ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {shortcutMessage}
+              </div>
+            )}
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-border/20">
+            <div className="text-xs text-muted-foreground/60 space-y-2">
+              <p className="font-medium text-foreground/80">Troubleshooting:</p>
+              <ul className="space-y-1 ml-4">
+                <li>• Ensure accessibility permissions are granted in System Settings</li>
+                <li>• Close and restart the app after granting permissions</li>
+                <li>• Some shortcuts may conflict with system or other app shortcuts</li>
+              </ul>
+              
+              <button
+                onClick={() => invoke('open_system_settings')}
+                className="mt-3 text-xs text-primary/80 hover:text-primary underline font-mono"
+              >
+                open accessibility settings →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-card/20 rounded p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <rect x="2" y="7" width="20" height="10" rx="1"/>
+            <path d="M5 12h14M7 12l2-2M7 12l2 2"/>
+          </svg>
+          In-App Shortcuts
+        </h3>
+        <div className="space-y-3 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-foreground/80 font-mono">Command Palette</span>
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">K</kbd>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-foreground/80 font-mono">New Note</span>
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">N</kbd>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-foreground/80 font-mono">Toggle Preview</span>
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⇧</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">P</kbd>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-foreground/80 font-mono">Open Settings</span>
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">,</kbd>
+            </div>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-foreground/80 font-mono">Focus Mode</span>
+            <div className="flex items-center gap-1">
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
+              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">.</kbd>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderAISection = () => (
     <div className="space-y-6">
       <div className="bg-card/20 rounded p-4 border border-border/10">
@@ -702,6 +909,8 @@ function calculateMetrics(data) {
         return renderGeneralSection();
       case 'appearance':
         return renderAppearanceSection();
+      case 'shortcuts':
+        return renderShortcutsSection();
       case 'ai':
         return renderAISection();
       default:

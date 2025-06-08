@@ -195,18 +195,47 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
   return (
     <div 
-      className="w-full h-full text-foreground flex flex-col bg-background"
+      className="w-full h-full text-foreground flex flex-col bg-background overflow-hidden"
     >
-      {/* Ultra-thin top bar - draggable */}
+      {/* Custom title bar with native controls visible */}
       <div 
-        className="h-7 bg-background/80 border-b border-border/30 flex items-center justify-between px-3 cursor-move"
-        data-tauri-drag-region
+        className="h-8 flex items-center relative select-none"
+        style={{ 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
-        <div className="flex-1 cursor-move" data-tauri-drag-region></div>
+        {/* Left space for native window controls on macOS */}
+        <div className="w-20" />
         
-        <div className="flex items-center gap-2 cursor-default">
-          {/* Mode toggle */}
-          <div className="flex items-center bg-background/40 border border-border/30 rounded-md">
+        {/* Center draggable area with title and mode toggle */}
+        <div 
+          className="flex-1 h-full flex items-center justify-center gap-3 cursor-move"
+          data-tauri-drag-region
+          onMouseDown={async (e) => {
+            // Middle click (button 1) to toggle shade
+            if (e.button === 1) {
+              e.preventDefault();
+              try {
+                const { DetachedWindowsAPI } = await import('../services/detached-windows-api');
+                const windowLabel = `note-${noteId}`;
+                await DetachedWindowsAPI.toggleWindowShade(windowLabel);
+              } catch (error) {
+                console.error('Failed to toggle shade:', error);
+              }
+            }
+          }}
+        >
+          <span className="text-xs text-foreground/70 font-medium select-none pointer-events-none" title="Middle-click to shade">
+            {extractTitleFromContent(content)}
+          </span>
+          
+          {/* Mode toggle - excluded from drag region */}
+          <div 
+            className="flex items-center bg-background/40 border border-border/30 rounded-md" 
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setIsPreviewMode(false)}
               className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
@@ -236,19 +265,10 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
               </svg>
             </button>
           </div>
-
-          {/* Close button */}
-          <button
-            onClick={handleCloseWindow}
-            className="w-5 h-5 flex items-center justify-center text-soft/30 hover:text-red-400 transition-colors rounded hover:bg-red-500/10"
-            title="Close window (⌘W)"
-          >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
         </div>
+        
+        {/* Right side balance */}
+        <div className="w-20" />
       </div>
 
       {/* Content area */}

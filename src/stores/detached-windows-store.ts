@@ -35,11 +35,12 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
   },
 
   createWindow: async (noteId: string, x?: number, y?: number, width?: number, height?: number): Promise<DetachedWindow | null> => {
+    console.log('[DETACHED-WINDOWS] Creating window for note:', noteId, { x, y, width, height });
     const { windows, forceCloseWindow } = get();
     
     // If window already exists, force close it first to allow recreation
     if (windows.some(w => w.note_id === noteId)) {
-      console.log('Window already exists, force closing first...');
+      console.log('[DETACHED-WINDOWS] Window already exists, force closing first...');
       await forceCloseWindow(noteId);
       // Wait a bit for cleanup
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -47,6 +48,7 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
 
     set({ loading: true, error: null });
     try {
+      console.log('[DETACHED-WINDOWS] Calling API to create window...');
       const newWindow = await DetachedWindowsAPI.createDetachedWindow({
         note_id: noteId,
         x,
@@ -54,13 +56,15 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
         width,
         height
       });
+      console.log('[DETACHED-WINDOWS] Window created:', newWindow);
       
       // Refresh windows list to ensure consistency
       await get().refreshWindows();
       
       return newWindow;
     } catch (error) {
-      console.error('Failed to create detached window:', error);
+      console.error('[DETACHED-WINDOWS] Failed to create detached window:', error);
+      console.error('[DETACHED-WINDOWS] Error details:', JSON.stringify(error));
       set({ error: error as string, loading: false });
       return null;
     }

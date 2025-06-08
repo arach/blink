@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Event Test</title>
+    <script type="module">
+        import { invoke } from '@tauri-apps/api/core';
+        import { listen } from '@tauri-apps/api/event';
+        
+        async function setupListeners() {
+            console.log('Setting up test listeners...');
+            
+            // Test 1: Listen for menu-new-note
+            const unlisten1 = await listen('menu-new-note', (event) => {
+                console.log('TEST: Received menu-new-note event!', event);
+                document.getElementById('result').innerHTML += '<p>menu-new-note received!</p>';
+            });
+            
+            // Test 2: Listen for toggle-hover-mode
+            const unlisten2 = await listen('toggle-hover-mode', (event) => {
+                console.log('TEST: Received toggle-hover-mode event!', event);
+                document.getElementById('result').innerHTML += '<p>toggle-hover-mode received!</p>';
+            });
+            
+            console.log('Test listeners setup complete');
+        }
+        
+        window.addEventListener('DOMContentLoaded', setupListeners);
+        
+        // Expose test functions
+        window.testEmit = async () => {
+            try {
+                const result = await invoke('test_emit_new_note');
+                console.log('Emit result:', result);
+            } catch (error) {
+                console.error('Emit error:', error);
+            }
+        };
+    </script>
+</head>
+<body>
+    <h1>Tauri Event Test</h1>
+    <button onclick="testEmit()">Test Emit Event</button>
+    <div id="result"></div>
+    <p>Open console to see logs. Press Hyperkey+N or Hyperkey+H to test.</p>
+</body>
+</html>

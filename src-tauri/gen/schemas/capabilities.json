@@ -1,1 +1,1 @@
-{}
+{"global-shortcut-capability":{"identifier":"global-shortcut-capability","description":"Capability for global shortcuts","local":true,"permissions":["global-shortcut:allow-register","global-shortcut:allow-unregister","global-shortcut:allow-is-registered","global-shortcut:allow-register-all","global-shortcut:allow-unregister-all"],"platforms":["macOS","windows","linux"]}}

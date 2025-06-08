@@ -7,6 +7,8 @@ export interface DetachedWindow {
   size: [number, number];
   always_on_top: boolean;
   opacity: number;
+  is_shaded?: boolean;
+  original_height?: number;
 }
 
 export interface CreateDetachedWindowRequest {
@@ -36,5 +38,13 @@ export class DetachedWindowsAPI {
 
   static async updateWindowSize(windowLabel: string, width: number, height: number): Promise<void> {
     return await invoke('update_detached_window_size', { windowLabel, width, height });
+  }
+
+  static async toggleWindowShade(windowLabel: string): Promise<boolean> {
+    return await invoke<boolean>('toggle_window_shade', { windowLabel });
+  }
+
+  static async toggleMainWindowShade(): Promise<boolean> {
+    return await invoke<boolean>('toggle_main_window_shade');
   }
 }

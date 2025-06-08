@@ -7,6 +7,36 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use chrono::Local;
+
+// Custom logger macro for Notes App
+macro_rules! notes_log {
+    ($level:expr, $category:expr, $($arg:tt)*) => {{
+        println!("[NOTES-APP] [{}] [{}] [{}] {}", 
+            Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), 
+            $level, 
+            $category, 
+            format!($($arg)*));
+    }};
+}
+
+macro_rules! log_info {
+    ($category:expr, $($arg:tt)*) => {{
+        notes_log!("INFO", $category, $($arg)*);
+    }};
+}
+
+macro_rules! log_error {
+    ($category:expr, $($arg:tt)*) => {{
+        notes_log!("ERROR", $category, $($arg)*);
+    }};
+}
+
+macro_rules! log_debug {
+    ($category:expr, $($arg:tt)*) => {{
+        notes_log!("DEBUG", $category, $($arg)*);
+    }};
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Note {
@@ -112,6 +142,10 @@ pub struct DetachedWindow {
     pub size: (f64, f64),
     pub always_on_top: bool,
     pub opacity: f64,
+    #[serde(default)]
+    pub is_shaded: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_height: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -226,7 +260,7 @@ async fn delete_note(id: String, notes: State<'_, NotesState>) -> Result<bool, S
 #[tauri::command]
 async fn get_config(config: State<'_, ConfigState>) -> Result<AppConfig, String> {
     let config_lock = config.lock().await;
-    println!("Returning config: {:?}", config_lock.clone());
+    log_debug!("CONFIG", "Returning config: {:?}", config_lock.clone());
     Ok(config_lock.clone())
 }
 
@@ -293,6 +327,43 @@ async fn set_window_always_on_top(app: tauri::AppHandle, always_on_top: bool) ->
 }
 
 #[tauri::command]
+async fn toggle_all_windows_hover(
+    app: tauri::AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<bool, String> {
+    log_info!("HOVER", "Toggling hover mode for all detached windows...");
+    
+    let mut windows_lock = detached_windows.lock().await;
+    
+    // Determine new hover state (if any window is not hovering, set all to hover)
+    let any_not_hovering = windows_lock.values().any(|w| !w.always_on_top);
+    let new_hover_state = any_not_hovering;
+    
+    log_info!("HOVER", "Setting all windows to hover={}", new_hover_state);
+    
+    // Update all windows
+    for (window_label, window_data) in windows_lock.iter_mut() {
+        if let Some(window) = app.get_webview_window(window_label) {
+            match window.set_always_on_top(new_hover_state) {
+                Ok(_) => {
+                    window_data.always_on_top = new_hover_state;
+                    log_info!("HOVER", "Window {} hover set to {}", window_label, new_hover_state);
+                },
+                Err(e) => {
+                    log_error!("HOVER", "Failed to set hover for window {}: {}", window_label, e);
+                }
+            }
+        }
+    }
+    
+    // Save the updated window states
+    save_detached_windows_to_disk(&windows_lock).await?;
+    
+    log_info!("HOVER", "Hover mode toggle complete. New state: {}", new_hover_state);
+    Ok(new_hover_state)
+}
+
+#[tauri::command]
 async fn open_system_settings() -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
@@ -308,6 +379,22 @@ async fn open_system_settings() -> Result<(), String> {
     }
     
     Ok(())
+}
+
+#[tauri::command]
+async fn test_emit_new_note(app: tauri::AppHandle) -> Result<String, String> {
+    log_info!("TEST", "Testing emit menu-new-note event manually...");
+    
+    match app.emit("menu-new-note", ()) {
+        Ok(_) => {
+            log_info!("TEST", "✅ Successfully emitted menu-new-note event");
+            Ok("Event emitted successfully".to_string())
+        },
+        Err(e) => {
+            log_error!("TEST", "❌ Failed to emit menu-new-note event: {}", e);
+            Err(format!("Failed to emit event: {}", e))
+        }
+    }
 }
 
 #[tauri::command]
@@ -383,45 +470,81 @@ async fn create_detached_window(
     detached_windows: State<'_, DetachedWindowsState>,
     notes: State<'_, NotesState>,
 ) -> Result<DetachedWindow, String> {
+    println!("[CREATE_DETACHED_WINDOW] Starting window creation for note: {}", request.note_id);
+    println!("[CREATE_DETACHED_WINDOW] Request params: x={:?}, y={:?}, width={:?}, height={:?}", 
+        request.x, request.y, request.width, request.height);
+    
+    // Clean up any existing drag ghost window first
+    if let Some(ghost_window) = app.get_webview_window("drag-ghost") {
+        println!("[CREATE_DETACHED_WINDOW] Found existing drag ghost window, closing it...");
+        let _ = ghost_window.close();
+    }
+    
     // Check if note exists
     {
+        println!("[CREATE_DETACHED_WINDOW] Checking if note exists...");
         let notes_lock = notes.lock().await;
         if !notes_lock.contains_key(&request.note_id) {
+            println!("[CREATE_DETACHED_WINDOW] ERROR: Note not found: {}", request.note_id);
             return Err("Note not found".to_string());
         }
+        println!("[CREATE_DETACHED_WINDOW] Note exists ✓");
     }
 
     // Check if window already exists for this note
     let mut windows_lock = detached_windows.lock().await;
+    println!("[CREATE_DETACHED_WINDOW] Current windows count: {}", windows_lock.len());
     if windows_lock.values().any(|w| w.note_id == request.note_id) {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Window already exists for note: {}", request.note_id);
         return Err("Window already exists for this note".to_string());
     }
+    println!("[CREATE_DETACHED_WINDOW] No existing window for this note ✓");
 
     let window_label = format!("note-{}", request.note_id);
+    println!("[CREATE_DETACHED_WINDOW] Window label: {}", window_label);
     
     // Check if we have a saved position for this note
+    println!("[CREATE_DETACHED_WINDOW] Loading saved spatial data...");
     let saved_window = load_spatial_data(&request.note_id).await;
     let width = request.width.or(saved_window.as_ref().map(|w| w.size.0)).unwrap_or(800.0);
     let height = request.height.or(saved_window.as_ref().map(|w| w.size.1)).unwrap_or(600.0);
     let x = request.x.or(saved_window.as_ref().map(|w| w.position.0)).unwrap_or(100.0);
     let y = request.y.or(saved_window.as_ref().map(|w| w.position.1)).unwrap_or(100.0);
+    println!("[CREATE_DETACHED_WINDOW] Window dimensions: {}x{} at ({}, {})", width, height, x, y);
 
     // Create the window
+    println!("[CREATE_DETACHED_WINDOW] Creating WebviewWindow...");
+    let window_url = format!("index.html?note={}", request.note_id);
+    println!("[CREATE_DETACHED_WINDOW] Window URL: {}", window_url);
+    
+    // Try with simpler configuration first
+    println!("[CREATE_DETACHED_WINDOW] Building window with simplified config for debugging...");
     let webview_window = WebviewWindowBuilder::new(
         &app,
         &window_label,
-        WebviewUrl::App(format!("index.html?note={}", request.note_id).into()),
+        WebviewUrl::App(window_url.into()),
     )
     .title(&format!("Note - {}", request.note_id))
     .inner_size(width, height)
-    .min_inner_size(300.0, 200.0)
     .position(x, y)
-    .resizable(true)
-    .transparent(true)
-    .decorations(false)
-    .always_on_top(false)
+    .visible(true)  // Explicitly set visible to true
+    .decorations(true)  // Enable decorations for debugging
+    .transparent(false)  // Disable transparency for debugging
     .build()
-    .map_err(|e| format!("Failed to create window: {}", e))?;
+    .map_err(|e| {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to create window: {:?}", e);
+        format!("Failed to create window: {}", e)
+    })?;
+    
+    println!("[CREATE_DETACHED_WINDOW] WebviewWindow created successfully ✓");
+    
+    // Ensure the window is visible
+    println!("[CREATE_DETACHED_WINDOW] Showing window...");
+    webview_window.show().map_err(|e| {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to show window: {:?}", e);
+        format!("Failed to show window: {}", e)
+    })?;
+    println!("[CREATE_DETACHED_WINDOW] Window shown ✓");
 
     let detached_window = DetachedWindow {
         note_id: request.note_id.clone(),
@@ -430,16 +553,33 @@ async fn create_detached_window(
         size: (width, height),
         always_on_top: false,
         opacity: 0.95,
+        is_shaded: false,
+        original_height: None,
     };
+    println!("[CREATE_DETACHED_WINDOW] DetachedWindow struct created: {:?}", detached_window);
 
+    println!("[CREATE_DETACHED_WINDOW] Inserting window into state...");
     windows_lock.insert(window_label.clone(), detached_window.clone());
-    save_detached_windows_to_disk(&windows_lock).await?;
+    println!("[CREATE_DETACHED_WINDOW] Window inserted into state ✓");
+    
+    println!("[CREATE_DETACHED_WINDOW] Saving detached windows to disk...");
+    save_detached_windows_to_disk(&windows_lock).await.map_err(|e| {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to save windows to disk: {}", e);
+        e
+    })?;
+    println!("[CREATE_DETACHED_WINDOW] Windows saved to disk ✓");
     
     // Update the app menu to include the new window
     drop(windows_lock);
-    update_app_menu(app.clone(), detached_windows.clone(), notes.clone()).await?;
+    println!("[CREATE_DETACHED_WINDOW] Updating app menu...");
+    update_app_menu(app.clone(), detached_windows.clone(), notes.clone()).await.map_err(|e| {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to update app menu: {}", e);
+        e
+    })?;
+    println!("[CREATE_DETACHED_WINDOW] App menu updated ✓");
     
     // Set up window event listeners for position/size tracking
+    println!("[CREATE_DETACHED_WINDOW] Setting up window event listeners...");
     let note_id_clone = request.note_id.clone();
     webview_window.on_window_event(move |event| {
         match event {
@@ -462,8 +602,41 @@ async fn create_detached_window(
             _ => {}
         }
     });
+    println!("[CREATE_DETACHED_WINDOW] Event listeners set up ✓");
 
+    println!("[CREATE_DETACHED_WINDOW] Window creation completed successfully! Returning: {:?}", detached_window);
     Ok(detached_window)
+}
+
+#[tauri::command]
+async fn test_window_creation(app: tauri::AppHandle) -> Result<String, String> {
+    println!("[TEST_WINDOW] Starting test window creation...");
+    
+    let test_label = "test-window";
+    let test_url = "index.html";
+    
+    println!("[TEST_WINDOW] Creating window with label: {}", test_label);
+    
+    match WebviewWindowBuilder::new(
+        &app,
+        test_label,
+        WebviewUrl::App(test_url.into()),
+    )
+    .title("Test Window")
+    .inner_size(400.0, 300.0)
+    .position(200.0, 200.0)
+    .visible(true)
+    .build() {
+        Ok(window) => {
+            println!("[TEST_WINDOW] Window created successfully!");
+            window.show().map_err(|e| format!("Failed to show test window: {}", e))?;
+            Ok("Test window created successfully!".to_string())
+        }
+        Err(e) => {
+            println!("[TEST_WINDOW] ERROR: Failed to create window: {:?}", e);
+            Err(format!("Failed to create test window: {:?}", e))
+        }
+    }
 }
 
 #[tauri::command]
@@ -540,6 +713,99 @@ async fn update_detached_window_size(
     Ok(())
 }
 
+#[tauri::command]
+async fn toggle_window_shade(
+    window_label: String,
+    app: tauri::AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<bool, String> {
+    let mut windows_lock = detached_windows.lock().await;
+    
+    if let Some(window_data) = windows_lock.get_mut(&window_label) {
+        let window = app.get_webview_window(&window_label)
+            .ok_or_else(|| format!("Window {} not found", window_label))?;
+        
+        let current_size = window.inner_size()
+            .map_err(|e| format!("Failed to get window size: {}", e))?;
+        
+        if window_data.is_shaded {
+            // Unshade: restore to original height
+            if let Some(original_height) = window_data.original_height {
+                window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: current_size.width,
+                    height: original_height as u32,
+                }))
+                .map_err(|e| format!("Failed to restore window size: {}", e))?;
+                
+                window_data.is_shaded = false;
+                window_data.original_height = None;
+                window_data.size.1 = original_height;
+            }
+        } else {
+            // Shade: minimize to title bar height (40px)
+            window_data.original_height = Some(current_size.height as f64);
+            window_data.is_shaded = true;
+            
+            window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                width: current_size.width,
+                height: 40,
+            }))
+            .map_err(|e| format!("Failed to shade window: {}", e))?;
+        }
+        
+        let is_shaded = window_data.is_shaded;
+        save_detached_windows_to_disk(&windows_lock).await?;
+        Ok(is_shaded)
+    } else {
+        Err(format!("Window data not found for {}", window_label))
+    }
+}
+
+#[tauri::command]
+async fn toggle_main_window_shade(
+    app: tauri::AppHandle,
+    config: State<'_, ConfigState>,
+) -> Result<bool, String> {
+    let window = app.get_webview_window("main")
+        .ok_or("Main window not found")?;
+    
+    let current_size = window.inner_size()
+        .map_err(|e| format!("Failed to get window size: {}", e))?;
+    
+    // Check if window is currently shaded (height <= 40)
+    let is_currently_shaded = current_size.height <= 40;
+    
+    if is_currently_shaded {
+        // Unshade: restore to config height
+        let config_lock = config.lock().await;
+        let restore_height = config_lock.window.height;
+        drop(config_lock);
+        
+        window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: current_size.width,
+            height: restore_height as u32,
+        }))
+        .map_err(|e| format!("Failed to restore window size: {}", e))?;
+        
+        Ok(false)
+    } else {
+        // Shade: minimize to title bar height
+        // First save current height to config
+        let mut config_lock = config.lock().await;
+        config_lock.window.height = current_size.height as f64;
+        let config_clone = config_lock.clone();
+        drop(config_lock);
+        save_config_to_disk(&config_clone).await?;
+        
+        window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: current_size.width,
+            height: 40,
+        }))
+        .map_err(|e| format!("Failed to shade window: {}", e))?;
+        
+        Ok(true)
+    }
+}
 
 async fn save_notes_to_disk(notes: &HashMap<String, Note>) -> Result<(), String> {
     let notes_dir = get_notes_directory()?;
@@ -573,11 +839,21 @@ async fn load_notes_from_disk() -> Result<HashMap<String, Note>, String> {
 }
 
 fn get_notes_directory() -> Result<PathBuf, String> {
-    // Use project directory during development
-    let current_dir = std::env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
-    let data_dir = current_dir.join("data");
-    println!("Data directory path: {:?}", data_dir);
+    // Use app data directory for production builds
+    let data_dir = if cfg!(debug_assertions) {
+        // Development: use project directory
+        let current_dir = std::env::current_dir()
+            .map_err(|e| format!("Failed to get current directory: {}", e))?;
+        current_dir.join("data")
+    } else {
+        // Production: use app data directory
+        dirs::data_dir()
+            .ok_or_else(|| "Failed to get data directory".to_string())?
+            .join("com.notesapp.dev")
+            .join("data")
+    };
+    
+    log_debug!("STORAGE", "Data directory path: {:?}", data_dir);
     Ok(data_dir)
 }
 
@@ -696,16 +972,16 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     let menu = Menu::new(app).map_err(|e| e.to_string())?;
     
     // App menu
-    let app_menu = Submenu::new(app, "Tauri Notes App", true).map_err(|e| e.to_string())?;
-    let about_item = MenuItem::new(app, "About Tauri Notes App", true, None::<&str>).map_err(|e| e.to_string())?;
+    let app_menu = Submenu::new(app, "Notes App", true).map_err(|e| e.to_string())?;
+    let about_item = MenuItem::new(app, "About Notes App", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let services_item = MenuItem::new(app, "Services", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator2 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-    let hide_item = MenuItem::new(app, "Hide Tauri Notes App", true, Some("Cmd+H")).map_err(|e| e.to_string())?;
+    let hide_item = MenuItem::new(app, "Hide Notes App", true, Some("Cmd+H")).map_err(|e| e.to_string())?;
     let hide_others_item = MenuItem::new(app, "Hide Others", true, Some("Cmd+Alt+H")).map_err(|e| e.to_string())?;
     let show_all_item = MenuItem::new(app, "Show All", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator3 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Tauri Notes App", true, Some("Cmd+Q")).map_err(|e| e.to_string())?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Notes App", true, Some("Cmd+Q")).map_err(|e| e.to_string())?;
     
     app_menu.append(&about_item).map_err(|e| e.to_string())?;
     app_menu.append(&separator).map_err(|e| e.to_string())?;
@@ -814,6 +1090,70 @@ async fn update_app_menu(
     Ok(())
 }
 
+#[tauri::command]
+async fn reregister_global_shortcuts(app: tauri::AppHandle) -> Result<String, String> {
+    use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+    
+    log_info!("SHORTCUT", "Re-registering global shortcuts...");
+    
+    let shortcut_manager = app.global_shortcut();
+    
+    // Define the shortcuts
+    let hyperkey_n = Shortcut::new(
+        Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+        Code::KeyN
+    );
+    
+    let hyperkey_h = Shortcut::new(
+        Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+        Code::KeyH
+    );
+    
+    log_debug!("SHORTCUT", "Created shortcut objects: Hyperkey+N and Hyperkey+H");
+    
+    // Unregister and re-register Hyperkey+N
+    match shortcut_manager.unregister(hyperkey_n.clone()) {
+        Ok(_) => log_info!("SHORTCUT", "Unregistered existing Hyperkey+N"),
+        Err(e) => log_debug!("SHORTCUT", "No existing Hyperkey+N to unregister: {}", e),
+    };
+    
+    let mut results = Vec::new();
+    
+    match shortcut_manager.register(hyperkey_n) {
+        Ok(_) => {
+            log_info!("SHORTCUT", "✅ Successfully registered Hyperkey+N");
+            results.push("Hyperkey+N (⌘⌃⌥⇧N) registered".to_string());
+        },
+        Err(e) => {
+            log_error!("SHORTCUT", "❌ Failed to register Hyperkey+N: {}", e);
+            results.push(format!("Hyperkey+N failed: {}", e));
+        }
+    }
+    
+    // Unregister and re-register Hyperkey+H
+    match shortcut_manager.unregister(hyperkey_h.clone()) {
+        Ok(_) => log_info!("SHORTCUT", "Unregistered existing Hyperkey+H"),
+        Err(e) => log_debug!("SHORTCUT", "No existing Hyperkey+H to unregister: {}", e),
+    };
+    
+    match shortcut_manager.register(hyperkey_h) {
+        Ok(_) => {
+            log_info!("SHORTCUT", "✅ Successfully registered Hyperkey+H");
+            results.push("Hyperkey+H (⌘⌃⌥⇧H) registered".to_string());
+        },
+        Err(e) => {
+            log_error!("SHORTCUT", "❌ Failed to register Hyperkey+H: {}", e);
+            results.push(format!("Hyperkey+H failed: {}", e));
+        }
+    }
+    
+    if results.iter().any(|r| r.contains("failed")) {
+        Err(results.join("; "))
+    } else {
+        Ok(results.join("; "))
+    }
+}
+
 async fn save_window_position(note_id: String, x: f64, y: f64) -> Result<(), String> {
     if let Some(mut window_data) = load_spatial_data(&note_id).await {
         window_data.position = (x, y);
@@ -827,6 +1167,8 @@ async fn save_window_position(note_id: String, x: f64, y: f64) -> Result<(), Str
             size: (800.0, 600.0), // Default size
             always_on_top: false,
             opacity: 0.95,
+            is_shaded: false,
+            original_height: None,
         };
         save_spatial_data(&note_id, &window_data).await?;
     }
@@ -846,6 +1188,8 @@ async fn save_window_size(note_id: String, width: f64, height: f64) -> Result<()
             size: (width, height),
             always_on_top: false,
             opacity: 0.95,
+            is_shaded: false,
+            original_height: None,
         };
         save_spatial_data(&note_id, &window_data).await?;
     }
@@ -883,7 +1227,63 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin({
+            use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
+            
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    log_info!("SHORTCUT-HANDLER", "🎯 Global shortcut handler invoked - Event: {:?}, Shortcut: {:?}", event.state, shortcut);
+                    
+                    // Handle Cmd+Ctrl+Alt+Shift+N (Hyperkey+N)
+                    if event.state == ShortcutState::Pressed {
+                        let hyperkey_n = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                            Code::KeyN
+                        );
+                        
+                        let hyperkey_h = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                            Code::KeyH
+                        );
+                        
+                        // Also check for a simpler shortcut (Cmd+Shift+N) for testing
+                        let simple_shortcut = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::SHIFT),
+                            Code::KeyN
+                        );
+                        
+                        log_debug!("SHORTCUT-HANDLER", "Checking which shortcut was pressed...");
+                        
+                        if shortcut == &hyperkey_n {
+                            log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+N TRIGGERED! Creating new note...");
+                            // Emit event to create new note
+                            match app.emit("menu-new-note", ()) {
+                                Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted menu-new-note event"),
+                                Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit menu-new-note event: {}", e),
+                            }
+                        } else if shortcut == &hyperkey_h {
+                            log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+H TRIGGERED! Toggling hover mode for all detached windows...");
+                            // Emit event to toggle hover mode
+                            match app.emit("toggle-hover-mode", ()) {
+                                Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted toggle-hover-mode event"),
+                                Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit toggle-hover-mode event: {}", e),
+                            }
+                        } else if shortcut == &simple_shortcut {
+                            log_info!("SHORTCUT-HANDLER", "🔥 CMD+SHIFT+N TRIGGERED! Creating new note...");
+                            // Emit event to create new note
+                            match app.emit("menu-new-note", ()) {
+                                Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted menu-new-note event"),
+                                Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit menu-new-note event: {}", e),
+                            }
+                        } else {
+                            log_debug!("SHORTCUT-HANDLER", "Shortcut didn't match any registered patterns");
+                        }
+                    } else {
+                        log_debug!("SHORTCUT-HANDLER", "Event state was not Pressed: {:?}", event.state);
+                    }
+                })
+                .build()
+        })
         .manage(notes_state)
         .manage(config_state)
         .manage(detached_windows_state)
@@ -898,7 +1298,9 @@ pub fn run() {
             toggle_window_visibility,
             set_window_opacity,
             set_window_always_on_top,
+            toggle_all_windows_hover,
             open_system_settings,
+            test_emit_new_note,
             set_window_focus,
             create_detached_window,
             close_detached_window,
@@ -908,17 +1310,25 @@ pub fn run() {
             create_drag_ghost,
             update_drag_ghost_position,
             destroy_drag_ghost,
-            update_app_menu
+            update_app_menu,
+            reregister_global_shortcuts,
+            test_window_creation,
+            toggle_window_shade,
+            toggle_main_window_shade
         ])
         .on_menu_event(|app, event| {
             let menu_id = event.id();
             
+            log_info!("MENU", "Menu event received: {}", menu_id.0);
+            
             // Handle quit menu item
             if menu_id.0 == "quit" {
+                log_info!("MENU", "Quit menu item selected");
                 app.exit(0);
             }
             // Handle minimize menu item
             else if menu_id.0 == "minimize" {
+                log_info!("MENU", "Minimize menu item selected");
                 // In Tauri v2, we'll minimize the main window
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.minimize();
@@ -926,8 +1336,12 @@ pub fn run() {
             }
             // Handle new note menu item
             else if menu_id.0 == "new-note" {
+                log_info!("MENU", "New Note menu item selected - emitting menu-new-note event");
                 // Emit event to create new note
-                let _ = app.emit("menu-new-note", ());
+                match app.emit("menu-new-note", ()) {
+                    Ok(_) => log_info!("MENU", "✅ Successfully emitted menu-new-note event"),
+                    Err(e) => log_error!("MENU", "❌ Failed to emit menu-new-note event: {}", e),
+                }
             }
             // Handle note menu items
             else if menu_id.0.starts_with("open-note-") {
@@ -983,23 +1397,68 @@ pub fn run() {
             
             // Register global shortcut for toggle visibility (Hyperkey+N)
             {
+                use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+                
+                log_info!("STARTUP", "🚀 Initializing global shortcuts...");
+                
+                // Create the shortcut object for Cmd+Ctrl+Alt+Shift+N
+                let hyperkey_shortcut = Shortcut::new(
+                    Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                    Code::KeyN
+                );
+                
+                log_info!("STARTUP", "Attempting to register global shortcut: Cmd+Ctrl+Alt+Shift+N");
+                
                 let shortcut_manager = app_handle.global_shortcut();
-                match shortcut_manager.register("Cmd+Ctrl+Alt+Shift+N") {
-                    Ok(_) => {},
-                    Err(e) => {
-                        eprintln!("Failed to register global shortcut: {}", e);
-                        eprintln!("You may need to grant accessibility permissions to this app in System Settings > Privacy & Security > Accessibility");
-                    }
+                
+                // First, try to unregister if it exists
+                let unregister_shortcut = hyperkey_shortcut.clone();
+                match shortcut_manager.unregister(unregister_shortcut) {
+                    Ok(_) => log_info!("STARTUP", "Unregistered existing shortcut"),
+                    Err(e) => log_debug!("STARTUP", "No existing shortcut to unregister: {}", e),
                 }
                 
-                // Listen to shortcut events
-                let app_handle_for_shortcut = app_handle.clone();
-                let _ = shortcut_manager.on_shortcut("Cmd+Ctrl+Alt+Shift+N", move |_app, _shortcut, _event| {
-                    let app_handle_clone = app_handle_for_shortcut.clone();
-                    tauri::async_runtime::spawn(async move {
-                        let _ = toggle_window_visibility(app_handle_clone).await;
-                    });
-                });
+                // Now register the shortcut
+                match shortcut_manager.register(hyperkey_shortcut) {
+                    Ok(_) => {
+                        log_info!("STARTUP", "✅ Successfully registered global shortcut: Cmd+Ctrl+Alt+Shift+N");
+                        log_info!("STARTUP", "The shortcut should now create a new note from anywhere");
+                        
+                        // Register Hyperkey+H for hover mode
+                        let hyperkey_h = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                            Code::KeyH
+                        );
+                        
+                        match shortcut_manager.register(hyperkey_h) {
+                            Ok(_) => {
+                                log_info!("STARTUP", "✅ Successfully registered global shortcut: Cmd+Ctrl+Alt+Shift+H (Hover mode)");
+                            },
+                            Err(e) => {
+                                log_error!("STARTUP", "❌ Failed to register Hyperkey+H: {}", e);
+                            }
+                        }
+                        
+                        // Also register Cmd+Shift+N for testing
+                        let test_shortcut = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::SHIFT),
+                            Code::KeyN
+                        );
+                        
+                        match shortcut_manager.register(test_shortcut) {
+                            Ok(_) => {
+                                log_info!("STARTUP", "✅ Also registered test shortcut: Cmd+Shift+N");
+                            },
+                            Err(e) => {
+                                log_debug!("STARTUP", "Could not register test shortcut: {}", e);
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        log_error!("STARTUP", "❌ Failed to register global shortcut: {}", e);
+                        log_error!("STARTUP", "You may need to grant accessibility permissions to this app in System Settings > Privacy & Security > Accessibility");
+                    }
+                }
             }
             
             // Apply config settings synchronously

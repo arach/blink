@@ -57,8 +57,8 @@
     font-feature-settings: 'liga' 1, 'calt' 1;
     letter-spacing: -0.025em;
     line-height: 1.5;
-    font-size: 11px;
-    font-weight: 400;
+    font-size: 12px;
+    font-weight: 500;
   }
   
   /* Content font for note text - optimized for reading */
@@ -340,5 +340,58 @@
     @apply shadow-md hover:shadow-lg transition-all hover:scale-110;
     position: relative;
     z-index: 3;
+  }
+  
+  /* Disable text selection for UI elements */
+  .select-none {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  
+  /* Window roll animation */
+  .window-content-transition {
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                opacity 0.2s ease-out;
+  }
+  
+  /* Remove hover effect on title bar */
+  [data-tauri-drag-region] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* Better text rendering */
+  .text-soft {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Ensure drag ghost doesn't block events */
+  .drag-ghost {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  
+  /* Prevent text selection during drag */
+  body.dragging {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing !important;
+  }
+  
+  body.dragging * {
+    cursor: grabbing !important;
+  }
+  
+  /* Middle-click hint on title bars */
+  [data-tauri-drag-region]:hover {
+    cursor: move;
+  }
+  
+  /* Visual feedback for middle-click */
+  [data-tauri-drag-region]:active:not(:active[data-left-click]) {
+    opacity: 0.8;
+    transition: opacity 0.1s;
   }
 }

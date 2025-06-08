@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -26,7 +26,7 @@ interface Note {
 
 function App() {
   const { config } = useConfigStore();
-  const [sidebarVisible, setSidebarVisible] = useState(false);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [currentContent, setCurrentContent] = useState('');
@@ -61,6 +61,7 @@ function App() {
     justCompleted: false,
     updatePending: false,
   });
+  
 
   // Detached window detection
   const [isDetachedWindow, setIsDetachedWindow] = useState(false);
@@ -95,6 +96,8 @@ function App() {
   // Debug logging
   console.log('Config loaded:', config);
   console.log('Focus mode:', config.appearance?.focusMode);
+  console.log('Current notes count:', notes.length);
+  console.log('Selected note ID:', selectedNoteId);
 
   // Real-time sync for selected note
   useNoteSync(selectedNoteId, (updatedNote) => {
@@ -125,6 +128,8 @@ function App() {
   // Load notes on startup and check permissions
   useEffect(() => {
     const initializeApp = async () => {
+      console.log('[NOTES-APP] [FRONTEND] Initializing app...');
+      
       // Load config first and wait for it to complete
       await loadConfig();
       
@@ -132,8 +137,10 @@ function App() {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Then load other data
-      loadNotes();
+      await loadNotes();
       loadWindows();
+      
+      console.log('[NOTES-APP] [FRONTEND] App initialization complete');
       
       if (!isDetachedWindow) {
         checkGlobalShortcutPermissions();
@@ -141,18 +148,222 @@ function App() {
     };
     
     initializeApp();
-  }, [isDetachedWindow]);
+  }, [isDetachedWindow, loadConfig, loadWindows]);
 
-  // Listen for menu events
+  // Define createNewNote function before using it in ref
+  const createNewNote = async () => {
+    console.log('[NOTES-APP] [FRONTEND] Creating new note...');
+    console.log('[NOTES-APP] [FRONTEND] Function called from:', new Error().stack?.split('\n')[2]);
+    console.log('[NOTES-APP] [FRONTEND] Current app state:', {
+      notesCount: notes.length,
+      selectedNoteId,
+      isDetachedWindow,
+      loading
+    });
+    
+    try {
+      console.log('[NOTES-APP] [FRONTEND] Invoking create_note command...');
+      const newNote = await invoke<Note>('create_note', {
+        request: {
+          title: 'Untitled',
+          content: '',
+          tags: []
+        }
+      });
+      console.log('[NOTES-APP] [FRONTEND] ✅ New note created:', newNote.id);
+      console.log('[NOTES-APP] [FRONTEND] Note object:', JSON.stringify(newNote));
+      console.log('[NOTES-APP] [FRONTEND] Current notes before update:', notes.length);
+      
+      setNotes(prev => {
+        console.log('[NOTES-APP] [FRONTEND] Updating notes array, previous length:', prev.length);
+        const updated = [newNote, ...prev];
+        console.log('[NOTES-APP] [FRONTEND] New notes array length:', updated.length);
+        return updated;
+      });
+      
+      setSelectedNoteId(newNote.id);
+      setCurrentContent('');
+      console.log('[NOTES-APP] [FRONTEND] State updates queued');
+      
+      // Force a re-render by logging the state
+      setTimeout(() => {
+        console.log('[NOTES-APP] [FRONTEND] After state update - notes count:', notes.length);
+      }, 100);
+    } catch (error) {
+      console.error('[NOTES-APP] [FRONTEND] ❌ Failed to create note:', error);
+      console.error('[NOTES-APP] [FRONTEND] Error details:', JSON.stringify(error));
+    }
+  };
+
+  // Listen for menu events - use a ref to avoid stale closures
+  const createNewNoteRef = useRef(createNewNote);
+  createNewNoteRef.current = createNewNote;
+  
+  // Also store in window for debugging
   useEffect(() => {
-    const unlistenNewNote = listen('menu-new-note', () => {
+    (window as any).createNewNoteRef = createNewNoteRef;
+    (window as any).directCreateNewNote = createNewNote;
+    
+    // Add test for window resizing
+    (window as any).testWindowResize = async () => {
+      console.log('[TEST-RESIZE] Testing window resize functionality...');
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const { LogicalSize } = await import('@tauri-apps/api/dpi');
+        
+        const window = getCurrentWebviewWindow();
+        console.log('[TEST-RESIZE] Window instance:', window);
+        
+        const currentSize = await window.innerSize();
+        console.log('[TEST-RESIZE] Current size:', currentSize);
+        
+        console.log('[TEST-RESIZE] Setting size to 400x300...');
+        await window.setSize(new LogicalSize(400, 300));
+        
+        console.log('[TEST-RESIZE] Waiting 2 seconds...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        console.log('[TEST-RESIZE] Restoring original size...');
+        await window.setSize(new LogicalSize(currentSize.width, currentSize.height));
+        
+        console.log('[TEST-RESIZE] Test complete!');
+      } catch (error) {
+        console.error('[TEST-RESIZE] Error:', error);
+      }
+    };
+    
+    // Add test window creation function
+    (window as any).testWindowCreation = async () => {
+      try {
+        console.log('[TEST] Testing window creation...');
+        const result = await invoke('test_window_creation');
+        console.log('[TEST] Window creation result:', result);
+      } catch (error) {
+        console.error('[TEST] Window creation error:', error);
+      }
+    };
+    
+    // Add test for detached window creation
+    (window as any).testDetachedWindow = async (noteId?: string) => {
+      try {
+        const actualNoteId = noteId || selectedNoteId || notes[0]?.id;
+        if (!actualNoteId) {
+          console.error('[TEST] No note ID available for testing');
+          return;
+        }
+        console.log('[TEST] Testing detached window creation for note:', actualNoteId);
+        const result = await createWindow(actualNoteId);
+        console.log('[TEST] Detached window creation result:', result);
+      } catch (error) {
+        console.error('[TEST] Detached window creation error:', error);
+      }
+    };
+  }, [createNewNote, createWindow, selectedNoteId, notes]);
+  
+  // Expose createNewNote to window for debugging
+  useEffect(() => {
+    (window as any).debugCreateNewNote = () => {
+      console.log('[NOTES-APP] [DEBUG] Manually triggering createNewNote from window');
       createNewNote();
+    };
+    
+    (window as any).debugEmitEvent = async () => {
+      console.log('[NOTES-APP] [DEBUG] Manually emitting menu-new-note event');
+      try {
+        const result = await invoke('test_emit_new_note');
+        console.log('[NOTES-APP] [DEBUG] Emit result:', result);
+      } catch (error) {
+        console.error('[NOTES-APP] [DEBUG] Emit error:', error);
+      }
+    };
+    
+    return () => {
+      delete (window as any).debugCreateNewNote;
+      delete (window as any).debugEmitEvent;
+    };
+  }, []);
+  
+  useEffect(() => {
+    console.log('[NOTES-APP] [FRONTEND] Setting up event listeners');
+    console.log('[NOTES-APP] [FRONTEND] createNewNote function exists:', typeof createNewNote);
+    console.log('[NOTES-APP] [FRONTEND] createNewNoteRef current:', createNewNoteRef.current);
+    
+    const setupListeners = async () => {
+      const unlisteners: (() => void)[] = [];
+      
+      try {
+        // Listen for new note event
+        const unlistenNewNote = await listen('menu-new-note', async (event) => {
+          console.log('[NOTES-APP] [FRONTEND] 🔥 Received menu-new-note event!', event);
+          
+          // Simple inline implementation to test
+          try {
+            console.log('[NOTES-APP] [FRONTEND] Creating note inline...');
+            const newNote = await invoke<Note>('create_note', {
+              request: {
+                title: 'Untitled',
+                content: '',
+                tags: []
+              }
+            });
+            console.log('[NOTES-APP] [FRONTEND] Note created inline:', newNote);
+            
+            // Update state directly in the handler
+            setNotes(prev => {
+              console.log('[NOTES-APP] [FRONTEND] Inline update - prev length:', prev.length);
+              const updated = [newNote, ...prev];
+              console.log('[NOTES-APP] [FRONTEND] Inline update - new length:', updated.length);
+              // Force a re-render by creating a new array
+              return [...updated];
+            });
+            setSelectedNoteId(newNote.id);
+            setCurrentContent('');
+            
+            // Force update check
+            setTimeout(() => {
+              console.log('[NOTES-APP] [FRONTEND] Post-update check - current DOM state');
+            }, 100);
+          } catch (error) {
+            console.error('[NOTES-APP] [FRONTEND] Inline create failed:', error);
+          }
+        });
+        unlisteners.push(unlistenNewNote);
+        
+        // Listen for hover mode toggle event
+        const unlistenHover = await listen('toggle-hover-mode', async (event) => {
+          console.log('[NOTES-APP] [FRONTEND] 🔥 Received toggle-hover-mode event!', event);
+          try {
+            const hoverState = await invoke<boolean>('toggle_all_windows_hover');
+            console.log('[NOTES-APP] [FRONTEND] Hover mode toggled. New state:', hoverState);
+          } catch (error) {
+            console.error('[NOTES-APP] [FRONTEND] Failed to toggle hover mode:', error);
+          }
+        });
+        unlisteners.push(unlistenHover);
+        
+        console.log('[NOTES-APP] [FRONTEND] ✅ All listeners setup complete');
+        
+        return () => {
+          unlisteners.forEach(fn => fn());
+        };
+      } catch (error) {
+        console.error('[NOTES-APP] [FRONTEND] ❌ Failed to setup listeners:', error);
+        return () => {};
+      }
+    };
+    
+    let cleanup: (() => void) | undefined;
+    setupListeners().then(fn => {
+      cleanup = fn;
     });
 
     return () => {
-      unlistenNewNote.then(fn => fn());
+      console.log('[NOTES-APP] [FRONTEND] Cleaning up event listeners');
+      if (cleanup) {
+        cleanup();
+      }
     };
-  }, []);
+  }, []); // Empty dependency array - set up only once
 
   const checkGlobalShortcutPermissions = async () => {
     // Check if user has already dismissed the prompt
@@ -321,111 +532,72 @@ function App() {
   };
 
   // Handle keyboard shortcuts
-  // Enhanced drag handlers with external ghost window
+  // Simplified drag handlers
   useEffect(() => {
     const handleGlobalMouseMove = async (e: MouseEvent) => {
-      if (dragState.noteId) {
-        const deltaX = Math.abs(e.clientX - dragState.startX);
-        const deltaY = Math.abs(e.clientY - dragState.startY);
-        const threshold = 8; // Reduced threshold for quicker response
-        const isDragging = deltaX > threshold || deltaY > threshold;
-
-        setDragState(prev => ({
-          ...prev,
-          currentX: e.clientX,
-          currentY: e.clientY,
-          isDragging: prev.isDragging || isDragging
-        }));
-
-        // Create ghost window if we just started dragging
-        if (isDragging && !dragState.isDragging) {
-          const note = notes.find(n => n.id === dragState.noteId);
-          if (note) {
-            const title = extractTitleFromContent(note.content);
-            try {
-              // Create ghost immediately without delay
-              await invoke('create_drag_ghost', {
-                noteTitle: title,
-                x: e.screenX - 150,
-                y: e.screenY - 40
-              });
-            } catch (error) {
-              console.error('Failed to create drag ghost:', error);
-            }
+      if (!dragState.noteId) return;
+      
+      const deltaX = Math.abs(e.clientX - dragState.startX);
+      const deltaY = Math.abs(e.clientY - dragState.startY);
+      const threshold = 15; // Clear threshold
+      
+      if (!dragState.isDragging && (deltaX > threshold || deltaY > threshold)) {
+        // Start dragging
+        setDragState(prev => ({ ...prev, isDragging: true }));
+        document.body.classList.add('dragging');
+        
+        const note = notes.find(n => n.id === dragState.noteId);
+        if (note) {
+          const title = extractTitleFromContent(note.content);
+          try {
+            await invoke('create_drag_ghost', {
+              noteTitle: title,
+              x: e.screenX - 50,
+              y: e.screenY - 20
+            });
+          } catch (error) {
+            console.error('Failed to create drag ghost:', error);
           }
         }
-
-        // Update ghost position if dragging - throttled for smoothness
-        if (dragState.isDragging) {
-          // Use requestAnimationFrame for smoother updates
-          if (!dragState.updatePending) {
-            dragState.updatePending = true;
-            requestAnimationFrame(async () => {
-              try {
-                await invoke('update_drag_ghost_position', {
-                  x: e.screenX - 150,
-                  y: e.screenY - 40
-                });
-                dragState.updatePending = false;
-              } catch (error) {
-                // Silently ignore positioning errors
-                dragState.updatePending = false;
-              }
-            });
-          }
+      } else if (dragState.isDragging) {
+        // Update ghost position while dragging
+        try {
+          await invoke('update_drag_ghost_position', {
+            x: e.screenX - 50,
+            y: e.screenY - 20
+          });
+        } catch (error) {
+          // Silently ignore
         }
       }
     };
 
     const handleGlobalMouseUp = async (e: MouseEvent) => {
-      if (dragState.isDragging && dragState.noteId) {
-        // Destroy ghost window
+      if (!dragState.noteId) return;
+      
+      const wasDragging = dragState.isDragging;
+      const noteId = dragState.noteId;
+      
+      // Clean up ghost window
+      if (wasDragging) {
         try {
           await invoke('destroy_drag_ghost');
         } catch (error) {
           console.error('Failed to destroy drag ghost:', error);
         }
-
-        const deltaX = Math.abs(e.clientX - dragState.startX);
-        const deltaY = Math.abs(e.clientY - dragState.startY);
-        const detachThreshold = 50; // Slightly reduced for easier detachment
         
-        if ((deltaX > detachThreshold || deltaY > detachThreshold) && dragState.noteId && !isWindowOpen(dragState.noteId)) {
-          // Small delay to ensure ghost window is properly positioned
-          setTimeout(async () => {
-            // Position window exactly where the ghost window was (matching ghost offset)
-            if (dragState.noteId) {
-              await createWindow(dragState.noteId, e.screenX - 150, e.screenY - 40);
-            }
-          }, 50);
-          
-          // Show completion state briefly
-          setDragState({
-            isDragging: false,
-            noteId: dragState.noteId,
-            startX: 0,
-            startY: 0,
-            currentX: 0,
-            currentY: 0,
-            justCompleted: true,
-          });
-          
-          // Clear completion state after animation
-          setTimeout(() => {
-            setDragState({
-              isDragging: false,
-              noteId: null,
-              startX: 0,
-              startY: 0,
-              currentX: 0,
-              currentY: 0,
-              justCompleted: false,
-            });
-          }, 1000);
-          return;
+        // Check if we should create a window
+        const sidebarEl = document.querySelector('.sidebar');
+        const sidebarRect = sidebarEl?.getBoundingClientRect();
+        const isOutsideSidebar = !sidebarRect || e.clientX > sidebarRect.right;
+        
+        if (isOutsideSidebar && !isWindowOpen(noteId)) {
+          // Create window at mouse position
+          await createWindow(noteId, e.screenX - 400, e.screenY - 300);
         }
       }
       
+      // Reset drag state
       setDragState({
         isDragging: false,
         noteId: null,
@@ -435,6 +607,8 @@ function App() {
         currentY: 0,
         justCompleted: false,
       });
+      
+      document.body.classList.remove('dragging');
     };
 
     if (dragState.noteId) {
@@ -446,7 +620,7 @@ function App() {
         document.removeEventListener('mouseup', handleGlobalMouseUp);
       };
     }
-  }, [dragState, createWindow, isWindowOpen, notes]);
+  }, [dragState.noteId, dragState.isDragging, dragState.startX, dragState.startY, createWindow, isWindowOpen, notes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -459,12 +633,28 @@ function App() {
         return;
       }
 
-      // Escape to close command palette or exit focus mode
+      // Escape to close command palette or exit focus mode or cancel drag
       if (e.key === 'Escape') {
         if (showCommandPalette) {
           e.preventDefault();
           setShowCommandPalette(false);
           setCommandQuery('');
+          return;
+        } else if (dragState.isDragging) {
+          e.preventDefault();
+          // Cancel drag operation
+          setDragState({
+            isDragging: false,
+            noteId: null,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            justCompleted: false,
+          });
+          document.body.classList.remove('dragging');
+          // Destroy any ghost window
+          invoke('destroy_drag_ghost').catch(() => {});
           return;
         } else if (config.appearance?.focusMode) {
           e.preventDefault();
@@ -498,6 +688,7 @@ function App() {
       // Cmd+N to create new note (standard shortcut)
       if (e.metaKey && e.key === 'n' && !e.shiftKey && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
+        console.log('[NOTES-APP] [FRONTEND] Cmd+N pressed');
         createNewNote();
         return;
       }
@@ -505,15 +696,12 @@ function App() {
       // Cmd+Shift+N to create new note (alternative shortcut)
       if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
+        console.log('[NOTES-APP] [FRONTEND] Cmd+Shift+N pressed');
         createNewNote();
         return;
       }
 
-      // Hyperkey + N (Cmd+Ctrl+Alt+Shift+N) to create new note
-      if (e.metaKey && e.ctrlKey && e.altKey && e.shiftKey && e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        createNewNote();
-      }
+      // Note: Hyperkey + N (Cmd+Ctrl+Alt+Shift+N) is handled by the global shortcut in Rust
 
       // Cmd+Shift+P to toggle preview mode
       if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'p' && selectedNote) {
@@ -553,9 +741,18 @@ function App() {
   }, [showCommandPalette, selectedCommandIndex, commandQuery, config.appearance?.focusMode, updateConfig]);
 
   const loadNotes = async () => {
+    console.log('[NOTES-APP] [FRONTEND] Loading notes...');
     try {
       const loadedNotes = await invoke<Note[]>('get_notes');
+      console.log('[NOTES-APP] [FRONTEND] Loaded notes:', loadedNotes.length);
+      console.log('[NOTES-APP] [FRONTEND] Notes data:', JSON.stringify(loadedNotes));
+      
       setNotes(loadedNotes);
+      
+      // Verify the state was updated
+      setTimeout(() => {
+        console.log('[NOTES-APP] [FRONTEND] After setNotes - state check');
+      }, 0);
       
       // Select first note if available
       if (loadedNotes.length > 0 && !selectedNoteId) {
@@ -563,26 +760,9 @@ function App() {
         setCurrentContent(loadedNotes[0].content);
       }
     } catch (error) {
-      console.error('Failed to load notes:', error);
+      console.error('[NOTES-APP] [FRONTEND] Failed to load notes:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const createNewNote = async () => {
-    try {
-      const newNote = await invoke<Note>('create_note', {
-        request: {
-          title: 'Untitled',
-          content: '',
-          tags: []
-        }
-      });
-      setNotes(prev => [newNote, ...prev]);
-      setSelectedNoteId(newNote.id);
-      setCurrentContent('');
-    } catch (error) {
-      console.error('Failed to create note:', error);
     }
   };
 
@@ -683,6 +863,12 @@ function App() {
     // Don't start drag on right click
     if (e.button !== 0) return;
     
+    // Don't interfere with double-click
+    if (e.detail === 2) return;
+    
+    // Prevent text selection during potential drag
+    e.preventDefault();
+    
     setDragState({
       isDragging: false,
       noteId,
@@ -711,29 +897,50 @@ function App() {
         dragState.isDragging ? 'bg-blue-500/5' : 'bg-background/95'
       } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}
       style={{ backgroundColor: 'rgba(18, 19, 23, 0.95)' }}
-      onClick={async () => {
-        // Bring main window to focus when clicked
-        try {
-          await invoke('set_window_focus');
-        } catch (error) {
-          console.log('Focus command not available:', error);
-        }
-      }}
     >
-      {/* Ultra-thin top bar - edge to edge, draggable */}
+      {/* Custom title bar overlay with native controls visible */}
       <div 
-        className="h-6 bg-background border-b border-border/30 flex items-center justify-center px-3 cursor-move"
-        data-tauri-drag-region
+        className="h-8 flex items-center relative select-none"
+        style={{ 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
-        <span className="text-xs text-soft/50 tracking-wide">Notes</span>
+        {/* Left space for native window controls on macOS */}
+        <div className="w-20" />
+        
+        {/* Center draggable area */}
+        <div 
+          className="flex-1 h-full flex items-center justify-center cursor-move select-none"
+          data-tauri-drag-region
+          onMouseDown={async (e) => {
+            // Middle click (button 1) to toggle shade
+            if (e.button === 1) {
+              e.preventDefault();
+              try {
+                const { DetachedWindowsAPI } = await import('./services/detached-windows-api');
+                await DetachedWindowsAPI.toggleMainWindowShade();
+              } catch (error) {
+                console.error('Failed to toggle shade:', error);
+              }
+            }
+          }}
+        >
+          <span className="text-[11px] text-soft/40 font-medium select-none pointer-events-none" title="Middle-click to shade">Notes App</span>
+        </div>
+        
+        {/* Right side balance */}
+        <div className="w-20 px-3 flex items-center justify-end">
+          <span className="text-[11px] text-soft/40 font-medium select-none pointer-events-none">{notes.length} notes</span>
+        </div>
       </div>
 
       {/* Drop zone indicator during drag */}
       {dragState.isDragging && (
-        <div className="absolute inset-0 pointer-events-none z-10">
-          <div className="absolute inset-0 border-2 border-dashed border-blue-500/40 rounded-lg m-2 bg-blue-500/5 animate-pulse"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-blue-400/60 text-sm font-medium">
-            Drag outside to create window
+        <div className="fixed bottom-4 right-4 pointer-events-none z-50 bg-blue-500/20 border border-blue-500/40 rounded-lg px-3 py-2">
+          <div className="text-blue-400 text-xs font-medium">
+            Drag outside sidebar to create window
           </div>
         </div>
       )}
@@ -805,7 +1012,7 @@ function App() {
         sidebarVisible && currentView === 'notes' ? 'w-64' : 'w-0'
       }`}>
         <ResizablePanel
-          className="bg-card border-r border-border/30 flex flex-col"
+          className="bg-card border-r border-border/30 flex flex-col sidebar"
           defaultWidth={256}
           minWidth={180}
           maxWidth={400}
@@ -838,7 +1045,12 @@ function App() {
               notes.map(note => (
                 <div 
                   key={note.id}
-                  onClick={() => selectNote(note.id)}
+                  onClick={() => {
+                    // Only handle click if not dragging
+                    if (!dragState.isDragging && dragState.noteId !== note.id) {
+                      selectNote(note.id);
+                    }
+                  }}
                   onDoubleClick={async () => {
                     if (!isWindowOpen(note.id)) {
                       await createWindow(note.id);
@@ -1055,7 +1267,7 @@ function App() {
       {/* Global IDE-style footer */}
       <div className="h-5 bg-card/40 border-t border-border/25 px-3 flex items-center justify-between text-muted-foreground/60 font-light" style={{ fontSize: '10px' }}>
         <div className="flex items-center gap-4">
-          <span>Tauri Notes</span>
+          <span>Notes App</span>
           <div className="w-px h-3 bg-border/30"></div>
           <span>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
         </div>

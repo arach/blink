@@ -20,7 +20,7 @@
     ],
     "longDescription": "A modern, fast notes application built with Tauri, React, and TypeScript",
     "macOS": {
-      "entitlements": null,
+      "entitlements": "entitlements.plist",
       "exceptionDomain": "",
       "frameworks": [],
       "providerShortName": null,
@@ -57,7 +57,16 @@
             "core:window:allow-center",
             "core:window:allow-is-always-on-top",
             "core:window:allow-minimize",
-            "core:webview:allow-create-webview-window"
+            "core:window:allow-create",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-outer-size",
+            "core:window:allow-set-min-size",
+            "core:webview:allow-create-webview-window",
+            "core:webview:allow-create-webview",
+            "global-shortcut:allow-register",
+            "global-shortcut:allow-unregister",
+            "global-shortcut:allow-is-registered"
           ]
         },
         {
@@ -70,7 +79,42 @@
             "core:window:allow-show",
             "core:window:allow-hide",
             "core:window:allow-set-focus",
-            "core:window:allow-is-visible"
+            "core:window:allow-is-visible",
+            "core:window:allow-close",
+            "core:window:allow-minimize",
+            "core:window:allow-maximize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-outer-size",
+            "core:window:allow-set-min-size",
+            "core:window:allow-set-position",
+            "core:window:allow-center",
+            "core:webview:allow-create-webview-window"
+          ]
+        },
+        {
+          "identifier": "drag-ghost-capability",
+          "description": "Capability for drag ghost window",
+          "windows": ["drag-ghost"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-set-position",
+            "core:window:allow-set-size",
+            "core:webview:allow-create-webview-window"
+          ]
+        },
+        {
+          "identifier": "test-window-capability",
+          "description": "Capability for test window",
+          "windows": ["test-window"],
+          "permissions": [
+            "core:window:allow-show",
+            "core:window:allow-close",
+            "core:webview:allow-create-webview-window"
           ]
         }
       ]
@@ -78,17 +122,18 @@
     "windows": [
       {
         "label": "main",
-        "title": "Notes App",
+        "title": "Notes",
         "width": 1000,
         "height": 700,
-        "minWidth": 600,
-        "minHeight": 500,
+        "minWidth": 200,
+        "minHeight": 40,
         "resizable": true,
         "fullscreen": false,
-        "transparent": true,
-        "decorations": false,
+        "transparent": false,
+        "decorations": true,
         "alwaysOnTop": false,
         "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
         "visible": true,
         "center": true
       }
