@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { createRoot } from 'react-dom/client';
+import { DragCancelEffect } from '../components/DragCancelEffect';
 
 interface DragState {
   isDragging: boolean;
@@ -14,6 +16,24 @@ interface UseDragToDetachOptions {
   onDrop: (noteId: string, x: number, y: number) => Promise<void>;
   dragThreshold?: number;
 }
+
+// Helper function to show drag cancel effect
+const showDragCancelEffect = (x: number, y: number) => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  
+  root.render(
+    <DragCancelEffect 
+      x={x} 
+      y={y} 
+      onComplete={() => {
+        root.unmount();
+        document.body.removeChild(container);
+      }}
+    />
+  );
+};
 
 export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOptions) {
   const [dragState, setDragState] = useState<DragState>({
@@ -231,6 +251,13 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
         } else {
           // Either didn't drag or dropped inside sidebar - close the window
           console.log('[DRAG] Closing pre-created window (not dropped outside)');
+          
+          // Show cancel effect if we actually dragged but dropped inside sidebar
+          if (dragState.isDragging && !isOutsideSidebar) {
+            const mouseEvent = _e;
+            showDragCancelEffect(mouseEvent.clientX, mouseEvent.clientY);
+          }
+          
           await invoke('close_hybrid_drag_window', {
             windowLabel: dragRef.current.realWindowLabel,
           }).catch(() => {});

@@ -330,17 +330,17 @@ function App() {
         });
         unlisteners.push(unlistenNewNote);
         
-        // Listen for hover mode toggle event
-        const unlistenHover = await listen('toggle-hover-mode', async (event) => {
-          console.log('[NOTES-APP] [FRONTEND] 🔥 Received toggle-hover-mode event!', event);
-          try {
-            const hoverState = await invoke<boolean>('toggle_all_windows_hover');
-            console.log('[NOTES-APP] [FRONTEND] Hover mode toggled. New state:', hoverState);
-          } catch (error) {
-            console.error('[NOTES-APP] [FRONTEND] Failed to toggle hover mode:', error);
-          }
-        });
-        unlisteners.push(unlistenHover);
+        // Listen for hover mode toggle event - DISABLED: Now handled directly in backend
+        // const unlistenHover = await listen('toggle-hover-mode', async (event) => {
+        //   console.log('[NOTES-APP] [FRONTEND] 🔥 Received toggle-hover-mode event!', event);
+        //   try {
+        //     const hoverState = await invoke<boolean>('toggle_all_windows_hover');
+        //     console.log('[NOTES-APP] [FRONTEND] Hover mode toggled. New state:', hoverState);
+        //   } catch (error) {
+        //     console.error('[NOTES-APP] [FRONTEND] Failed to toggle hover mode:', error);
+        //   }
+        // });
+        // unlisteners.push(unlistenHover);
         
         // Listen for window closed events
         const unlistenWindowClosed = await listen('window-closed', async (event) => {
@@ -925,9 +925,17 @@ function App() {
                 <div 
                   key={note.id}
                   data-note-id={note.id}
-                  onClick={() => {
-                    // Only handle click if not currently dragging
-                    if (!isDragging) {
+                  onClick={(e) => {
+                    // Middle click to open in new window
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      if (!isWindowOpen(note.id)) {
+                        const x = e.screenX + 100;
+                        const y = e.screenY - 100;
+                        createWindow(note.id, x, y);
+                      }
+                    } else if (e.button === 0 && !isDragging) {
+                      // Left click to select
                       selectNote(note.id);
                     }
                   }}
@@ -940,7 +948,26 @@ function App() {
                     }
                   }}
                   onContextMenu={(e) => handleContextMenu(e, note.id)}
-                  onMouseDown={(e) => startDrag(e, note.id)}
+                  onMouseDown={(e) => {
+                    if (e.button === 0) {
+                      // Only start drag on left mouse button
+                      startDrag(e, note.id);
+                    } else if (e.button === 1) {
+                      // Prevent default middle-click behavior
+                      e.preventDefault();
+                    }
+                  }}
+                  onAuxClick={(e) => {
+                    // Handle middle-click (more reliable than onClick for middle button)
+                    if (e.button === 1) {
+                      e.preventDefault();
+                      if (!isWindowOpen(note.id)) {
+                        const x = e.screenX + 100;
+                        const y = e.screenY - 100;
+                        createWindow(note.id, x, y);
+                      }
+                    }
+                  }}
                   className={`group relative px-3 py-2.5 cursor-pointer transition-all duration-200 rounded-md select-none ${
                     selectedNoteId === note.id 
                       ? 'bg-primary/10 border border-primary/20' 

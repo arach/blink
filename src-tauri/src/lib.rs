@@ -179,6 +179,7 @@ impl Default for AppConfig {
 type NotesState = Mutex<HashMap<String, Note>>;
 type ConfigState = Mutex<AppConfig>;
 type DetachedWindowsState = Mutex<HashMap<String, DetachedWindow>>;
+type ToggleState = Mutex<bool>;
 
 #[tauri::command]
 async fn get_notes(notes: State<'_, NotesState>) -> Result<Vec<Note>, String> {
@@ -330,37 +331,83 @@ async fn set_window_always_on_top(app: tauri::AppHandle, always_on_top: bool) ->
 async fn toggle_all_windows_hover(
     app: tauri::AppHandle,
     detached_windows: State<'_, DetachedWindowsState>,
+    notes: State<'_, NotesState>,
+    toggle_state: State<'_, ToggleState>,
 ) -> Result<bool, String> {
-    log_info!("HOVER", "Toggling hover mode for all detached windows...");
+    // Check if a toggle is already in progress
+    let mut is_toggling = toggle_state.lock().await;
+    if *is_toggling {
+        log_info!("HOVER", "Toggle already in progress, skipping...");
+        return Ok(false);
+    }
+    *is_toggling = true;
+    drop(is_toggling);
     
-    let mut windows_lock = detached_windows.lock().await;
-    
-    // Determine new hover state (if any window is not hovering, set all to hover)
-    let any_not_hovering = windows_lock.values().any(|w| !w.always_on_top);
-    let new_hover_state = any_not_hovering;
-    
-    log_info!("HOVER", "Setting all windows to hover={}", new_hover_state);
-    
-    // Update all windows
-    for (window_label, window_data) in windows_lock.iter_mut() {
-        if let Some(window) = app.get_webview_window(window_label) {
-            match window.set_always_on_top(new_hover_state) {
-                Ok(_) => {
-                    window_data.always_on_top = new_hover_state;
-                    log_info!("HOVER", "Window {} hover set to {}", window_label, new_hover_state);
-                },
-                Err(e) => {
-                    log_error!("HOVER", "Failed to set hover for window {}: {}", window_label, e);
+    // Perform the toggle operation
+    let result = {
+        log_info!("HOVER", "Toggling visibility for all windows...");
+        
+        // Add a small delay to debounce rapid toggles
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        
+        // Check if main window is visible
+        let main_window = app.get_webview_window("main")
+            .ok_or("Main window not found")?;
+        let main_visible = main_window.is_visible()
+            .map_err(|e| format!("Failed to check main window visibility: {}", e))?;
+        
+        if main_visible {
+            // Hide all windows
+            log_info!("HOVER", "Hiding all windows...");
+            main_window.hide().map_err(|e| format!("Failed to hide main window: {}", e))?;
+            
+            // Hide all detached windows
+            let windows_lock = detached_windows.lock().await;
+            for (window_label, _) in windows_lock.iter() {
+                if let Some(window) = app.get_webview_window(window_label) {
+                    let _ = window.hide();
                 }
             }
+            Ok(false)
+        } else {
+            // Show all windows
+            log_info!("HOVER", "Showing all windows...");
+            main_window.show().map_err(|e| format!("Failed to show main window: {}", e))?;
+            main_window.set_focus().map_err(|e| format!("Failed to focus main window: {}", e))?;
+            
+            // Show or restore all detached windows
+            let windows_lock = detached_windows.lock().await;
+            let windows_to_restore: Vec<DetachedWindow> = windows_lock.values().cloned().collect();
+            drop(windows_lock);
+            
+            for window_data in windows_to_restore {
+                // Check if window exists
+                if let Some(window) = app.get_webview_window(&window_data.window_label) {
+                    // Window exists, just show it
+                    let _ = window.show();
+                } else {
+                    // Window doesn't exist, recreate it
+                    log_info!("HOVER", "Restoring window for note: {}", window_data.note_id);
+                    let request = CreateDetachedWindowRequest {
+                        note_id: window_data.note_id.clone(),
+                        x: Some(window_data.position.0),
+                        y: Some(window_data.position.1),
+                        width: Some(window_data.size.0),
+                        height: Some(window_data.size.1),
+                    };
+                    let _ = create_detached_window(request, app.clone(), detached_windows.clone(), notes.clone()).await;
+                }
+            }
+            Ok(true)
         }
-    }
+    };
     
-    // Save the updated window states
-    save_detached_windows_to_disk(&windows_lock).await?;
+    // Reset the toggle state
+    let mut is_toggling = toggle_state.lock().await;
+    *is_toggling = false;
+    drop(is_toggling);
     
-    log_info!("HOVER", "Hover mode toggle complete. New state: {}", new_hover_state);
-    Ok(new_hover_state)
+    result
 }
 
 #[tauri::command]
@@ -688,29 +735,8 @@ async fn finalize_hybrid_drag_window(
         drop(windows_lock);
         update_app_menu(app.clone(), detached_windows.clone(), notes.clone()).await?;
         
-        // Set up window event listeners for position/size tracking
-        let note_id_clone = note_id.clone();
-        window.on_window_event(move |event| {
-            match event {
-                tauri::WindowEvent::Moved(position) => {
-                    let note_id = note_id_clone.clone();
-                    let x = position.x as f64;
-                    let y = position.y as f64;
-                    tauri::async_runtime::spawn(async move {
-                        let _ = save_window_position(note_id, x, y).await;
-                    });
-                },
-                tauri::WindowEvent::Resized(size) => {
-                    let note_id = note_id_clone.clone();
-                    let width = size.width as f64;
-                    let height = size.height as f64;
-                    tauri::async_runtime::spawn(async move {
-                        let _ = save_window_size(note_id, width, height).await;
-                    });
-                },
-                _ => {}
-            }
-        });
+        // Note: Window position/size tracking is now handled by the frontend useWindowTracking hook
+        // with proper debouncing to avoid excessive file I/O operations
         
         // Emit event to notify frontend
         app.emit("window-created", note_id.clone()).map_err(|e| e.to_string())?;
@@ -818,8 +844,10 @@ async fn create_detached_window(
     .inner_size(width, height)
     .position(x, y)
     .visible(true)
+    .resizable(true)     // Enable window resizing
     .decorations(false)  // Disable native decorations for custom title bar
     .transparent(true)   // Enable transparency for custom window styling
+    .shadow(true)        // Enable window shadow
     .min_inner_size(400.0, 300.0)  // Minimum size for proper display
     .build()
     .map_err(|e| {
@@ -869,31 +897,9 @@ async fn create_detached_window(
     })?;
     println!("[CREATE_DETACHED_WINDOW] App menu updated ✓");
     
-    // Set up window event listeners for position/size tracking
-    println!("[CREATE_DETACHED_WINDOW] Setting up window event listeners...");
-    let note_id_clone = request.note_id.clone();
-    webview_window.on_window_event(move |event| {
-        match event {
-            tauri::WindowEvent::Moved(position) => {
-                let note_id = note_id_clone.clone();
-                let x = position.x as f64;
-                let y = position.y as f64;
-                tauri::async_runtime::spawn(async move {
-                    let _ = save_window_position(note_id, x, y).await;
-                });
-            },
-            tauri::WindowEvent::Resized(size) => {
-                let note_id = note_id_clone.clone();
-                let width = size.width as f64;
-                let height = size.height as f64;
-                tauri::async_runtime::spawn(async move {
-                    let _ = save_window_size(note_id, width, height).await;
-                });
-            },
-            _ => {}
-        }
-    });
-    println!("[CREATE_DETACHED_WINDOW] Event listeners set up ✓");
+    // Note: Window position/size tracking is now handled by the frontend useWindowTracking hook
+    // with proper debouncing to avoid excessive file I/O operations
+    println!("[CREATE_DETACHED_WINDOW] Window tracking delegated to frontend (debounced) ✓");
 
     println!("[CREATE_DETACHED_WINDOW] Window creation completed successfully! Returning: {:?}", detached_window);
     Ok(detached_window)
@@ -1236,6 +1242,8 @@ async fn load_spatial_data(note_id: &str) -> Option<DetachedWindow> {
     spatial_data.get(note_id).cloned()
 }
 
+// Currently unused - kept for potential future use
+#[allow(dead_code)]
 async fn save_spatial_data(note_id: &str, window: &DetachedWindow) -> Result<(), String> {
     let notes_dir = get_notes_directory()?;
     let spatial_file = notes_dir.join("spatial_positions.json");
@@ -1449,6 +1457,8 @@ async fn reregister_global_shortcuts(app: tauri::AppHandle) -> Result<String, St
     }
 }
 
+// Currently unused - position tracking handled by frontend with debouncing
+#[allow(dead_code)]
 async fn save_window_position(note_id: String, x: f64, y: f64) -> Result<(), String> {
     if let Some(mut window_data) = load_spatial_data(&note_id).await {
         window_data.position = (x, y);
@@ -1470,6 +1480,8 @@ async fn save_window_position(note_id: String, x: f64, y: f64) -> Result<(), Str
     Ok(())
 }
 
+// Currently unused - size tracking handled by frontend with debouncing
+#[allow(dead_code)]
 async fn save_window_size(note_id: String, width: f64, height: f64) -> Result<(), String> {
     if let Some(mut window_data) = load_spatial_data(&note_id).await {
         window_data.size = (width, height);
@@ -1558,11 +1570,19 @@ pub fn run() {
                             }
                         } else if shortcut == &hyperkey_h {
                             log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+H TRIGGERED! Toggling hover mode for all detached windows...");
-                            // Emit event to toggle hover mode
-                            match app.emit("toggle-hover-mode", ()) {
-                                Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted toggle-hover-mode event"),
-                                Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit toggle-hover-mode event: {}", e),
-                            }
+                            // Call the toggle command directly instead of emitting an event
+                            let app_handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                // Get the required states
+                                let detached_windows = app_handle.state::<DetachedWindowsState>();
+                                let notes = app_handle.state::<NotesState>();
+                                let toggle_state = app_handle.state::<ToggleState>();
+                                
+                                match toggle_all_windows_hover(app_handle.clone(), detached_windows, notes, toggle_state).await {
+                                    Ok(visible) => log_info!("SHORTCUT-HANDLER", "✅ Successfully toggled windows. Visible: {}", visible),
+                                    Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to toggle windows: {}", e),
+                                }
+                            });
                         } else if shortcut == &simple_shortcut {
                             log_info!("SHORTCUT-HANDLER", "🔥 CMD+SHIFT+N TRIGGERED! Creating new note...");
                             // Emit event to create new note
@@ -1582,6 +1602,7 @@ pub fn run() {
         .manage(notes_state)
         .manage(config_state)
         .manage(detached_windows_state)
+        .manage(ToggleState::new(false))
         .invoke_handler(tauri::generate_handler![
             get_notes,
             get_note,

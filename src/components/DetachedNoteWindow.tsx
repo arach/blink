@@ -8,6 +8,7 @@ import { useDetachedWindowsStore } from '../stores/detached-windows-store';
 import { useConfigStore } from '../stores/config-store';
 import { useSaveStatus } from '../hooks/use-save-status';
 import { useWindowShade } from '../hooks/use-window-shade';
+import { useWindowTracking } from '../hooks/use-window-tracking';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
 import { CustomTitleBar } from './CustomTitleBar';
 import { WindowWrapper } from './WindowWrapper';
@@ -37,6 +38,9 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   const { closeWindow } = useDetachedWindowsStore();
   const saveStatus = useSaveStatus();
   const isShaded = useWindowShade();
+  
+  // Track window position/size changes with proper debouncing
+  useWindowTracking(noteId);
 
   // Real-time sync for this note
   useNoteSync(noteId, (updatedNote) => {
