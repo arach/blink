@@ -505,6 +505,223 @@ async fn destroy_drag_ghost(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+
+#[tauri::command]
+async fn create_hybrid_drag_window(
+    app: tauri::AppHandle,
+    note_id: String,
+    x: f64,
+    y: f64,
+    hidden: Option<bool>,
+) -> Result<String, String> {
+    let window_label = format!("hybrid-drag-{}", note_id);
+    
+    // Create a window that follows the mouse
+    let _drag_window = WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        WebviewUrl::App(format!("index.html?note={}", note_id).into()),
+    )
+    .title("Dragging...")
+    .inner_size(400.0, 300.0)  // Match HTML preview size
+    .position(x, y)
+    .resizable(false)
+    .transparent(true)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .visible(!hidden.unwrap_or(false))  // Set initial visibility based on hidden parameter
+    .shadow(true)
+    .build()
+    .map_err(|e| format!("Failed to create hybrid drag window: {}", e))?;
+    
+    log_info!("DRAG", "Created hybrid drag window '{}' for note '{}' at ({}, {}), hidden={:?}", 
+        window_label, note_id, x, y, hidden);
+    
+    // If showing immediately, ensure it's visible and on top
+    if !hidden.unwrap_or(false) {
+        if let Some(window) = app.get_webview_window(&window_label) {
+            window.show().map_err(|e| format!("Failed to show window: {}", e))?;
+            window.set_always_on_top(true).map_err(|e| format!("Failed to set always on top: {}", e))?;
+            window.set_focus().map_err(|e| format!("Failed to set focus: {}", e))?;
+            log_info!("DRAG", "Window shown and set to always on top");
+        }
+    } else {
+        // For hidden windows, ensure they're actually hidden
+        if let Some(window) = app.get_webview_window(&window_label) {
+            window.hide().map_err(|e| format!("Failed to hide window: {}", e))?;
+            log_info!("DRAG", "Window explicitly hidden");
+        }
+    }
+    
+    // Start tracking mouse position
+    let window_label_clone = window_label.clone();
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            // Check if window still exists
+            if app_handle.get_webview_window(&window_label_clone).is_none() {
+                break;
+            }
+            
+            // Small delay to not overwhelm the system
+            std::thread::sleep(std::time::Duration::from_millis(16)); // ~60fps
+        }
+    });
+    
+    Ok(window_label)
+}
+
+#[tauri::command]
+async fn close_hybrid_drag_window(
+    app: tauri::AppHandle,
+    window_label: String,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn show_hybrid_drag_window(
+    app: tauri::AppHandle,
+    window_label: String,
+    x: f64,
+    y: f64,
+) -> Result<(), String> {
+    log_info!("DRAG", "show_hybrid_drag_window called for '{}' at ({}, {})", window_label, x, y);
+    
+    if let Some(window) = app.get_webview_window(&window_label) {
+        log_info!("DRAG", "Window found, updating position and showing");
+        
+        // Update position
+        window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 }))
+            .map_err(|e| {
+                log_error!("DRAG", "Failed to set position: {}", e);
+                e.to_string()
+            })?;
+        
+        // Show the window
+        window.show().map_err(|e| {
+            log_error!("DRAG", "Failed to show window: {}", e);
+            e.to_string()
+        })?;
+        
+        // Ensure it's on top
+        window.set_always_on_top(true).map_err(|e| {
+            log_error!("DRAG", "Failed to set always on top: {}", e);
+            e.to_string()
+        })?;
+        
+        // Try to set focus
+        window.set_focus().map_err(|e| {
+            log_error!("DRAG", "Failed to set focus: {}", e);
+            e.to_string()
+        })?;
+        
+        log_info!("DRAG", "Window successfully shown and positioned");
+    } else {
+        log_error!("DRAG", "Window '{}' not found", window_label);
+        return Err(format!("Window '{}' not found", window_label));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn update_hybrid_drag_position(
+    app: tauri::AppHandle,
+    window_label: String,
+    x: f64,
+    y: f64,
+) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(&window_label) {
+        window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 }))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn finalize_hybrid_drag_window(
+    app: tauri::AppHandle,
+    window_label: String,
+    note_id: String,
+    detached_windows: State<'_, DetachedWindowsState>,
+    notes: State<'_, NotesState>,
+) -> Result<(), String> {
+    log_info!("DRAG", "Finalizing hybrid drag window '{}' for note '{}'", window_label, note_id);
+    
+    // Instead of closing and recreating, just register this window as a detached window
+    if let Some(window) = app.get_webview_window(&window_label) {
+        // Get current position and size
+        let pos = window.outer_position().map_err(|e| e.to_string())?;
+        let size = window.inner_size().map_err(|e| e.to_string())?;
+        
+        // Change the window label to the standard format
+        let _new_label = format!("note-{}", note_id);
+        
+        // Since we can't rename a window, we'll track it with its current label
+        // but treat it as a detached window
+        let detached_window = DetachedWindow {
+            note_id: note_id.clone(),
+            window_label: window_label.clone(), // Keep the hybrid-drag label
+            position: (pos.x as f64, pos.y as f64),
+            size: (size.width as f64, size.height as f64),
+            always_on_top: false,
+            opacity: 1.0,
+            is_shaded: false,
+            original_height: None,
+        };
+        
+        // Update the window to act like a normal detached window
+        window.set_title(&format!("Note - {}", note_id)).map_err(|e| e.to_string())?;
+        window.set_resizable(true).map_err(|e| e.to_string())?;
+        window.set_always_on_top(false).map_err(|e| e.to_string())?;
+        
+        // Save to state
+        let mut windows_lock = detached_windows.lock().await;
+        windows_lock.insert(window_label.clone(), detached_window.clone());
+        save_detached_windows_to_disk(&windows_lock).await?;
+        
+        // Update the app menu
+        drop(windows_lock);
+        update_app_menu(app.clone(), detached_windows.clone(), notes.clone()).await?;
+        
+        // Set up window event listeners for position/size tracking
+        let note_id_clone = note_id.clone();
+        window.on_window_event(move |event| {
+            match event {
+                tauri::WindowEvent::Moved(position) => {
+                    let note_id = note_id_clone.clone();
+                    let x = position.x as f64;
+                    let y = position.y as f64;
+                    tauri::async_runtime::spawn(async move {
+                        let _ = save_window_position(note_id, x, y).await;
+                    });
+                },
+                tauri::WindowEvent::Resized(size) => {
+                    let note_id = note_id_clone.clone();
+                    let width = size.width as f64;
+                    let height = size.height as f64;
+                    tauri::async_runtime::spawn(async move {
+                        let _ = save_window_size(note_id, width, height).await;
+                    });
+                },
+                _ => {}
+            }
+        });
+        
+        // Emit event to notify frontend
+        app.emit("window-created", note_id.clone()).map_err(|e| e.to_string())?;
+        
+        log_info!("DRAG", "Window finalized in place as detached window");
+        Ok(())
+    } else {
+        Err("Drag window not found".to_string())
+    }
+}
+
 #[tauri::command]
 async fn create_detached_window(
     request: CreateDetachedWindowRequest,
@@ -820,13 +1037,13 @@ async fn toggle_window_shade(
                 window_data.size.1 = original_height;
             }
         } else {
-            // Shade: minimize to title bar height (40px)
+            // Shade: minimize to title bar height (48px to match h-12)
             window_data.original_height = Some(current_size.height as f64);
             window_data.is_shaded = true;
             
             window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
                 width: current_size.width,
-                height: 40,
+                height: 48,
             }))
             .map_err(|e| format!("Failed to shade window: {}", e))?;
         }
@@ -850,8 +1067,8 @@ async fn toggle_main_window_shade(
     let current_size = window.inner_size()
         .map_err(|e| format!("Failed to get window size: {}", e))?;
     
-    // Check if window is currently shaded (height <= 40)
-    let is_currently_shaded = current_size.height <= 40;
+    // Check if window is currently shaded (height <= 50 to account for rounding)
+    let is_currently_shaded = current_size.height <= 50;
     
     if is_currently_shaded {
         // Unshade: restore to config height
@@ -877,7 +1094,7 @@ async fn toggle_main_window_shade(
         
         window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
             width: current_size.width,
-            height: 40,
+            height: 48,
         }))
         .map_err(|e| format!("Failed to shade window: {}", e))?;
         
@@ -1388,6 +1605,11 @@ pub fn run() {
             create_drag_ghost,
             update_drag_ghost_position,
             destroy_drag_ghost,
+            create_hybrid_drag_window,
+            show_hybrid_drag_window,
+            update_hybrid_drag_position,
+            close_hybrid_drag_window,
+            finalize_hybrid_drag_window,
             update_app_menu,
             reregister_global_shortcuts,
             test_window_creation,

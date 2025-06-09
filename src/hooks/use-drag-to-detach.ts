@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 
 interface DragState {
   isDragging: boolean;
@@ -12,11 +13,9 @@ interface DragState {
 interface UseDragToDetachOptions {
   onDrop: (noteId: string, x: number, y: number) => Promise<void>;
   dragThreshold?: number;
-  extractTitle: (noteId: string) => string;
-  extractContent: (noteId: string) => string;
 }
 
-export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extractContent }: UseDragToDetachOptions) {
+export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOptions) {
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     noteId: null,
@@ -27,10 +26,14 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
   });
 
   const [isOutsideSidebar, setIsOutsideSidebar] = useState(false);
+  const [realWindowCreated, setRealWindowCreated] = useState(false);
 
   const dragRef = useRef<{
     hasMovedEnough: boolean;
-  }>({ hasMovedEnough: false });
+    realWindowLabel: string | null;
+    lastMousePosition: { x: number; y: number };
+    wasOutsideSidebar: boolean;
+  }>({ hasMovedEnough: false, realWindowLabel: null, lastMousePosition: { x: 0, y: 0 }, wasOutsideSidebar: false });
 
   // Start drag operation
   const startDrag = useCallback((e: React.MouseEvent, noteId: string) => {
@@ -38,6 +41,10 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
     if (e.button !== 0) return;
     
     e.preventDefault();
+    
+    // Set grabbing cursor immediately on mousedown
+    document.body.style.cursor = 'grabbing';
+    document.body.classList.add('is-dragging');
     
     setDragState({
       isDragging: false, // Don't mark as dragging until threshold is met
@@ -50,7 +57,41 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
     
     // Reset state
     setIsOutsideSidebar(false);
+    setRealWindowCreated(false);
     dragRef.current.hasMovedEnough = false;
+    dragRef.current.realWindowLabel = null;
+    dragRef.current.lastMousePosition = { x: e.screenX, y: e.screenY };
+    dragRef.current.wasOutsideSidebar = false;
+    
+    // Pre-create the window immediately on mousedown (hidden)
+    console.log('[DRAG] Mouse down - pre-creating hidden window');
+    // Position window so cursor appears to be dragging from the title bar
+    // Cursor should be at top of window, about 20px down from top edge
+    const screenX = e.screenX - 200; // Center horizontally (half of 400px width)
+    const screenY = e.screenY - 20;  // Position cursor 20px from top edge
+    
+    console.log('[DRAG] Initial window position (screen coords):', { 
+      screenX, 
+      screenY, 
+      mouseScreenX: e.screenX, 
+      mouseScreenY: e.screenY,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      windowScreenX: window.screenX,
+      windowScreenY: window.screenY
+    });
+    
+    invoke<string>('create_hybrid_drag_window', {
+      noteId,
+      x: screenX,
+      y: screenY,
+      hidden: true, // Create hidden
+    }).then(windowLabel => {
+      dragRef.current.realWindowLabel = windowLabel;
+      console.log('[DRAG] Hidden window pre-created on mousedown:', windowLabel);
+    }).catch(error => {
+      console.error('[DRAG] Failed to pre-create window:', error);
+    });
   }, []);
 
   // Handle drag end
@@ -59,6 +100,11 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragState.noteId) return;
+      
+      // Ensure cursor stays as grabbing during drag
+      if (document.body.style.cursor !== 'grabbing') {
+        document.body.style.cursor = 'grabbing';
+      }
       
       const deltaX = Math.abs(e.clientX - dragState.startX);
       const deltaY = Math.abs(e.clientY - dragState.startY);
@@ -70,44 +116,130 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
         currentY: e.clientY,
       }));
       
+      // Store last mouse position for window creation
+      dragRef.current.lastMousePosition = { x: e.screenX, y: e.screenY };
+      
+      // If real window is visible, update its position too
+      if (realWindowCreated && dragRef.current.realWindowLabel) {
+        // Position window so cursor appears to be dragging from the title bar
+        const screenX = e.screenX - 200; // Center horizontally (half of 400px width)
+        const screenY = e.screenY - 20;  // Position cursor 20px from top edge
+        
+        invoke('update_hybrid_drag_position', {
+          windowLabel: dragRef.current.realWindowLabel,
+          x: screenX,
+          y: screenY,
+        }).catch(() => {});
+      }
+      
       // Check if we've moved enough to start dragging
       if (!dragRef.current.hasMovedEnough && (deltaX > dragThreshold || deltaY > dragThreshold)) {
         dragRef.current.hasMovedEnough = true;
         setDragState(prev => ({ ...prev, isDragging: true }));
         
         // Add visual feedback
-        document.body.style.cursor = 'grabbing';
         const draggedElement = document.querySelector(`[data-note-id="${dragState.noteId}"]`);
         if (draggedElement) {
           draggedElement.classList.add('dragging');
         }
+        
+        // Show the pre-created window
+        if (dragRef.current.realWindowLabel) {
+          console.log('[DRAG] Threshold met, showing pre-created window');
+          // Position window so cursor appears to be dragging from the title bar
+          const screenX = e.screenX - 200; // Center horizontally (half of 400px width)
+          const screenY = e.screenY - 20;  // Position cursor 20px from top edge
+          
+          console.log('[DRAG] Showing window at:', { 
+            screenX, 
+            screenY, 
+            mouseScreenX: e.screenX, 
+            mouseScreenY: e.screenY,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            windowScreenX: window.screenX,
+            windowScreenY: window.screenY
+          });
+          
+          invoke('show_hybrid_drag_window', {
+            windowLabel: dragRef.current.realWindowLabel,
+            x: screenX,
+            y: screenY,
+          }).then(() => {
+            setRealWindowCreated(true);
+            console.log('[DRAG] Window shown successfully');
+          }).catch(err => {
+            console.error('[DRAG] Error showing window:', err);
+          });
+        } else {
+          console.warn('[DRAG] No pre-created window available');
+        }
       }
       
-      // Check if cursor is outside sidebar
+      // Check if cursor is outside sidebar (any direction)
       if (dragRef.current.hasMovedEnough) {
         const sidebar = document.querySelector('.sidebar');
         const rect = sidebar?.getBoundingClientRect();
         
-        const outside = rect && e.clientX > rect.right;
-        setIsOutsideSidebar(!!outside);
-        
-        if (outside) {
-          document.body.classList.add('will-create-window');
-        } else {
-          document.body.classList.remove('will-create-window');
+        if (rect) {
+          // Check if cursor is outside sidebar boundaries in any direction
+          const outside = 
+            e.clientX < rect.left ||    // Left of sidebar
+            e.clientX > rect.right ||   // Right of sidebar
+            e.clientY < rect.top ||     // Above sidebar
+            e.clientY > rect.bottom;    // Below sidebar
+          
+          setIsOutsideSidebar(outside);
+          
+          // Log only when transitioning from inside to outside
+          if (outside && !dragRef.current.wasOutsideSidebar) {
+            console.log('[DRAG] Cursor left sidebar boundary:', {
+              mouseX: e.clientX,
+              mouseY: e.clientY,
+              sidebarBounds: {
+                left: rect.left,
+                right: rect.right,
+                top: rect.top,
+                bottom: rect.bottom
+              },
+              exitDirection: 
+                e.clientX < rect.left ? 'left' :
+                e.clientX > rect.right ? 'right' :
+                e.clientY < rect.top ? 'top' :
+                'bottom'
+            });
+          }
+          
+          dragRef.current.wasOutsideSidebar = outside;
         }
       }
     };
 
-    const handleMouseUp = async (e: MouseEvent) => {
-      if (dragState.isDragging && dragState.noteId && isOutsideSidebar) {
-        // Create window at drop location
-        await onDrop(dragState.noteId, e.screenX - 400, e.screenY - 300);
+    const handleMouseUp = async (_e: MouseEvent) => {
+      if (dragState.noteId && dragRef.current.realWindowLabel) {
+        if (dragState.isDragging && isOutsideSidebar) {
+          // Actually dragged and dropped outside sidebar - finalize the window in place
+          try {
+            await invoke('finalize_hybrid_drag_window', {
+              windowLabel: dragRef.current.realWindowLabel,
+              noteId: dragState.noteId,
+            });
+            console.log('[DRAG] Window finalized in place');
+          } catch (error) {
+            console.error('[DRAG] Failed to finalize window:', error);
+          }
+        } else {
+          // Either didn't drag or dropped inside sidebar - close the window
+          console.log('[DRAG] Closing pre-created window (not dropped outside)');
+          await invoke('close_hybrid_drag_window', {
+            windowLabel: dragRef.current.realWindowLabel,
+          }).catch(() => {});
+        }
       }
       
       // Cleanup
       document.body.style.cursor = '';
-      document.body.classList.remove('will-create-window');
+      document.body.classList.remove('is-dragging');
       
       const draggedElement = document.querySelector(`[data-note-id="${dragState.noteId}"]`);
       if (draggedElement) {
@@ -123,13 +255,25 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
         currentY: 0,
       });
       setIsOutsideSidebar(false);
+      setRealWindowCreated(false);
+      dragRef.current.realWindowLabel = null;
+      dragRef.current.wasOutsideSidebar = false;
     };
+
+    // No longer needed - we show the real window immediately
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && dragState.noteId) {
-        // Cancel drag
+        // Cancel drag and close any pre-created window
+        if (dragRef.current.realWindowLabel) {
+          invoke('close_hybrid_drag_window', {
+            windowLabel: dragRef.current.realWindowLabel,
+          }).catch(() => {});
+          dragRef.current.realWindowLabel = null;
+        }
+        
         document.body.style.cursor = '';
-        document.body.classList.remove('will-create-window');
+        document.body.classList.remove('is-dragging');
         
         const draggedElement = document.querySelector(`[data-note-id="${dragState.noteId}"]`);
         if (draggedElement) {
@@ -141,7 +285,12 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
           noteId: null,
           startX: 0,
           startY: 0,
+          currentX: 0,
+          currentY: 0,
         });
+        setRealWindowCreated(false);
+        setIsOutsideSidebar(false);
+        dragRef.current.wasOutsideSidebar = false;
       }
     };
 
@@ -150,10 +299,14 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('keydown', handleKeyDown);
     
+    // Also add global mouseup to catch drops outside window
+    window.addEventListener('mouseup', handleMouseUp);
+    
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [dragState, dragThreshold, onDrop]);
 
@@ -161,8 +314,5 @@ export function useDragToDetach({ onDrop, dragThreshold = 5, extractTitle, extra
     dragState,
     startDrag,
     isDragging: dragState.isDragging,
-    isOutsideSidebar,
-    extractTitle,
-    extractContent,
   };
 }

@@ -7,6 +7,7 @@ import rehypeHighlight from 'rehype-highlight';
 import { useDetachedWindowsStore } from '../stores/detached-windows-store';
 import { useConfigStore } from '../stores/config-store';
 import { useSaveStatus } from '../hooks/use-save-status';
+import { useWindowShade } from '../hooks/use-window-shade';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
 import { CustomTitleBar } from './CustomTitleBar';
 import { WindowWrapper } from './WindowWrapper';
@@ -35,6 +36,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   const appWindow = getCurrentWebviewWindow();
   const { closeWindow } = useDetachedWindowsStore();
   const saveStatus = useSaveStatus();
+  const isShaded = useWindowShade();
 
   // Real-time sync for this note
   useNoteSync(noteId, (updatedNote) => {
@@ -268,18 +270,27 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     </div>
   );
 
+  // Calculate word count
+  const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
+
   return (
     <WindowWrapper className="detached-note-window">
       <CustomTitleBar 
         title={extractTitleFromContent(content)}
         noteId={noteId}
-        rightContent={modeToggle}
+        rightContent={!isShaded ? modeToggle : undefined}
         onClose={handleCloseWindow}
+        isShaded={isShaded}
+        stats={{
+          wordCount,
+          lastSaved: saveStatus.lastSaved ? saveStatus.getRelativeTime || undefined : undefined
+        }}
       />
 
-      {/* Content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className={`flex-1 p-6 pt-5 relative overflow-hidden ${
+      {/* Content area - hide when shaded */}
+      {!isShaded && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className={`flex-1 p-6 pt-5 relative overflow-hidden ${
           config.appearance?.backgroundPattern && config.appearance?.backgroundPattern !== 'none' 
             ? `bg-pattern-${config.appearance?.backgroundPattern}` 
             : ''
@@ -357,6 +368,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           )}
         </div>
       </div>
+      )}
     </WindowWrapper>
   );
 }

@@ -6,7 +6,6 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { DetachedNoteWindow } from './components/DetachedNoteWindow';
 import { DragGhost } from './components/DragGhost';
-import { DragPreview } from './components/DragPreview';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ResizablePanel } from './components/ResizablePanel';
 import { CustomTitleBar } from './components/CustomTitleBar';
@@ -17,6 +16,7 @@ import { useSaveStatus } from './hooks/use-save-status';
 import { useWindowTransparency } from './hooks/use-window-transparency';
 import { useTypewriterMode } from './hooks/use-typewriter-mode';
 import { useDragToDetach } from './hooks/use-drag-to-detach';
+import { useWindowShade } from './hooks/use-window-shade';
 import { noteSyncService, useNoteSync } from './services/note-sync';
 
 interface Note {
@@ -47,8 +47,8 @@ function App() {
     noteId: string;
   } | null>(null);
   // Drag-to-detach functionality
-  const { dragState, startDrag, isDragging, isOutsideSidebar, extractTitle, extractContent } = useDragToDetach({
-    onDrop: async (noteId, x, y) => {
+  const { dragState, startDrag, isDragging } = useDragToDetach({
+    onDrop: async (noteId: string, x: number, y: number) => {
       if (!isWindowOpen(noteId)) {
         try {
           await createWindow(noteId, x, y);
@@ -56,14 +56,6 @@ function App() {
           console.error('Window creation error:', error);
         }
       }
-    },
-    extractTitle: (noteId) => {
-      const note = notes.find(n => n.id === noteId);
-      return note ? extractTitleFromContent(note.content) : 'Untitled';
-    },
-    extractContent: (noteId) => {
-      const note = notes.find(n => n.id === noteId);
-      return note ? note.content : '';
     }
   });
   
@@ -96,6 +88,9 @@ function App() {
   
   // Typewriter mode hook
   const textareaRef = useTypewriterMode();
+  
+  // Window shade hook - tracks if window is shaded
+  const isShaded = useWindowShade();
 
   const selectedNote = notes.find(note => note.id === selectedNoteId);
   
@@ -364,6 +359,15 @@ function App() {
           }, 200);
         });
         unlisteners.push(unlistenWindowClosed);
+        
+        // Listen for window created events (from drag finalization)
+        const unlistenWindowCreated = await listen('window-created', async (event) => {
+          console.log('[NOTES-APP] Window created event received for note:', event.payload);
+          
+          // Force immediate refresh of windows list
+          await refreshWindows();
+        });
+        unlisteners.push(unlistenWindowCreated);
         
         console.log('[NOTES-APP] [FRONTEND] ✅ All listeners setup complete');
         
@@ -794,6 +798,9 @@ function App() {
     return <DragGhost noteTitle={dragGhostTitle} distance={100} threshold={60} />;
   }
 
+  // Calculate word count for current content
+  const wordCount = currentContent.split(/\s+/).filter(word => word.length > 0).length;
+  
   return (
     <WindowWrapper className={`main-window transition-all duration-300 ${
       isDragging ? 'bg-blue-500/5' : ''
@@ -801,23 +808,21 @@ function App() {
       <CustomTitleBar 
         title="Notes App"
         isMainWindow={true}
+        isShaded={isShaded}
+        stats={{
+          wordCount: selectedNote ? wordCount : undefined,
+          lastSaved: selectedNote && saveStatus.lastSaved ? saveStatus.getRelativeTime || undefined : undefined
+        }}
         rightContent={
           <span className="text-[11px] text-soft/40 font-medium select-none">{notes.length} notes</span>
         }
       />
 
-      {/* Drag preview */}
-      {isDragging && dragState.noteId && (
-        <DragPreview
-          title={extractTitle(dragState.noteId)}
-          content={extractContent(dragState.noteId)}
-          position={{ x: dragState.currentX - 160, y: dragState.currentY - 20 }}
-          isOutsideSidebar={isOutsideSidebar}
-        />
-      )}
+      {/* No drag preview needed - using real window */}
 
-      {/* Main content area */}
-      <div className="flex-1 flex">
+      {/* Main content area - hide when shaded */}
+      {!isShaded && (
+        <div className="flex-1 flex">
         {/* Left sidebar - navigation */}
         <div className="w-8 bg-background flex flex-col items-center justify-between border-r border-border/30">
           <div className="flex flex-col items-center">
@@ -878,33 +883,35 @@ function App() {
           </div>
         </div>
 
-      {/* Expandable sidebar with animation */}
-      <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
-        sidebarVisible && currentView === 'notes' ? 'w-64' : 'w-0'
-      }`}>
-        <ResizablePanel
-          className="h-full bg-card border-r border-border/30 flex flex-col sidebar"
-          defaultWidth={256}
-          minWidth={180}
-          maxWidth={400}
-        >
-          <div className="p-4 flex flex-col h-full">
-          {/* Clean header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium text-foreground">Notes</h2>
-              <button 
-                onClick={createNewNote}
-                className="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all duration-200 rounded"
-                title="New note (⌘N)"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
+      {/* Sidebar container */}
+      {currentView === 'notes' ? (
+        /* Notes sidebar with animation */
+        <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
+          sidebarVisible ? 'w-64' : 'w-0'
+        }`}>
+          <ResizablePanel
+            className="h-full bg-card border-r border-border/30 flex flex-col sidebar"
+            defaultWidth={256}
+            minWidth={180}
+            maxWidth={400}
+          >
+            <div className="p-4 flex flex-col h-full">
+            {/* Clean header */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-medium text-foreground">Notes</h2>
+                <button 
+                  onClick={createNewNote}
+                  className="w-6 h-6 flex items-center justify-center text-muted-foreground/60 hover:text-primary hover:bg-primary/10 transition-all duration-200 rounded"
+                  title="New note (⌘N)"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
           
           {/* Notes list */}
           <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
@@ -991,8 +998,20 @@ function App() {
             </div>
           </div>
         </div>
-      </ResizablePanel>
-      </div>
+          </ResizablePanel>
+        </div>
+      ) : (
+        /* Settings sidebar without animation */
+        <div className={`h-full overflow-hidden ${
+          sidebarVisible ? 'w-64' : 'w-0'
+        }`}>
+          <div className="h-full bg-card border-r border-border/30 flex flex-col">
+            <div className="p-4">
+              <h2 className="text-sm font-medium text-foreground">Settings</h2>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Main content area - Notes or Settings */}
         {currentView === 'notes' ? (
@@ -1095,7 +1114,7 @@ function App() {
               
               {/* Note-specific footer */}
               {selectedNote && (
-                <div className="bg-card/20 border-t border-border/15 px-6 py-3 flex items-center justify-between">
+                <div className="bg-card/20 border-t border-border/15 px-6 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
                       {saveStatus.isSaving ? (
@@ -1133,13 +1152,15 @@ function App() {
             </div>
           </div>
         ) : (
-          <div className={`overflow-hidden flex flex-1`}>
-            {sidebarVisible && <SettingsPanel />}
+          /* Settings content area */
+          <div className="flex-1">
+            <SettingsPanel />
           </div>
         )}
       </div>
+      )}
 
-      {/* Global IDE-style footer */}
+      {/* Global IDE-style footer - always visible even when shaded */}
       <div className="h-5 bg-card/40 border-t border-border/25 px-3 flex items-center justify-between text-muted-foreground/60 font-light" style={{ fontSize: '10px' }}>
         <div className="flex items-center gap-4">
           <span>Notes App</span>

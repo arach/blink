@@ -8,6 +8,11 @@ interface CustomTitleBarProps {
   showTrafficLights?: boolean;
   rightContent?: React.ReactNode;
   onClose?: () => Promise<void>;
+  isShaded?: boolean;
+  stats?: {
+    wordCount?: number;
+    lastSaved?: string;
+  };
 }
 
 export function CustomTitleBar({ 
@@ -16,7 +21,9 @@ export function CustomTitleBar({
   noteId,
   showTrafficLights = true,
   rightContent,
-  onClose
+  onClose,
+  isShaded = false,
+  stats
 }: CustomTitleBarProps) {
   const appWindow = getCurrentWebviewWindow();
 
@@ -52,7 +59,9 @@ export function CustomTitleBar({
         if (isMainWindow) {
           await DetachedWindowsAPI.toggleMainWindowShade();
         } else if (noteId) {
-          const windowLabel = `note-${noteId}`;
+          // Get the current window label - it might be note-* or hybrid-drag-*
+          const currentWindow = getCurrentWebviewWindow();
+          const windowLabel = currentWindow.label;
           await DetachedWindowsAPI.toggleWindowShade(windowLabel);
         }
       } catch (error) {
@@ -63,14 +72,35 @@ export function CustomTitleBar({
 
   return (
     <div 
-      className="h-10 flex items-center px-4 border-b border-border/30"
+      className="h-12 flex items-center px-4 border-b border-border/30"
       data-tauri-drag-region
-      style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+      style={{ 
+        userSelect: 'none', 
+        WebkitUserSelect: 'none',
+        cursor: 'grab'
+      }}
       onDoubleClick={handleDoubleClick}
       onMouseDown={(e) => {
+        // Handle middle click on the entire title bar
+        if (e.button === 1) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleMiddleClick(e);
+          return;
+        }
+        
         // Prevent drag interference from child elements
         if ((e.target as HTMLElement).hasAttribute('data-tauri-drag-region')) {
           e.preventDefault();
+          // Force grabbing cursor during drag
+          document.body.style.cursor = 'grabbing';
+          
+          // Reset cursor on mouse up
+          const handleMouseUp = () => {
+            document.body.style.cursor = '';
+            document.removeEventListener('mouseup', handleMouseUp);
+          };
+          document.addEventListener('mouseup', handleMouseUp);
         }
       }}
     >
@@ -119,18 +149,24 @@ export function CustomTitleBar({
       <div 
         className="flex-1 flex items-center justify-center"
         data-tauri-drag-region
-        onMouseDown={(e) => {
-          // Only handle middle click, let normal clicks pass through for dragging
-          if (e.button === 1) {
-            e.preventDefault();
-            e.stopPropagation();
-            handleMiddleClick(e);
-          }
-        }}
       >
-        <span className="text-xs text-foreground/70 font-medium select-none" title="Middle-click to shade">
-          {title}
-        </span>
+        {isShaded && stats ? (
+          <div className="flex items-center gap-4 text-xs text-foreground/70 font-medium select-none">
+            <span title="Middle-click to unshade">{title}</span>
+            <div className="flex items-center gap-3 text-[10px] text-foreground/50">
+              {stats.wordCount !== undefined && (
+                <span>{stats.wordCount} words</span>
+              )}
+              {stats.lastSaved && (
+                <span>• Saved {stats.lastSaved}</span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-foreground/70 font-medium select-none" title="Middle-click to shade">
+            {title}
+          </span>
+        )}
       </div>
       
       {/* Right side content */}

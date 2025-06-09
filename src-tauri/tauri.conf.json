@@ -105,7 +105,7 @@
         {
           "identifier": "drag-ghost-capability",
           "description": "Capability for drag ghost window",
-          "windows": ["drag-ghost*"],
+          "windows": ["drag-ghost-*"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-show",
@@ -114,6 +114,27 @@
             "core:window:allow-set-position",
             "core:window:allow-set-size",
             "core:window:allow-set-title",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit"
+          ]
+        },
+        {
+          "identifier": "hybrid-drag-capability",
+          "description": "Capability for hybrid drag windows",
+          "windows": ["hybrid-drag-*"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-set-position",
+            "core:window:allow-outer-position",
+            "core:window:allow-set-title",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-set-resizable",
+            "core:window:allow-set-always-on-top",
             "core:webview:allow-create-webview-window",
             "core:event:allow-listen",
             "core:event:allow-emit"

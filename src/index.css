@@ -374,25 +374,68 @@
   }
   
   /* Prevent text selection during drag */
-  body.dragging {
+  body.dragging,
+  body.is-dragging {
     user-select: none;
     -webkit-user-select: none;
     cursor: grabbing !important;
   }
   
-  body.dragging * {
+  body.dragging *,
+  body.is-dragging * {
     cursor: grabbing !important;
   }
   
-  /* Middle-click hint on title bars */
-  [data-tauri-drag-region]:hover {
-    cursor: move;
+  /* Ensure all child elements respect the grabbing cursor */
+  body.is-dragging [data-note-id],
+  body.is-dragging [data-note-id] *,
+  body.is-dragging [data-note-id]:hover,
+  body.is-dragging [data-note-id]:active {
+    cursor: grabbing !important;
+  }
+  
+  
+  /* Title bars always show grab cursor */
+  [data-tauri-drag-region] {
+    cursor: grab !important;
+  }
+  
+  /* Override any child elements */
+  [data-tauri-drag-region] * {
+    cursor: inherit !important;
+  }
+  
+  /* Active dragging state for title bar */
+  [data-tauri-drag-region]:active {
+    cursor: grabbing !important;
+  }
+  
+  /* Ensure grabbing cursor during window drag */
+  body:has([data-tauri-drag-region]:active) {
+    cursor: grabbing !important;
+  }
+  
+  body:has([data-tauri-drag-region]:active) * {
+    cursor: grabbing !important;
   }
   
   /* Visual feedback for middle-click */
   [data-tauri-drag-region]:active:not(:active[data-left-click]) {
     opacity: 0.8;
     transition: opacity 0.1s;
+  }
+  
+  /* Draggable items - show grab cursor on hover */
+  [data-note-id] {
+    cursor: grab;
+  }
+  
+  [data-note-id]:hover {
+    cursor: grab;
+  }
+  
+  [data-note-id]:active {
+    cursor: grabbing !important;
   }
   
   /* Dragging state styles */
@@ -402,82 +445,9 @@
     background-color: rgba(59, 130, 246, 0.1) !important;
     border-color: rgba(59, 130, 246, 0.4) !important;
     transition: all 200ms ease-out;
+    cursor: grabbing !important;
   }
   
-  /* Drag preview styles */
-  .drag-preview {
-    will-change: transform;
-  }
-  
-  .drag-preview-content {
-    background: rgba(18, 19, 23, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    box-shadow: 
-      0 20px 25px -5px rgba(0, 0, 0, 0.3),
-      0 10px 10px -5px rgba(0, 0, 0, 0.2),
-      0 0 0 1px rgba(255, 255, 255, 0.05);
-    overflow: hidden;
-    opacity: 0.8;
-  }
-  
-  .drag-preview.outside-sidebar .drag-preview-content {
-    opacity: 0.95;
-    transform: scale(1.02);
-    box-shadow: 
-      0 25px 35px -5px rgba(0, 0, 0, 0.4),
-      0 15px 15px -5px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(59, 130, 246, 0.5);
-    border-color: rgba(59, 130, 246, 0.3);
-  }
-  
-  .drag-preview-header {
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  
-  .drag-preview-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .drag-preview-badge {
-    font-size: 11px;
-    color: #3b82f6;
-    background: rgba(59, 130, 246, 0.1);
-    padding: 2px 8px;
-    border-radius: 4px;
-    white-space: nowrap;
-  }
-  
-  .drag-preview-body {
-    padding: 12px 16px;
-    max-height: 120px;
-    overflow: hidden;
-  }
-  
-  .drag-preview-text {
-    font-size: 11px;
-    line-height: 1.5;
-    color: rgba(255, 255, 255, 0.6);
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    margin: 0;
-    font-family: inherit;
-  }
-  
-  /* Will create window indicator */
-  body.will-create-window {
-    cursor: copy !important;
-  }
   
   /* Ensure proper window styling for transparent windows */
   body {
