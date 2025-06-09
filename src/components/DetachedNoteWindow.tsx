@@ -8,6 +8,8 @@ import { useDetachedWindowsStore } from '../stores/detached-windows-store';
 import { useConfigStore } from '../stores/config-store';
 import { useSaveStatus } from '../hooks/use-save-status';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
+import { CustomTitleBar } from './CustomTitleBar';
+import { WindowWrapper } from './WindowWrapper';
 
 interface Note {
   id: string;
@@ -122,34 +124,70 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   };
 
   const handleCloseWindow = async () => {
+    console.log('[DETACHED-WINDOW] Closing window for note:', noteId);
     try {
       // Update the detached windows store to remove this window
+      console.log('[DETACHED-WINDOW] Updating store...');
       await closeWindow(noteId);
+      console.log('[DETACHED-WINDOW] Store updated, closing window...');
       // Close the actual window
       await appWindow.close();
+      console.log('[DETACHED-WINDOW] Window close command sent');
     } catch (error) {
-      console.error('Failed to close window:', error);
+      console.error('[DETACHED-WINDOW] Failed to close window:', error);
       // Fallback: just close the window
+      console.log('[DETACHED-WINDOW] Attempting fallback close...');
       await appWindow.close();
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    // Cmd+Shift+P to toggle preview mode
-    if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'p') {
-      e.preventDefault();
-      setIsPreviewMode(!isPreviewMode);
-    }
-
-    // Cmd+W to close window
-    if (e.metaKey && e.key.toLowerCase() === 'w') {
-      e.preventDefault();
-      handleCloseWindow();
     }
   };
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
+    console.log('[DETACHED-WINDOW] Setting up keyboard event listeners for note:', noteId);
+    
+    // Define the keyboard handler inside useEffect to avoid stale closures
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Log all Cmd key combinations for debugging
+      if (e.metaKey) {
+        console.log('[DETACHED-WINDOW] Cmd key combo detected:', {
+          key: e.key,
+          shiftKey: e.shiftKey,
+          altKey: e.altKey,
+          ctrlKey: e.ctrlKey
+        });
+      }
+
+      // Cmd+Shift+P to toggle preview mode
+      if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        console.log('[DETACHED-WINDOW] Toggling preview mode');
+        setIsPreviewMode(prev => !prev);
+      }
+
+      // Cmd+W to close window
+      if (e.metaKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        e.stopPropagation(); // Stop event from bubbling
+        console.log('[DETACHED-WINDOW] Cmd+W pressed, closing window...');
+        
+        // Ensure we're in the right window context
+        if (window.location.search.includes(`note=${noteId}`)) {
+          console.log('[DETACHED-WINDOW] Confirmed this is the correct window');
+          // Call handleCloseWindow asynchronously to avoid blocking
+          handleCloseWindow().catch(error => {
+            console.error('[DETACHED-WINDOW] Error closing window:', error);
+            // Ensure window closes even if there's an error
+            appWindow.close().catch(() => {});
+          });
+        } else {
+          console.warn('[DETACHED-WINDOW] Window context mismatch, ignoring Cmd+W');
+        }
+      }
+    };
+
+    // Add event listener with capture phase to ensure we get the event first
+    window.addEventListener('keydown', handleKeyDown, true);
+    // Also add to document to ensure we catch it
+    document.addEventListener('keydown', handleKeyDown, true);
     
     // Listen for window close events to clean up state
     const handleWindowClose = async () => {
@@ -163,11 +201,14 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     // Set up beforeunload handler to clean up state
     window.addEventListener('beforeunload', handleWindowClose);
     
+    // Log when listeners are being removed
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      console.log('[DETACHED-WINDOW] Removing keyboard event listeners for note:', noteId);
+      window.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('beforeunload', handleWindowClose);
     };
-  }, [isPreviewMode, noteId, closeWindow]);
+  }, [noteId, closeWindow, appWindow]);
 
   if (loading) {
     return (
@@ -193,83 +234,48 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     );
   }
 
-  return (
-    <div 
-      className="w-full h-full text-foreground flex flex-col bg-background overflow-hidden"
-    >
-      {/* Custom title bar with native controls visible */}
-      <div 
-        className="h-8 flex items-center relative select-none"
-        style={{ 
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          WebkitUserSelect: 'none',
-          userSelect: 'none'
-        }}
+  // Mode toggle component for the title bar
+  const modeToggle = (
+    <div className="flex items-center bg-background/40 border border-border/30 rounded-md">
+      <button
+        onClick={() => setIsPreviewMode(false)}
+        className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
+          !isPreviewMode 
+            ? 'bg-primary/25 text-primary shadow-sm' 
+            : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+        }`}
+        title="Edit mode"
       >
-        {/* Left space for native window controls on macOS */}
-        <div className="w-20" />
-        
-        {/* Center draggable area with title and mode toggle */}
-        <div 
-          className="flex-1 h-full flex items-center justify-center gap-3 cursor-move"
-          data-tauri-drag-region
-          onMouseDown={async (e) => {
-            // Middle click (button 1) to toggle shade
-            if (e.button === 1) {
-              e.preventDefault();
-              try {
-                const { DetachedWindowsAPI } = await import('../services/detached-windows-api');
-                const windowLabel = `note-${noteId}`;
-                await DetachedWindowsAPI.toggleWindowShade(windowLabel);
-              } catch (error) {
-                console.error('Failed to toggle shade:', error);
-              }
-            }
-          }}
-        >
-          <span className="text-xs text-foreground/70 font-medium select-none pointer-events-none" title="Middle-click to shade">
-            {extractTitleFromContent(content)}
-          </span>
-          
-          {/* Mode toggle - excluded from drag region */}
-          <div 
-            className="flex items-center bg-background/40 border border-border/30 rounded-md" 
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setIsPreviewMode(false)}
-              className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
-                !isPreviewMode 
-                  ? 'bg-primary/25 text-primary shadow-sm' 
-                  : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
-              }`}
-              title="Edit mode"
-            >
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-            <button
-              onClick={() => setIsPreviewMode(true)}
-              className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
-                isPreviewMode 
-                  ? 'bg-primary/25 text-primary shadow-sm' 
-                  : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
-              }`}
-              title="Preview mode"
-            >
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        {/* Right side balance */}
-        <div className="w-20" />
-      </div>
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
+      <button
+        onClick={() => setIsPreviewMode(true)}
+        className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
+          isPreviewMode 
+            ? 'bg-primary/25 text-primary shadow-sm' 
+            : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+        }`}
+        title="Preview mode"
+      >
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
+  );
+
+  return (
+    <WindowWrapper className="detached-note-window">
+      <CustomTitleBar 
+        title={extractTitleFromContent(content)}
+        noteId={noteId}
+        rightContent={modeToggle}
+        onClose={handleCloseWindow}
+      />
 
       {/* Content area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -351,6 +357,6 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           )}
         </div>
       </div>
-    </div>
+    </WindowWrapper>
   );
 }

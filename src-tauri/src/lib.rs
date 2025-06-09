@@ -412,19 +412,35 @@ async fn create_drag_ghost(
     x: f64,
     y: f64,
 ) -> Result<(), String> {
-    // Close existing ghost window if it exists
-    if let Some(ghost_window) = app.get_webview_window("drag-ghost") {
-        let _ = ghost_window.close();
+    // Force close any existing ghost windows
+    let windows: Vec<String> = app.webview_windows()
+        .keys()
+        .filter(|k| k.starts_with("drag-ghost"))
+        .cloned()
+        .collect();
+    
+    for window_label in windows {
+        if let Some(ghost_window) = app.get_webview_window(&window_label) {
+            let _ = ghost_window.close();
+        }
     }
+    
+    // Small delay to ensure cleanup
+    std::thread::sleep(std::time::Duration::from_millis(100));
 
-    // Create a temporary drag ghost window
+    // Create a temporary drag ghost window with unique label
+    let ghost_label = format!("drag-ghost-{}", std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis());
+    
     let ghost_window = WebviewWindowBuilder::new(
         &app,
-        "drag-ghost",
+        &ghost_label,
         WebviewUrl::App(format!("index.html?ghost=true&title={}", urlencoding::encode(&note_title)).into()),
     )
     .title("Drag Ghost")
-    .inner_size(300.0, 200.0)
+    .inner_size(320.0, 240.0)
     .position(x, y)
     .resizable(false)
     .transparent(true)
@@ -439,6 +455,8 @@ async fn create_drag_ghost(
     // Show the window immediately
     ghost_window.show().map_err(|e| e.to_string())?;
     
+    log_debug!("DRAG", "Ghost window created with label {} at position ({}, {})", ghost_label, x, y);
+    
     Ok(())
 }
 
@@ -448,18 +466,42 @@ async fn update_drag_ghost_position(
     x: f64,
     y: f64,
 ) -> Result<(), String> {
-    if let Some(ghost_window) = app.get_webview_window("drag-ghost") {
-        ghost_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 }))
-            .map_err(|e| e.to_string())?;
+    // Find any ghost window
+    let windows: Vec<String> = app.webview_windows()
+        .keys()
+        .filter(|k| k.starts_with("drag-ghost"))
+        .cloned()
+        .collect();
+    
+    for window_label in windows {
+        if let Some(ghost_window) = app.get_webview_window(&window_label) {
+            ghost_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: x as i32, y: y as i32 }))
+                .map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }
 
 #[tauri::command]
 async fn destroy_drag_ghost(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(ghost_window) = app.get_webview_window("drag-ghost") {
-        ghost_window.close().map_err(|e| e.to_string())?;
+    // Find and close all ghost windows
+    let windows: Vec<String> = app.webview_windows()
+        .keys()
+        .filter(|k| k.starts_with("drag-ghost"))
+        .cloned()
+        .collect();
+    
+    let count = windows.len();
+    for window_label in windows {
+        if let Some(ghost_window) = app.get_webview_window(&window_label) {
+            ghost_window.close().map_err(|e| e.to_string())?;
+        }
     }
+    
+    if count > 0 {
+        log_debug!("DRAG", "Destroyed {} ghost window(s)", count);
+    }
+    
     Ok(())
 }
 
@@ -506,10 +548,41 @@ async fn create_detached_window(
     // Check if we have a saved position for this note
     println!("[CREATE_DETACHED_WINDOW] Loading saved spatial data...");
     let saved_window = load_spatial_data(&request.note_id).await;
-    let width = request.width.or(saved_window.as_ref().map(|w| w.size.0)).unwrap_or(800.0);
-    let height = request.height.or(saved_window.as_ref().map(|w| w.size.1)).unwrap_or(600.0);
-    let x = request.x.or(saved_window.as_ref().map(|w| w.position.0)).unwrap_or(100.0);
-    let y = request.y.or(saved_window.as_ref().map(|w| w.position.1)).unwrap_or(100.0);
+    
+    // Use requested dimensions first, then saved, then defaults
+    let width = request.width.unwrap_or_else(|| saved_window.as_ref().map(|w| w.size.0).unwrap_or(800.0));
+    let height = request.height.unwrap_or_else(|| saved_window.as_ref().map(|w| w.size.1).unwrap_or(600.0));
+    
+    // For position: if provided in request, use it; otherwise use saved position or calculate offset
+    let (mut x, mut y) = if request.x.is_some() && request.y.is_some() {
+        (request.x.unwrap(), request.y.unwrap())
+    } else if let Some(saved) = saved_window.as_ref() {
+        (saved.position.0, saved.position.1)
+    } else {
+        // Calculate position to avoid overlapping with existing windows
+        let offset = windows_lock.len() as f64 * 30.0;
+        (100.0 + offset, 100.0 + offset)
+    };
+    
+    // Check if the position would overlap with existing windows
+    let mut needs_offset = false;
+    for (_, window) in windows_lock.iter() {
+        let dx = (window.position.0 - x).abs();
+        let dy = (window.position.1 - y).abs();
+        // If windows are too close (within 50 pixels), offset the new window
+        if dx < 50.0 && dy < 50.0 {
+            needs_offset = true;
+            break;
+        }
+    }
+    
+    if needs_offset {
+        // Offset by 30 pixels from the requested position
+        x += 30.0;
+        y += 30.0;
+        println!("[CREATE_DETACHED_WINDOW] Offsetting window position to avoid overlap");
+    }
+    
     println!("[CREATE_DETACHED_WINDOW] Window dimensions: {}x{} at ({}, {})", width, height, x, y);
 
     // Create the window
@@ -517,8 +590,8 @@ async fn create_detached_window(
     let window_url = format!("index.html?note={}", request.note_id);
     println!("[CREATE_DETACHED_WINDOW] Window URL: {}", window_url);
     
-    // Try with simpler configuration first
-    println!("[CREATE_DETACHED_WINDOW] Building window with simplified config for debugging...");
+    // Create window with custom title bar
+    println!("[CREATE_DETACHED_WINDOW] Building window...");
     let webview_window = WebviewWindowBuilder::new(
         &app,
         &window_label,
@@ -527,9 +600,10 @@ async fn create_detached_window(
     .title(&format!("Note - {}", request.note_id))
     .inner_size(width, height)
     .position(x, y)
-    .visible(true)  // Explicitly set visible to true
-    .decorations(true)  // Enable decorations for debugging
-    .transparent(false)  // Disable transparency for debugging
+    .visible(true)
+    .decorations(false)  // Disable native decorations for custom title bar
+    .transparent(true)   // Enable transparency for custom window styling
+    .min_inner_size(400.0, 300.0)  // Minimum size for proper display
     .build()
     .map_err(|e| {
         println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to create window: {:?}", e);
@@ -552,7 +626,7 @@ async fn create_detached_window(
         position: (x, y),
         size: (width, height),
         always_on_top: false,
-        opacity: 0.95,
+        opacity: 1.0,
         is_shaded: false,
         original_height: None,
     };
@@ -667,6 +741,10 @@ async fn close_detached_window(
     // Update the app menu to remove the closed window
     drop(windows_lock);
     update_app_menu(app.clone(), detached_windows.clone(), notes.clone()).await?;
+    
+    // Emit event to all windows to notify frontend
+    app.emit("window-closed", note_id.clone()).map_err(|e| e.to_string())?;
+    log_info!("WINDOW", "Emitted window-closed event for note: {}", note_id);
 
     Ok(true)
 }

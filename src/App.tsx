@@ -6,13 +6,17 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { DetachedNoteWindow } from './components/DetachedNoteWindow';
 import { DragGhost } from './components/DragGhost';
+import { DragPreview } from './components/DragPreview';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ResizablePanel } from './components/ResizablePanel';
+import { CustomTitleBar } from './components/CustomTitleBar';
+import { WindowWrapper } from './components/WindowWrapper';
 import { useDetachedWindowsStore } from './stores/detached-windows-store';
 import { useConfigStore } from './stores/config-store';
 import { useSaveStatus } from './hooks/use-save-status';
 import { useWindowTransparency } from './hooks/use-window-transparency';
 import { useTypewriterMode } from './hooks/use-typewriter-mode';
+import { useDragToDetach } from './hooks/use-drag-to-detach';
 import { noteSyncService, useNoteSync } from './services/note-sync';
 
 interface Note {
@@ -42,24 +46,25 @@ function App() {
     y: number;
     noteId: string;
   } | null>(null);
-  const [dragState, setDragState] = useState<{
-    isDragging: boolean;
-    noteId: string | null;
-    startX: number;
-    startY: number;
-    currentX: number;
-    currentY: number;
-    justCompleted: boolean;
-    updatePending?: boolean;
-  }>({
-    isDragging: false,
-    noteId: null,
-    startX: 0,
-    startY: 0,
-    currentX: 0,
-    currentY: 0,
-    justCompleted: false,
-    updatePending: false,
+  // Drag-to-detach functionality
+  const { dragState, startDrag, isDragging, isOutsideSidebar, extractTitle, extractContent } = useDragToDetach({
+    onDrop: async (noteId, x, y) => {
+      if (!isWindowOpen(noteId)) {
+        try {
+          await createWindow(noteId, x, y);
+        } catch (error) {
+          console.error('Window creation error:', error);
+        }
+      }
+    },
+    extractTitle: (noteId) => {
+      const note = notes.find(n => n.id === noteId);
+      return note ? extractTitleFromContent(note.content) : 'Untitled';
+    },
+    extractContent: (noteId) => {
+      const note = notes.find(n => n.id === noteId);
+      return note ? note.content : '';
+    }
   });
   
 
@@ -76,7 +81,8 @@ function App() {
     createWindow, 
     closeWindow, 
     isWindowOpen, 
-    loadWindows 
+    loadWindows,
+    refreshWindows 
   } = useDetachedWindowsStore();
 
   // Config store
@@ -341,6 +347,24 @@ function App() {
         });
         unlisteners.push(unlistenHover);
         
+        // Listen for window closed events
+        const unlistenWindowClosed = await listen('window-closed', async (event) => {
+          console.log('[NOTES-APP] Window closed event received for note:', event.payload);
+          const noteId = event.payload as string;
+          
+          // Force immediate refresh of windows list
+          await refreshWindows();
+          
+          // Additional force update by directly updating the store
+          setTimeout(async () => {
+            await refreshWindows();
+            const windowsStore = useDetachedWindowsStore.getState();
+            console.log('[NOTES-APP] Windows after refresh:', windowsStore.windows.map(w => w.note_id));
+            console.log('[NOTES-APP] Is window still open?', windowsStore.isWindowOpen(noteId));
+          }, 200);
+        });
+        unlisteners.push(unlistenWindowClosed);
+        
         console.log('[NOTES-APP] [FRONTEND] ✅ All listeners setup complete');
         
         return () => {
@@ -532,95 +556,6 @@ function App() {
   };
 
   // Handle keyboard shortcuts
-  // Simplified drag handlers
-  useEffect(() => {
-    const handleGlobalMouseMove = async (e: MouseEvent) => {
-      if (!dragState.noteId) return;
-      
-      const deltaX = Math.abs(e.clientX - dragState.startX);
-      const deltaY = Math.abs(e.clientY - dragState.startY);
-      const threshold = 15; // Clear threshold
-      
-      if (!dragState.isDragging && (deltaX > threshold || deltaY > threshold)) {
-        // Start dragging
-        setDragState(prev => ({ ...prev, isDragging: true }));
-        document.body.classList.add('dragging');
-        
-        const note = notes.find(n => n.id === dragState.noteId);
-        if (note) {
-          const title = extractTitleFromContent(note.content);
-          try {
-            await invoke('create_drag_ghost', {
-              noteTitle: title,
-              x: e.screenX - 50,
-              y: e.screenY - 20
-            });
-          } catch (error) {
-            console.error('Failed to create drag ghost:', error);
-          }
-        }
-      } else if (dragState.isDragging) {
-        // Update ghost position while dragging
-        try {
-          await invoke('update_drag_ghost_position', {
-            x: e.screenX - 50,
-            y: e.screenY - 20
-          });
-        } catch (error) {
-          // Silently ignore
-        }
-      }
-    };
-
-    const handleGlobalMouseUp = async (e: MouseEvent) => {
-      if (!dragState.noteId) return;
-      
-      const wasDragging = dragState.isDragging;
-      const noteId = dragState.noteId;
-      
-      // Clean up ghost window
-      if (wasDragging) {
-        try {
-          await invoke('destroy_drag_ghost');
-        } catch (error) {
-          console.error('Failed to destroy drag ghost:', error);
-        }
-        
-        // Check if we should create a window
-        const sidebarEl = document.querySelector('.sidebar');
-        const sidebarRect = sidebarEl?.getBoundingClientRect();
-        const isOutsideSidebar = !sidebarRect || e.clientX > sidebarRect.right;
-        
-        if (isOutsideSidebar && !isWindowOpen(noteId)) {
-          // Create window at mouse position
-          await createWindow(noteId, e.screenX - 400, e.screenY - 300);
-        }
-      }
-      
-      // Reset drag state
-      setDragState({
-        isDragging: false,
-        noteId: null,
-        startX: 0,
-        startY: 0,
-        currentX: 0,
-        currentY: 0,
-        justCompleted: false,
-      });
-      
-      document.body.classList.remove('dragging');
-    };
-
-    if (dragState.noteId) {
-      document.addEventListener('mousemove', handleGlobalMouseMove);
-      document.addEventListener('mouseup', handleGlobalMouseUp);
-      
-      return () => {
-        document.removeEventListener('mousemove', handleGlobalMouseMove);
-        document.removeEventListener('mouseup', handleGlobalMouseUp);
-      };
-    }
-  }, [dragState.noteId, dragState.isDragging, dragState.startX, dragState.startY, createWindow, isWindowOpen, notes]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -640,21 +575,9 @@ function App() {
           setShowCommandPalette(false);
           setCommandQuery('');
           return;
-        } else if (dragState.isDragging) {
+        } else if (isDragging) {
           e.preventDefault();
-          // Cancel drag operation
-          setDragState({
-            isDragging: false,
-            noteId: null,
-            startX: 0,
-            startY: 0,
-            currentX: 0,
-            currentY: 0,
-            justCompleted: false,
-          });
-          document.body.classList.remove('dragging');
-          // Destroy any ghost window
-          invoke('destroy_drag_ghost').catch(() => {});
+          // Cancel drag is handled by the hook
           return;
         } else if (config.appearance?.focusMode) {
           e.preventDefault();
@@ -822,7 +745,8 @@ function App() {
 
   const handleOpenInWindow = async () => {
     if (contextMenu && !isWindowOpen(contextMenu.noteId)) {
-      await createWindow(contextMenu.noteId);
+      // Position offset from context menu position
+      await createWindow(contextMenu.noteId, contextMenu.x + 100, contextMenu.y - 50);
       setContextMenu(null);
     }
   };
@@ -858,27 +782,6 @@ function App() {
     }
   }, [contextMenu]);
 
-  // Drag-to-detach handlers
-  const handleMouseDown = (e: React.MouseEvent, noteId: string) => {
-    // Don't start drag on right click
-    if (e.button !== 0) return;
-    
-    // Don't interfere with double-click
-    if (e.detail === 2) return;
-    
-    // Prevent text selection during potential drag
-    e.preventDefault();
-    
-    setDragState({
-      isDragging: false,
-      noteId,
-      startX: e.clientX,
-      startY: e.clientY,
-      currentX: e.clientX,
-      currentY: e.clientY,
-      justCompleted: false,
-    });
-  };
 
 
   // If this is a detached window, render the detached note component
@@ -892,57 +795,25 @@ function App() {
   }
 
   return (
-    <div 
-      className={`w-screen h-screen text-foreground flex flex-col transition-all duration-300 overflow-hidden ${
-        dragState.isDragging ? 'bg-blue-500/5' : 'bg-background/95'
-      } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}
-      style={{ backgroundColor: 'rgba(18, 19, 23, 0.95)' }}
-    >
-      {/* Custom title bar overlay with native controls visible */}
-      <div 
-        className="h-8 flex items-center relative select-none"
-        style={{ 
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          WebkitUserSelect: 'none',
-          userSelect: 'none'
-        }}
-      >
-        {/* Left space for native window controls on macOS */}
-        <div className="w-20" />
-        
-        {/* Center draggable area */}
-        <div 
-          className="flex-1 h-full flex items-center justify-center cursor-move select-none"
-          data-tauri-drag-region
-          onMouseDown={async (e) => {
-            // Middle click (button 1) to toggle shade
-            if (e.button === 1) {
-              e.preventDefault();
-              try {
-                const { DetachedWindowsAPI } = await import('./services/detached-windows-api');
-                await DetachedWindowsAPI.toggleMainWindowShade();
-              } catch (error) {
-                console.error('Failed to toggle shade:', error);
-              }
-            }
-          }}
-        >
-          <span className="text-[11px] text-soft/40 font-medium select-none pointer-events-none" title="Middle-click to shade">Notes App</span>
-        </div>
-        
-        {/* Right side balance */}
-        <div className="w-20 px-3 flex items-center justify-end">
-          <span className="text-[11px] text-soft/40 font-medium select-none pointer-events-none">{notes.length} notes</span>
-        </div>
-      </div>
+    <WindowWrapper className={`main-window transition-all duration-300 ${
+      isDragging ? 'bg-blue-500/5' : ''
+    } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}>
+      <CustomTitleBar 
+        title="Notes App"
+        isMainWindow={true}
+        rightContent={
+          <span className="text-[11px] text-soft/40 font-medium select-none">{notes.length} notes</span>
+        }
+      />
 
-      {/* Drop zone indicator during drag */}
-      {dragState.isDragging && (
-        <div className="fixed bottom-4 right-4 pointer-events-none z-50 bg-blue-500/20 border border-blue-500/40 rounded-lg px-3 py-2">
-          <div className="text-blue-400 text-xs font-medium">
-            Drag outside sidebar to create window
-          </div>
-        </div>
+      {/* Drag preview */}
+      {isDragging && dragState.noteId && (
+        <DragPreview
+          title={extractTitle(dragState.noteId)}
+          content={extractContent(dragState.noteId)}
+          position={{ x: dragState.currentX - 160, y: dragState.currentY - 20 }}
+          isOutsideSidebar={isOutsideSidebar}
+        />
       )}
 
       {/* Main content area */}
@@ -1008,11 +879,11 @@ function App() {
         </div>
 
       {/* Expandable sidebar with animation */}
-      <div className={`overflow-hidden transition-all duration-300 ease-out ${
+      <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
         sidebarVisible && currentView === 'notes' ? 'w-64' : 'w-0'
       }`}>
         <ResizablePanel
-          className="bg-card border-r border-border/30 flex flex-col sidebar"
+          className="h-full bg-card border-r border-border/30 flex flex-col sidebar"
           defaultWidth={256}
           minWidth={180}
           maxWidth={400}
@@ -1036,33 +907,38 @@ function App() {
           </div>
           
           {/* Notes list */}
-          <div className="space-y-0 flex-1 overflow-y-auto scrollbar-hide">
-            {loading ? (
-              <div className="text-xs text-soft/40 p-3">Loading...</div>
-            ) : notes.length === 0 ? (
-              <div className="text-xs text-soft/40 p-3">No notes yet</div>
-            ) : (
-              notes.map(note => (
+          <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
+            <div className="space-y-0 min-h-full">
+              {loading ? (
+                <div className="text-xs text-soft/40 p-3">Loading...</div>
+              ) : notes.length === 0 ? (
+                <div className="text-xs text-soft/40 p-3">No notes yet</div>
+              ) : (
+                notes.map(note => (
                 <div 
                   key={note.id}
+                  data-note-id={note.id}
                   onClick={() => {
-                    // Only handle click if not dragging
-                    if (!dragState.isDragging && dragState.noteId !== note.id) {
+                    // Only handle click if not currently dragging
+                    if (!isDragging) {
                       selectNote(note.id);
                     }
                   }}
-                  onDoubleClick={async () => {
+                  onDoubleClick={async (e) => {
                     if (!isWindowOpen(note.id)) {
-                      await createWindow(note.id);
+                      // Position new window offset from current mouse position
+                      const x = e.screenX + 100;
+                      const y = e.screenY - 100;
+                      await createWindow(note.id, x, y);
                     }
                   }}
                   onContextMenu={(e) => handleContextMenu(e, note.id)}
-                  onMouseDown={(e) => handleMouseDown(e, note.id)}
+                  onMouseDown={(e) => startDrag(e, note.id)}
                   className={`group relative px-3 py-2.5 cursor-pointer transition-all duration-200 rounded-md select-none ${
                     selectedNoteId === note.id 
                       ? 'bg-primary/10 border border-primary/20' 
                       : 'hover:bg-white/5 border border-transparent'
-                  } ${dragState.isDragging && dragState.noteId === note.id ? 'opacity-40 scale-95 bg-blue-500/20 border-blue-500/40 transition-all duration-200' : ''}`}
+                  } ${isDragging && dragState.noteId === note.id ? 'opacity-40 scale-95 bg-blue-500/20 border-blue-500/40 transition-all duration-200' : ''}`}
                 >
                   <div className="flex items-center gap-2">
                     {/* Note title */}
@@ -1112,6 +988,7 @@ function App() {
                 </div>
               ))
             )}
+            </div>
           </div>
         </div>
       </ResizablePanel>
@@ -1126,7 +1003,7 @@ function App() {
                 <div></div> {/* Left spacer */}
                 <div 
                   className="text-xs text-muted-foreground/50 font-mono tracking-wide truncate cursor-move hover:text-muted-foreground/70 transition-colors"
-                  onMouseDown={(e) => handleMouseDown(e, selectedNote.id)}
+                  onMouseDown={(e) => startDrag(e, selectedNote.id)}
                   title="Drag to open in new window"
                   style={{ fontSize: '11px' }}
                 >
@@ -1256,10 +1133,8 @@ function App() {
             </div>
           </div>
         ) : (
-          <div className={`transition-all duration-200 ease-out overflow-hidden flex ${
-            sidebarVisible ? 'flex-1' : 'w-0'
-          }`}>
-            <SettingsPanel />
+          <div className={`overflow-hidden flex flex-1`}>
+            {sidebarVisible && <SettingsPanel />}
           </div>
         )}
       </div>
@@ -1453,7 +1328,7 @@ function App() {
       )}
 
 
-    </div>
+    </WindowWrapper>
   );
 }
 

@@ -57,6 +57,9 @@
             "core:window:allow-center",
             "core:window:allow-is-always-on-top",
             "core:window:allow-minimize",
+            "core:window:allow-maximize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-is-maximized",
             "core:window:allow-create",
             "core:window:allow-set-size",
             "core:window:allow-inner-size",
@@ -66,7 +69,9 @@
             "core:webview:allow-create-webview",
             "global-shortcut:allow-register",
             "global-shortcut:allow-unregister",
-            "global-shortcut:allow-is-registered"
+            "global-shortcut:allow-is-registered",
+            "core:event:allow-listen",
+            "core:event:allow-emit"
           ]
         },
         {
@@ -84,19 +89,23 @@
             "core:window:allow-minimize",
             "core:window:allow-maximize",
             "core:window:allow-unmaximize",
+            "core:window:allow-is-maximized",
             "core:window:allow-set-size",
             "core:window:allow-inner-size",
             "core:window:allow-outer-size",
             "core:window:allow-set-min-size",
             "core:window:allow-set-position",
             "core:window:allow-center",
-            "core:webview:allow-create-webview-window"
+            "core:window:allow-set-title",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit"
           ]
         },
         {
           "identifier": "drag-ghost-capability",
           "description": "Capability for drag ghost window",
-          "windows": ["drag-ghost"],
+          "windows": ["drag-ghost*"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-show",
@@ -104,7 +113,10 @@
             "core:window:allow-close",
             "core:window:allow-set-position",
             "core:window:allow-set-size",
-            "core:webview:allow-create-webview-window"
+            "core:window:allow-set-title",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit"
           ]
         },
         {
@@ -129,8 +141,8 @@
         "minHeight": 40,
         "resizable": true,
         "fullscreen": false,
-        "transparent": false,
-        "decorations": true,
+        "transparent": true,
+        "decorations": false,
         "alwaysOnTop": false,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,

@@ -41,11 +41,12 @@ export function DragGhost({ noteTitle, distance, threshold, isSuccess = false }:
       >
         {/* Window frame */}
         <div 
-          className="bg-background/95 border border-border/40 rounded-lg shadow-2xl backdrop-blur-sm overflow-hidden"
+          className="bg-background/95 border border-border/40 shadow-2xl overflow-hidden"
           style={{
             width: '280px',
             height: '180px',
-            background: 'rgba(18, 19, 23, 0.95)',
+            background: 'rgba(18, 19, 23, 0.98)',
+            borderRadius: '10px',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)'
           }}
         >
