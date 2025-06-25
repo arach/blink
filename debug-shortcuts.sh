@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔍 Notes App Shortcut Debugging Tool"
+echo "🔍 Blink Shortcut Debugging Tool"
 echo "===================================="
 echo ""
 
@@ -12,11 +12,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Check if the app is running
-echo -e "${BLUE}1. Checking if Notes App is running...${NC}"
-if pgrep -f "Notes App" > /dev/null; then
-    echo -e "${GREEN}✓ Notes App is running${NC}"
+echo -e "${BLUE}1. Checking if Blink is running...${NC}"
+if pgrep -f "Blink" > /dev/null; then
+    echo -e "${GREEN}✓ Blink is running${NC}"
 else
-    echo -e "${RED}✗ Notes App is not running${NC}"
+    echo -e "${RED}✗ Blink is not running${NC}"
     echo "  Please start the app first: npm run tauri:dev"
 fi
 
@@ -32,12 +32,12 @@ fi
 
 echo ""
 echo -e "${BLUE}3. Live log monitoring (Press Ctrl+C to stop)${NC}"
-echo "Filtering for [NOTES-APP] logs..."
+echo "Filtering for [BLINK] logs..."
 echo "=================================="
 
 # Start live log streaming with our custom format
-log stream --predicate 'process == "notes-app" OR process == "Notes App"' --style compact | while read line; do
-    if echo "$line" | grep -q "\[NOTES-APP\]"; then
+log stream --predicate 'process == "blink" OR process == "Blink"' --style compact | while read line; do
+    if echo "$line" | grep -q "\[BLINK\]"; then
         # Color code based on log level
         if echo "$line" | grep -q "ERROR"; then
             echo -e "${RED}$line${NC}"

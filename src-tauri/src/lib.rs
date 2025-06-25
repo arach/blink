@@ -9,10 +9,10 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 use chrono::Local;
 
-// Custom logger macro for Notes App
+// Custom logger macro for Blink
 macro_rules! notes_log {
     ($level:expr, $category:expr, $($arg:tt)*) => {{
-        println!("[NOTES-APP] [{}] [{}] [{}] {}", 
+        println!("[BLINK] [{}] [{}] [{}] {}", 
             Local::now().format("%Y-%m-%d %H:%M:%S%.3f"), 
             $level, 
             $category, 
@@ -1275,16 +1275,16 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     let menu = Menu::new(app).map_err(|e| e.to_string())?;
     
     // App menu
-    let app_menu = Submenu::new(app, "Notes App", true).map_err(|e| e.to_string())?;
-    let about_item = MenuItem::new(app, "About Notes App", true, None::<&str>).map_err(|e| e.to_string())?;
+    let app_menu = Submenu::new(app, "Blink", true).map_err(|e| e.to_string())?;
+    let about_item = MenuItem::new(app, "About Blink", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     let services_item = MenuItem::new(app, "Services", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator2 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-    let hide_item = MenuItem::new(app, "Hide Notes App", true, Some("Cmd+H")).map_err(|e| e.to_string())?;
+    let hide_item = MenuItem::new(app, "Hide Blink", true, Some("Cmd+H")).map_err(|e| e.to_string())?;
     let hide_others_item = MenuItem::new(app, "Hide Others", true, Some("Cmd+Alt+H")).map_err(|e| e.to_string())?;
     let show_all_item = MenuItem::new(app, "Show All", true, None::<&str>).map_err(|e| e.to_string())?;
     let separator3 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Notes App", true, Some("Cmd+Q")).map_err(|e| e.to_string())?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit Blink", true, Some("Cmd+Q")).map_err(|e| e.to_string())?;
     
     app_menu.append(&about_item).map_err(|e| e.to_string())?;
     app_menu.append(&separator).map_err(|e| e.to_string())?;

@@ -2,11 +2,11 @@
 
 *From static documents to living, autonomous knowledge agents*
 
-![Notes App - Spatial Note Management](docs/screenshots/main-interface.png)
+![Blink - Spatial Note Management](docs/screenshots/main-interface.png)
 
 ## Vision: The Future of Note-Taking
 
-This isn't just another notes app—it's a paradigm shift toward **AI-native spatial knowledge management**. Instead of treating notes as static documents, we're building an ecosystem where each note becomes an intelligent, autonomous agent that can think, update, and contribute to your understanding without direct prompting.
+Blink isn't just another notes app—it's a paradigm shift toward **AI-native spatial knowledge management**. Instead of treating notes as static documents, we're building an ecosystem where each note becomes an intelligent, autonomous agent that can think, update, and contribute to your understanding without direct prompting.
 
 ### 🌟 Core Philosophy
 

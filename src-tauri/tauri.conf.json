@@ -18,7 +18,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "longDescription": "A modern, fast notes application built with Tauri, React, and TypeScript",
+    "longDescription": "A modern, fast note-taking application built with Tauri, React, and TypeScript",
     "macOS": {
       "entitlements": "entitlements.plist",
       "exceptionDomain": "",
@@ -27,7 +27,7 @@
       "signingIdentity": null
     },
     "resources": [],
-    "shortDescription": "Modern notes application",
+    "shortDescription": "Modern note-taking application",
     "targets": "all",
     "windows": {
       "certificateThumbprint": null,
@@ -35,9 +35,9 @@
       "timestampUrl": ""
     }
   },
-  "productName": "Notes App",
+  "productName": "Blink",
   "version": "0.1.0",
-  "identifier": "com.notesapp.dev",
+  "identifier": "com.blink.dev",
   "app": {
     "macOSPrivateApi": true,
     "security": {
@@ -155,7 +155,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Notes",
+        "title": "Blink",
         "width": 1000,
         "height": 700,
         "minWidth": 200,

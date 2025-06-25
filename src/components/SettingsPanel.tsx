@@ -95,7 +95,7 @@ export function SettingsPanel() {
           <div className="flex justify-between items-center gap-3">
             <span className="text-muted-foreground/80 font-mono w-28">Application</span>
             <div className="flex-1"></div>
-            <span className="text-foreground font-mono">Tauri Notes</span>
+            <span className="text-foreground font-mono">Blink</span>
           </div>
           <div className="flex justify-between items-center gap-3">
             <span className="text-muted-foreground/80 font-mono w-28">Version</span>
@@ -732,10 +732,10 @@ function calculateMetrics(data) {
               
               <button
                 onClick={async () => {
-                  console.log('[NOTES-APP] [SETTINGS] Testing event emission...');
+                  console.log('[BLINK] [SETTINGS] Testing event emission...');
                   try {
                     const result = await invoke<string>('test_emit_new_note');
-                    console.log('[NOTES-APP] [SETTINGS] Test result:', result);
+                    console.log('[BLINK] [SETTINGS] Test result:', result);
                     setShortcutMessage('Test event emitted successfully');
                     setShortcutStatus('success');
                     setTimeout(() => {
@@ -743,7 +743,7 @@ function calculateMetrics(data) {
                       setShortcutMessage('');
                     }, 3000);
                   } catch (error: any) {
-                    console.error('[NOTES-APP] [SETTINGS] Test failed:', error);
+                    console.error('[BLINK] [SETTINGS] Test failed:', error);
                     setShortcutMessage('Test failed: ' + error.toString());
                     setShortcutStatus('error');
                   }
@@ -755,10 +755,10 @@ function calculateMetrics(data) {
               
               <button
                 onClick={async () => {
-                  console.log('[NOTES-APP] [SETTINGS] Testing hover toggle...');
+                  console.log('[BLINK] [SETTINGS] Testing hover toggle...');
                   try {
                     const hoverState = await invoke<boolean>('toggle_all_windows_hover');
-                    console.log('[NOTES-APP] [SETTINGS] Hover state:', hoverState);
+                    console.log('[BLINK] [SETTINGS] Hover state:', hoverState);
                     setShortcutMessage(`Hover mode ${hoverState ? 'enabled' : 'disabled'} for all windows`);
                     setShortcutStatus('success');
                     setTimeout(() => {
@@ -766,7 +766,7 @@ function calculateMetrics(data) {
                       setShortcutMessage('');
                     }, 3000);
                   } catch (error: any) {
-                    console.error('[NOTES-APP] [SETTINGS] Hover toggle failed:', error);
+                    console.error('[BLINK] [SETTINGS] Hover toggle failed:', error);
                     setShortcutMessage('Hover toggle failed: ' + error.toString());
                     setShortcutStatus('error');
                   }

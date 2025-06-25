@@ -129,7 +129,7 @@ function App() {
   // Load notes on startup and check permissions
   useEffect(() => {
     const initializeApp = async () => {
-      console.log('[NOTES-APP] [FRONTEND] Initializing app...');
+      console.log('[BLINK] [FRONTEND] Initializing app...');
       
       // Load config first and wait for it to complete
       await loadConfig();
@@ -141,7 +141,7 @@ function App() {
       await loadNotes();
       loadWindows();
       
-      console.log('[NOTES-APP] [FRONTEND] App initialization complete');
+      console.log('[BLINK] [FRONTEND] App initialization complete');
       
       if (!isDetachedWindow) {
         checkGlobalShortcutPermissions();
@@ -153,9 +153,9 @@ function App() {
 
   // Define createNewNote function before using it in ref
   const createNewNote = async () => {
-    console.log('[NOTES-APP] [FRONTEND] Creating new note...');
-    console.log('[NOTES-APP] [FRONTEND] Function called from:', new Error().stack?.split('\n')[2]);
-    console.log('[NOTES-APP] [FRONTEND] Current app state:', {
+    console.log('[BLINK] [FRONTEND] Creating new note...');
+    console.log('[BLINK] [FRONTEND] Function called from:', new Error().stack?.split('\n')[2]);
+    console.log('[BLINK] [FRONTEND] Current app state:', {
       notesCount: notes.length,
       selectedNoteId,
       isDetachedWindow,
@@ -163,7 +163,7 @@ function App() {
     });
     
     try {
-      console.log('[NOTES-APP] [FRONTEND] Invoking create_note command...');
+      console.log('[BLINK] [FRONTEND] Invoking create_note command...');
       const newNote = await invoke<Note>('create_note', {
         request: {
           title: 'Untitled',
@@ -171,28 +171,28 @@ function App() {
           tags: []
         }
       });
-      console.log('[NOTES-APP] [FRONTEND] ✅ New note created:', newNote.id);
-      console.log('[NOTES-APP] [FRONTEND] Note object:', JSON.stringify(newNote));
-      console.log('[NOTES-APP] [FRONTEND] Current notes before update:', notes.length);
+      console.log('[BLINK] [FRONTEND] ✅ New note created:', newNote.id);
+      console.log('[BLINK] [FRONTEND] Note object:', JSON.stringify(newNote));
+      console.log('[BLINK] [FRONTEND] Current notes before update:', notes.length);
       
       setNotes(prev => {
-        console.log('[NOTES-APP] [FRONTEND] Updating notes array, previous length:', prev.length);
+        console.log('[BLINK] [FRONTEND] Updating notes array, previous length:', prev.length);
         const updated = [newNote, ...prev];
-        console.log('[NOTES-APP] [FRONTEND] New notes array length:', updated.length);
+        console.log('[BLINK] [FRONTEND] New notes array length:', updated.length);
         return updated;
       });
       
       setSelectedNoteId(newNote.id);
       setCurrentContent('');
-      console.log('[NOTES-APP] [FRONTEND] State updates queued');
+      console.log('[BLINK] [FRONTEND] State updates queued');
       
       // Force a re-render by logging the state
       setTimeout(() => {
-        console.log('[NOTES-APP] [FRONTEND] After state update - notes count:', notes.length);
+        console.log('[BLINK] [FRONTEND] After state update - notes count:', notes.length);
       }, 100);
     } catch (error) {
-      console.error('[NOTES-APP] [FRONTEND] ❌ Failed to create note:', error);
-      console.error('[NOTES-APP] [FRONTEND] Error details:', JSON.stringify(error));
+      console.error('[BLINK] [FRONTEND] ❌ Failed to create note:', error);
+      console.error('[BLINK] [FRONTEND] Error details:', JSON.stringify(error));
     }
   };
 
@@ -264,17 +264,17 @@ function App() {
   // Expose createNewNote to window for debugging
   useEffect(() => {
     (window as any).debugCreateNewNote = () => {
-      console.log('[NOTES-APP] [DEBUG] Manually triggering createNewNote from window');
+      console.log('[BLINK] [DEBUG] Manually triggering createNewNote from window');
       createNewNote();
     };
     
     (window as any).debugEmitEvent = async () => {
-      console.log('[NOTES-APP] [DEBUG] Manually emitting menu-new-note event');
+      console.log('[BLINK] [DEBUG] Manually emitting menu-new-note event');
       try {
         const result = await invoke('test_emit_new_note');
-        console.log('[NOTES-APP] [DEBUG] Emit result:', result);
+        console.log('[BLINK] [DEBUG] Emit result:', result);
       } catch (error) {
-        console.error('[NOTES-APP] [DEBUG] Emit error:', error);
+        console.error('[BLINK] [DEBUG] Emit error:', error);
       }
     };
     
@@ -285,9 +285,9 @@ function App() {
   }, []);
   
   useEffect(() => {
-    console.log('[NOTES-APP] [FRONTEND] Setting up event listeners');
-    console.log('[NOTES-APP] [FRONTEND] createNewNote function exists:', typeof createNewNote);
-    console.log('[NOTES-APP] [FRONTEND] createNewNoteRef current:', createNewNoteRef.current);
+    console.log('[BLINK] [FRONTEND] Setting up event listeners');
+    console.log('[BLINK] [FRONTEND] createNewNote function exists:', typeof createNewNote);
+    console.log('[BLINK] [FRONTEND] createNewNoteRef current:', createNewNoteRef.current);
     
     const setupListeners = async () => {
       const unlisteners: (() => void)[] = [];
@@ -295,11 +295,11 @@ function App() {
       try {
         // Listen for new note event
         const unlistenNewNote = await listen('menu-new-note', async (event) => {
-          console.log('[NOTES-APP] [FRONTEND] 🔥 Received menu-new-note event!', event);
+          console.log('[BLINK] [FRONTEND] 🔥 Received menu-new-note event!', event);
           
           // Simple inline implementation to test
           try {
-            console.log('[NOTES-APP] [FRONTEND] Creating note inline...');
+            console.log('[BLINK] [FRONTEND] Creating note inline...');
             const newNote = await invoke<Note>('create_note', {
               request: {
                 title: 'Untitled',
@@ -307,13 +307,13 @@ function App() {
                 tags: []
               }
             });
-            console.log('[NOTES-APP] [FRONTEND] Note created inline:', newNote);
+            console.log('[BLINK] [FRONTEND] Note created inline:', newNote);
             
             // Update state directly in the handler
             setNotes(prev => {
-              console.log('[NOTES-APP] [FRONTEND] Inline update - prev length:', prev.length);
+              console.log('[BLINK] [FRONTEND] Inline update - prev length:', prev.length);
               const updated = [newNote, ...prev];
-              console.log('[NOTES-APP] [FRONTEND] Inline update - new length:', updated.length);
+              console.log('[BLINK] [FRONTEND] Inline update - new length:', updated.length);
               // Force a re-render by creating a new array
               return [...updated];
             });
@@ -322,29 +322,29 @@ function App() {
             
             // Force update check
             setTimeout(() => {
-              console.log('[NOTES-APP] [FRONTEND] Post-update check - current DOM state');
+              console.log('[BLINK] [FRONTEND] Post-update check - current DOM state');
             }, 100);
           } catch (error) {
-            console.error('[NOTES-APP] [FRONTEND] Inline create failed:', error);
+            console.error('[BLINK] [FRONTEND] Inline create failed:', error);
           }
         });
         unlisteners.push(unlistenNewNote);
         
         // Listen for hover mode toggle event - DISABLED: Now handled directly in backend
         // const unlistenHover = await listen('toggle-hover-mode', async (event) => {
-        //   console.log('[NOTES-APP] [FRONTEND] 🔥 Received toggle-hover-mode event!', event);
+        //   console.log('[BLINK] [FRONTEND] 🔥 Received toggle-hover-mode event!', event);
         //   try {
         //     const hoverState = await invoke<boolean>('toggle_all_windows_hover');
-        //     console.log('[NOTES-APP] [FRONTEND] Hover mode toggled. New state:', hoverState);
+        //     console.log('[BLINK] [FRONTEND] Hover mode toggled. New state:', hoverState);
         //   } catch (error) {
-        //     console.error('[NOTES-APP] [FRONTEND] Failed to toggle hover mode:', error);
+        //     console.error('[BLINK] [FRONTEND] Failed to toggle hover mode:', error);
         //   }
         // });
         // unlisteners.push(unlistenHover);
         
         // Listen for window closed events
         const unlistenWindowClosed = await listen('window-closed', async (event) => {
-          console.log('[NOTES-APP] Window closed event received for note:', event.payload);
+          console.log('[BLINK] Window closed event received for note:', event.payload);
           const noteId = event.payload as string;
           
           // Force immediate refresh of windows list
@@ -354,28 +354,28 @@ function App() {
           setTimeout(async () => {
             await refreshWindows();
             const windowsStore = useDetachedWindowsStore.getState();
-            console.log('[NOTES-APP] Windows after refresh:', windowsStore.windows.map(w => w.note_id));
-            console.log('[NOTES-APP] Is window still open?', windowsStore.isWindowOpen(noteId));
+            console.log('[BLINK] Windows after refresh:', windowsStore.windows.map(w => w.note_id));
+            console.log('[BLINK] Is window still open?', windowsStore.isWindowOpen(noteId));
           }, 200);
         });
         unlisteners.push(unlistenWindowClosed);
         
         // Listen for window created events (from drag finalization)
         const unlistenWindowCreated = await listen('window-created', async (event) => {
-          console.log('[NOTES-APP] Window created event received for note:', event.payload);
+          console.log('[BLINK] Window created event received for note:', event.payload);
           
           // Force immediate refresh of windows list
           await refreshWindows();
         });
         unlisteners.push(unlistenWindowCreated);
         
-        console.log('[NOTES-APP] [FRONTEND] ✅ All listeners setup complete');
+        console.log('[BLINK] [FRONTEND] ✅ All listeners setup complete');
         
         return () => {
           unlisteners.forEach(fn => fn());
         };
       } catch (error) {
-        console.error('[NOTES-APP] [FRONTEND] ❌ Failed to setup listeners:', error);
+        console.error('[BLINK] [FRONTEND] ❌ Failed to setup listeners:', error);
         return () => {};
       }
     };
@@ -386,7 +386,7 @@ function App() {
     });
 
     return () => {
-      console.log('[NOTES-APP] [FRONTEND] Cleaning up event listeners');
+      console.log('[BLINK] [FRONTEND] Cleaning up event listeners');
       if (cleanup) {
         cleanup();
       }
@@ -615,7 +615,7 @@ function App() {
       // Cmd+N to create new note (standard shortcut)
       if (e.metaKey && e.key === 'n' && !e.shiftKey && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
-        console.log('[NOTES-APP] [FRONTEND] Cmd+N pressed');
+        console.log('[BLINK] [FRONTEND] Cmd+N pressed');
         createNewNote();
         return;
       }
@@ -623,7 +623,7 @@ function App() {
       // Cmd+Shift+N to create new note (alternative shortcut)
       if (e.metaKey && e.shiftKey && e.key.toLowerCase() === 'n' && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
-        console.log('[NOTES-APP] [FRONTEND] Cmd+Shift+N pressed');
+        console.log('[BLINK] [FRONTEND] Cmd+Shift+N pressed');
         createNewNote();
         return;
       }
@@ -668,17 +668,17 @@ function App() {
   }, [showCommandPalette, selectedCommandIndex, commandQuery, config.appearance?.focusMode, updateConfig]);
 
   const loadNotes = async () => {
-    console.log('[NOTES-APP] [FRONTEND] Loading notes...');
+    console.log('[BLINK] [FRONTEND] Loading notes...');
     try {
       const loadedNotes = await invoke<Note[]>('get_notes');
-      console.log('[NOTES-APP] [FRONTEND] Loaded notes:', loadedNotes.length);
-      console.log('[NOTES-APP] [FRONTEND] Notes data:', JSON.stringify(loadedNotes));
+      console.log('[BLINK] [FRONTEND] Loaded notes:', loadedNotes.length);
+      console.log('[BLINK] [FRONTEND] Notes data:', JSON.stringify(loadedNotes));
       
       setNotes(loadedNotes);
       
       // Verify the state was updated
       setTimeout(() => {
-        console.log('[NOTES-APP] [FRONTEND] After setNotes - state check');
+        console.log('[BLINK] [FRONTEND] After setNotes - state check');
       }, 0);
       
       // Select first note if available
@@ -687,7 +687,7 @@ function App() {
         setCurrentContent(loadedNotes[0].content);
       }
     } catch (error) {
-      console.error('[NOTES-APP] [FRONTEND] Failed to load notes:', error);
+      console.error('[BLINK] [FRONTEND] Failed to load notes:', error);
     } finally {
       setLoading(false);
     }
@@ -806,7 +806,7 @@ function App() {
       isDragging ? 'bg-blue-500/5' : ''
     } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}>
       <CustomTitleBar 
-        title="Notes App"
+        title="Blink"
         isMainWindow={true}
         isShaded={isShaded}
         stats={{
@@ -1190,7 +1190,7 @@ function App() {
       {/* Global IDE-style footer - always visible even when shaded */}
       <div className="h-5 bg-card/40 border-t border-border/25 px-3 flex items-center justify-between text-muted-foreground/60 font-light" style={{ fontSize: '10px' }}>
         <div className="flex items-center gap-4">
-          <span>Notes App</span>
+          <span>Blink</span>
           <div className="w-px h-3 bg-border/30"></div>
           <span>{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
         </div>
@@ -1280,13 +1280,13 @@ function App() {
               <div className="w-3 h-3 bg-primary/60 rounded-full mx-auto mb-3"></div>
               <h3 className="text-sm font-medium mb-2">Enable Global Shortcuts</h3>
               <p className="text-xs text-soft/70 mb-4 leading-relaxed">
-                To use Hyperkey+N (⌘⌃⌥⇧N) globally, grant Tauri Notes accessibility permissions:
+                To use Hyperkey+N (⌘⌃⌥⇧N) globally, grant Blink accessibility permissions:
               </p>
               <div className="text-xs text-soft/60 mb-4 text-left bg-background/30 p-3 rounded border border-border/20">
                 <div className="font-medium mb-1">Steps:</div>
                 <div>1. Open System Settings</div>
                 <div>2. Go to Privacy & Security → Accessibility</div>
-                <div>3. Add your Terminal or Tauri Notes App</div>
+                <div>3. Add your Terminal or Blink App</div>
                 <div>4. Restart this app</div>
               </div>
               <div className="flex gap-2">

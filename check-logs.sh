@@ -1,24 +1,24 @@
 #!/bin/bash
 
-echo "Checking Notes App logs in Console.app..."
+echo "Checking Blink logs in Console.app..."
 echo "=================================="
 echo ""
 
 # Show recent logs from Console with our custom logger format
 echo "Recent shortcut-related logs:"
-log show --predicate 'process == "notes-app" OR process == "Notes App"' --last 5m | grep -E "\[NOTES-APP\].*SHORTCUT|shortcut|Shortcut|register|Register"
+log show --predicate 'process == "blink" OR process == "Blink"' --last 5m | grep -E "\[BLINK\].*SHORTCUT|shortcut|Shortcut|register|Register"
 
 echo ""
 echo "=================================="
 echo "Recent event-related logs:"
-log show --predicate 'process == "notes-app" OR process == "Notes App"' --last 5m | grep -E "\[NOTES-APP\].*(menu-new-note|EVENT|HANDLER)"
+log show --predicate 'process == "blink" OR process == "Blink"' --last 5m | grep -E "\[BLINK\].*(menu-new-note|EVENT|HANDLER)"
 
 echo ""
 echo "=================================="
 echo "To see live logs, run:"
-echo "log stream --predicate 'process == \"notes-app\" OR process == \"Notes App\"' | grep '\[NOTES-APP\]'"
+echo "log stream --predicate 'process == \"blink\" OR process == \"Blink\"' | grep '\[BLINK\]'"
 echo ""
 echo "Or for all logs:"
-echo "log stream --predicate 'process == \"notes-app\" OR process == \"Notes App\"'"
+echo "log stream --predicate 'process == \"blink\" OR process == \"Blink\"'"
 echo ""
-echo "Or open Console.app and search for 'notes-app'"
+echo "Or open Console.app and search for 'blink'"
