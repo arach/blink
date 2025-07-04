@@ -824,7 +824,7 @@ function App() {
       {!isShaded && (
         <div className="flex-1 flex">
         {/* Left sidebar - navigation */}
-        <div className="w-8 bg-background flex flex-col items-center justify-between border-r border-border/30">
+        <div className="w-8 bg-background flex flex-col items-center justify-between border-r border-border/30 flex-shrink-0 relative z-10">
           <div className="flex flex-col items-center">
             {/* Notes view icon */}
             <button 
@@ -876,8 +876,8 @@ function App() {
               title={sidebarVisible && currentView === 'settings' ? 'Hide settings' : 'Settings (⌘,)'}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
                 <circle cx="12" cy="12" r="3"/>
-                <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
               </svg>
             </button>
           </div>
@@ -1028,13 +1028,74 @@ function App() {
           </ResizablePanel>
         </div>
       ) : (
-        /* Settings sidebar without animation */
-        <div className={`h-full overflow-hidden ${
+        /* Settings sidebar with sub-navigation */
+        <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
           sidebarVisible ? 'w-64' : 'w-0'
         }`}>
           <div className="h-full bg-card border-r border-border/30 flex flex-col">
             <div className="p-4">
-              <h2 className="text-sm font-medium text-foreground">Settings</h2>
+              <h2 className="text-sm font-medium text-foreground mb-4">Settings</h2>
+              
+              {/* Settings Sub-Navigation */}
+              <nav className="space-y-1">
+                <button
+                  onClick={() => {
+                    const element = document.querySelector('[data-section="general"]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+                  </svg>
+                  General
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const element = document.querySelector('[data-section="appearance"]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14,2 14,8 20,8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <line x1="10" y1="9" x2="8" y2="9"/>
+                  </svg>
+                  Appearance
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const element = document.querySelector('[data-section="shortcuts"]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="7" width="20" height="10" rx="1"/>
+                    <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
+                  </svg>
+                  Shortcuts
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const element = document.querySelector('[data-section="ai"]');
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                  </svg>
+                  AI & Plugins
+                </button>
+              </nav>
             </div>
           </div>
         </div>
@@ -1119,19 +1180,64 @@ function App() {
                 {/* Preview overlay */}
                 {isPreviewMode && selectedNote && (
                   <div 
-                    className="w-full h-full overflow-y-auto prose prose-invert prose-sm max-w-none cursor-text"
+                    className="w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text"
                     onDoubleClick={() => setIsPreviewMode(false)}
                     title="Double-click to edit"
                     style={{ 
                       fontSize: `${config.appearance?.contentFontSize || config.appearance?.fontSize || 16}px`,
                       fontFamily: config.appearance?.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
                       lineHeight: config.appearance?.lineHeight || 1.6,
-                      padding: '1rem 0' 
+                      padding: '1.5rem 0' 
                     }}
                   >
                     <ReactMarkdown 
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={config.appearance?.syntaxHighlighting ? [rehypeHighlight] : []}
+                      components={{
+                        h1: ({children}) => <h1 className="text-2xl font-semibold mb-4 mt-6 first:mt-0">{children}</h1>,
+                        h2: ({children}) => <h2 className="text-xl font-semibold mb-3 mt-5">{children}</h2>,
+                        h3: ({children}) => <h3 className="text-lg font-semibold mb-2 mt-4">{children}</h3>,
+                        p: ({children}) => <p className="mb-4 leading-relaxed">{children}</p>,
+                        blockquote: ({children}) => (
+                          <blockquote className="border-l-4 border-l-primary/60 bg-muted/20 pl-4 py-2 my-4 italic">
+                            {children}
+                          </blockquote>
+                        ),
+                        code: ({inline, children}) => (
+                          inline ? 
+                            <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code> :
+                            <code className="block">{children}</code>
+                        ),
+                        pre: ({children}) => (
+                          <pre className="bg-muted/50 border border-border/30 rounded-lg p-4 overflow-x-auto my-4">
+                            {children}
+                          </pre>
+                        ),
+                        ul: ({children}) => <ul className="list-disc list-inside mb-4 space-y-1">{children}</ul>,
+                        ol: ({children}) => <ol className="list-decimal list-inside mb-4 space-y-1">{children}</ol>,
+                        li: ({children}) => <li className="leading-relaxed">{children}</li>,
+                        a: ({href, children}) => (
+                          <a href={href} className="text-primary hover:underline font-medium">{children}</a>
+                        ),
+                        strong: ({children}) => <strong className="font-semibold">{children}</strong>,
+                        em: ({children}) => <em className="italic">{children}</em>,
+                        hr: () => <hr className="border-border/30 my-6" />,
+                        table: ({children}) => (
+                          <div className="overflow-x-auto my-4">
+                            <table className="min-w-full border-collapse border border-border/30">
+                              {children}
+                            </table>
+                          </div>
+                        ),
+                        th: ({children}) => (
+                          <th className="border border-border/30 bg-muted/30 px-3 py-2 text-left font-semibold">
+                            {children}
+                          </th>
+                        ),
+                        td: ({children}) => (
+                          <td className="border border-border/30 px-3 py-2">{children}</td>
+                        )
+                      }}
                     >
                       {currentContent || '*Empty note*'}
                     </ReactMarkdown>

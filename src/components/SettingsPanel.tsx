@@ -2,15 +2,13 @@ import { useState, useEffect } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { invoke } from '@tauri-apps/api/core';
 
-type SettingsSection = 'general' | 'appearance' | 'shortcuts' | 'ai';
-
 export function SettingsPanel() {
   const { config, updateConfig, isLoading } = useConfigStore();
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
   const [localConfig, setLocalConfig] = useState(config);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [shortcutStatus, setShortcutStatus] = useState<'idle' | 'registering' | 'success' | 'error'>('idle');
   const [shortcutMessage, setShortcutMessage] = useState<string>('');
+  const [previewMode, setPreviewMode] = useState<'editor' | 'preview'>('preview');
 
   useEffect(() => {
     // Set localConfig to match the loaded config directly
@@ -36,56 +34,24 @@ export function SettingsPanel() {
     }
   };
 
-  const sections = [
-    {
-      id: 'general' as SettingsSection,
-      name: 'General',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
-        </svg>
-      )
-    },
-    {
-      id: 'appearance' as SettingsSection,
-      name: 'Appearance',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14,2 14,8 20,8"/>
-          <line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/>
-          <line x1="10" y1="9" x2="8" y2="9"/>
-        </svg>
-      )
-    },
-    {
-      id: 'shortcuts' as SettingsSection,
-      name: 'Shortcuts',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="2" y="7" width="20" height="10" rx="1"/>
-          <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
-        </svg>
-      )
-    },
-    {
-      id: 'ai' as SettingsSection,
-      name: 'AI & Plugins',
-      icon: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-        </svg>
-      )
-    }
-  ];
 
   const renderGeneralSection = () => (
-    <div className="space-y-6 pb-8">
-      <div className="bg-card/20 rounded p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+    <div data-section="general" className="space-y-4">
+      {/* Section Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+          </svg>
+          General
+        </h2>
+        <p className="text-xs text-muted-foreground/60">Basic application information</p>
+      </div>
+
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 8v4l3 3"/>
           </svg>
@@ -93,17 +59,17 @@ export function SettingsPanel() {
         </h3>
         <div className="space-y-3 text-xs">
           <div className="flex justify-between items-center gap-3">
-            <span className="text-muted-foreground/80 font-mono w-28">Application</span>
+            <span className="text-muted-foreground/80 font-mono w-24">Application</span>
             <div className="flex-1"></div>
             <span className="text-foreground font-mono">Blink</span>
           </div>
           <div className="flex justify-between items-center gap-3">
-            <span className="text-muted-foreground/80 font-mono w-28">Version</span>
+            <span className="text-muted-foreground/80 font-mono w-24">Version</span>
             <div className="flex-1"></div>
             <span className="text-foreground font-mono">1.0.0</span>
           </div>
           <div className="flex justify-between items-center gap-3">
-            <span className="text-muted-foreground/80 font-mono w-28">Author</span>
+            <span className="text-muted-foreground/80 font-mono w-24">Author</span>
             <div className="flex-1"></div>
             <span className="text-foreground font-mono">AI-Native Spatial Notes</span>
           </div>
@@ -114,12 +80,27 @@ export function SettingsPanel() {
   );
 
   const renderAppearanceSection = () => (
-    <div className="w-full">
-      <div className="space-y-6">
+    <div data-section="appearance" className="space-y-4">
+      {/* Section Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="10" y1="9" x2="8" y2="9"/>
+          </svg>
+          Appearance
+        </h2>
+        <p className="text-xs text-muted-foreground/60">Customize typography, colors, and visual style</p>
+      </div>
+
+      <div className="space-y-4">
         {/* Typography Group */}
-        <div className="bg-card/20 rounded p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
             </svg>
             Typography
@@ -128,7 +109,7 @@ export function SettingsPanel() {
             
             {/* Editor Font Size - Single Line */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Editor Font Size</label>
+              <label className="text-xs text-foreground/80 w-24 font-mono">Editor Font Size</label>
               <div className="flex-1 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground/70" style={{ fontSize: '11px' }}>A</span>
                 <div className="flex-1 relative h-5 slider-container">
@@ -164,7 +145,7 @@ export function SettingsPanel() {
 
             {/* Content Font Size - Single Line */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Content Font Size</label>
+              <label className="text-xs text-foreground/80 w-24 font-mono">Content Font Size</label>
               <div className="flex-1 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground/70" style={{ fontSize: '11px' }}>A</span>
                 <div className="flex-1 relative h-5 slider-container">
@@ -200,7 +181,7 @@ export function SettingsPanel() {
 
             {/* Editor Font - Single Line */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Editor Font</label>
+              <label className="text-xs text-foreground/80 w-24 font-mono">Editor Font</label>
               <div className="flex items-center gap-3 flex-1">
                 <div className="flex-1"></div>
                 <select
@@ -232,7 +213,7 @@ export function SettingsPanel() {
 
             {/* Content Font - Single Line */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Content Font</label>
+              <label className="text-xs text-foreground/80 w-24 font-mono">Content Font</label>
               <div className="flex items-center gap-3 flex-1">
                 <div className="flex-1"></div>
                 <select
@@ -264,7 +245,7 @@ export function SettingsPanel() {
 
             {/* Line Height - Single Line */}
             <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Line Height</label>
+              <label className="text-xs text-foreground/80 w-24 font-mono">Line Height</label>
               <div className="flex-1 flex items-center gap-3">
                 <span className="text-xs text-muted-foreground/70">1.2</span>
                 <div className="flex-1 relative h-5 slider-container">
@@ -300,20 +281,50 @@ export function SettingsPanel() {
 
             {/* Typography Preview */}
             <div className="mt-6">
-              <label className="block text-xs text-muted-foreground mb-2">Typography Preview</label>
-              <div className="flex gap-3">
-                {/* Editor Preview */}
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground/60 mb-1">Editor View</div>
+              <label className="block text-xs text-muted-foreground mb-3 flex items-center gap-2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                  <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+                Typography Preview
+              </label>
+              
+              {/* Preview Toggle Buttons */}
+              <div className="flex gap-1 mb-4 bg-background/30 p-1 rounded-lg w-fit">
+                <button 
+                  onClick={() => setPreviewMode('editor')}
+                  className={`px-3 py-1.5 text-xs font-mono rounded transition-all ${
+                    previewMode === 'editor' 
+                      ? 'bg-primary/80 text-primary-foreground shadow-sm' 
+                      : 'text-muted-foreground/70 hover:text-foreground hover:bg-background/40'
+                  }`}
+                >
+                  Editor View
+                </button>
+                <button 
+                  onClick={() => setPreviewMode('preview')}
+                  className={`px-3 py-1.5 text-xs font-mono rounded transition-all ${
+                    previewMode === 'preview' 
+                      ? 'bg-primary/80 text-primary-foreground shadow-sm' 
+                      : 'text-muted-foreground/70 hover:text-foreground hover:bg-background/40'
+                  }`}
+                >
+                  Preview Mode
+                </button>
+              </div>
+
+              {/* Single Preview Container */}
+              <div className="relative">
+                {previewMode === 'editor' ? (
                   <div 
-                    className="p-4 bg-background/40 rounded-lg border border-border/30 h-64 overflow-auto"
+                    className="p-6 bg-card/40 rounded-xl border border-border/40 h-80 overflow-auto shadow-lg backdrop-blur-sm"
                     style={{ 
                       fontFamily: localConfig.appearance?.editorFontFamily ?? 'system-ui',
                       fontSize: `${localConfig.appearance?.fontSize ?? 15}px`,
                       lineHeight: localConfig.appearance?.lineHeight ?? 1.6
                     }}
                   >
-                    <div className="text-muted-foreground whitespace-pre-wrap">{`# Meeting Notes
+                    <div className="text-foreground/90 whitespace-pre-wrap font-mono leading-relaxed">{`# Meeting Notes
 
 ## Project Updates
 The team made significant progress on the new **dashboard feature**. We completed:
@@ -340,50 +351,82 @@ function calculateMetrics(data) {
 
 Remember to check the [project roadmap](https://example.com) for updates.`}</div>
                   </div>
-                </div>
-
-                {/* Preview Mode */}
-                <div className="flex-1">
-                  <div className="text-xs text-muted-foreground/60 mb-1">Preview Mode</div>
+                ) : (
                   <div 
-                    className="p-4 bg-background/40 rounded-lg border border-border/30 h-64 overflow-auto prose prose-invert prose-sm max-w-none"
+                    className="p-6 bg-card/60 rounded-xl border border-primary/20 h-80 overflow-auto prose prose-invert prose-sm max-w-none shadow-xl backdrop-blur-sm ring-1 ring-primary/10"
                     style={{ 
                       fontFamily: localConfig.appearance?.previewFontFamily ?? 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
                       fontSize: `${localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15}px`,
                       lineHeight: localConfig.appearance?.lineHeight ?? 1.6
                     }}
                   >
-                    <h1 style={{ fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.5}px`, marginTop: 0 }}>Meeting Notes</h1>
-                    <h2 style={{ fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.3}px` }}>Project Updates</h2>
-                    <p>The team made significant progress on the new <strong>dashboard feature</strong>. We completed:</p>
-                    <ul>
+                    <h1 style={{ 
+                      fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.8}px`, 
+                      marginTop: 0,
+                      color: 'hsl(var(--foreground) / 0.95)',
+                      fontWeight: '700'
+                    }}>Meeting Notes</h1>
+                    <h2 style={{ 
+                      fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.4}px`,
+                      color: 'hsl(var(--foreground) / 0.9)',
+                      fontWeight: '600'
+                    }}>Project Updates</h2>
+                    <p style={{ color: 'hsl(var(--foreground) / 0.85)' }}>The team made significant progress on the new <strong style={{ color: 'hsl(var(--primary))' }}>dashboard feature</strong>. We completed:</p>
+                    <ul style={{ color: 'hsl(var(--foreground) / 0.8)' }}>
                       <li>User authentication flow</li>
                       <li>Data visualization components</li>
                       <li>Performance optimizations</li>
                     </ul>
-                    <h3 style={{ fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.15}px` }}>Next Steps</h3>
-                    <ol>
+                    <h3 style={{ 
+                      fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.2}px`,
+                      color: 'hsl(var(--foreground) / 0.9)',
+                      fontWeight: '600'
+                    }}>Next Steps</h3>
+                    <ol style={{ color: 'hsl(var(--foreground) / 0.8)' }}>
                       <li>Review the pull request for the API integration</li>
                       <li>Schedule user testing sessions</li>
                       <li>Update documentation</li>
                     </ol>
-                    <blockquote style={{ borderLeftColor: 'hsl(var(--border))', paddingLeft: '1rem', marginLeft: 0 }}>
-                      <p>"The best way to predict the future is to invent it." - Alan Kay</p>
+                    <blockquote style={{ 
+                      borderLeftColor: 'hsl(var(--primary) / 0.6)', 
+                      borderLeftWidth: '3px',
+                      paddingLeft: '1.5rem', 
+                      marginLeft: 0,
+                      backgroundColor: 'hsl(var(--primary) / 0.05)',
+                      borderRadius: '0 0.5rem 0.5rem 0',
+                      padding: '1rem 1.5rem',
+                      fontStyle: 'italic',
+                      color: 'hsl(var(--foreground) / 0.85)'
+                    }}>
+                      <p style={{ margin: 0 }}>"The best way to predict the future is to invent it." - Alan Kay</p>
                     </blockquote>
                     <pre style={{ 
-                      backgroundColor: 'hsl(var(--background) / 0.5)', 
-                      padding: '0.75rem', 
-                      borderRadius: '0.375rem',
-                      fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 0.9}px`
+                      backgroundColor: 'hsl(var(--muted) / 0.8)', 
+                      padding: '1rem', 
+                      borderRadius: '0.75rem',
+                      fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 0.85}px`,
+                      border: '1px solid hsl(var(--border) / 0.5)',
+                      fontFamily: 'ui-monospace, "SF Mono", Monaco, monospace'
                     }}>
-                      <code>{`// Example code snippet
+                      <code style={{ color: 'hsl(var(--foreground) / 0.9)' }}>{`// Example code snippet
 function calculateMetrics(data) {
   return data.reduce((acc, val) => {
     return acc + val.score;
   }, 0);
 }`}</code>
                     </pre>
-                    <p>Remember to check the <a href="#" style={{ color: 'hsl(var(--primary))' }}>project roadmap</a> for updates.</p>
+                    <p style={{ color: 'hsl(var(--foreground) / 0.8)' }}>Remember to check the <a href="#" style={{ color: 'hsl(var(--primary))', textDecoration: 'underline', fontWeight: '500' }}>project roadmap</a> for updates.</p>
+                  </div>
+                )}
+                
+                {/* Preview Mode Indicator */}
+                <div className="absolute top-3 right-3">
+                  <div className={`px-2 py-1 text-xs font-mono rounded-full ${
+                    previewMode === 'preview' 
+                      ? 'bg-primary/20 text-primary border border-primary/30' 
+                      : 'bg-muted/40 text-muted-foreground border border-border/30'
+                  }`}>
+                    {previewMode === 'preview' ? 'rendered' : 'markdown'}
                   </div>
                 </div>
               </div>
@@ -392,9 +435,9 @@ function calculateMetrics(data) {
         </div>
 
         {/* Visual Group */}
-        <div className="bg-card/20 rounded p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <circle cx="12" cy="12" r="10"/>
               <circle cx="12" cy="12" r="4"/>
               <line x1="21.17" y1="8" x2="12" y2="8"/>
@@ -484,9 +527,9 @@ function calculateMetrics(data) {
         </div>
 
         {/* Window Group */}
-        <div className="bg-card/20 rounded p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <circle cx="9" cy="9" r="2"/>
               <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
@@ -572,9 +615,9 @@ function calculateMetrics(data) {
         </div>
 
         {/* Features Group */}
-        <div className="bg-card/20 rounded p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <line x1="9" y1="9" x2="15" y2="9"/>
               <line x1="9" y1="12" x2="15" y2="12"/>
@@ -662,10 +705,22 @@ function calculateMetrics(data) {
   );
 
   const renderShortcutsSection = () => (
-    <div className="space-y-6">
-      <div className="bg-card/20 rounded p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+    <div data-section="shortcuts" className="space-y-4">
+      {/* Section Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <rect x="2" y="7" width="20" height="10" rx="1"/>
+            <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
+          </svg>
+          Shortcuts
+        </h2>
+        <p className="text-xs text-muted-foreground/60">Global and in-app keyboard shortcuts</p>
+      </div>
+
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
           </svg>
@@ -787,13 +842,54 @@ function calculateMetrics(data) {
           </div>
           
           <div className="mt-4 pt-4 border-t border-border/20">
-            <div className="text-xs text-muted-foreground/60 space-y-2">
-              <p className="font-medium text-foreground/80">Troubleshooting:</p>
-              <ul className="space-y-1 ml-4">
-                <li>• Ensure accessibility permissions are granted in System Settings</li>
-                <li>• Close and restart the app after granting permissions</li>
-                <li>• Some shortcuts may conflict with system or other app shortcuts</li>
-              </ul>
+            <div className="text-xs text-muted-foreground/60 space-y-3">
+              <p className="font-medium text-foreground/80">Required macOS Permissions:</p>
+              
+              <div className="bg-background/20 border border-border/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div>
+                    <p className="font-medium text-foreground/90 mb-1">Accessibility Access</p>
+                    <p className="text-muted-foreground/70 leading-relaxed">
+                      Required for global shortcuts (⌘⌃⌥⇧N, ⌘⌃⌥⇧H) to work system-wide. 
+                      Allows Blink to capture key combinations even when the app is not in focus.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mt-1.5 flex-shrink-0"></div>
+                  <div>
+                    <p className="font-medium text-foreground/90 mb-1">Input Monitoring</p>
+                    <p className="text-muted-foreground/70 leading-relaxed">
+                      Enables detection of keyboard events for global shortcuts. 
+                      This permission may be automatically granted with Accessibility.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                <p className="font-medium text-amber-400/90 mb-1 flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                  </svg>
+                  Setup Steps
+                </p>
+                <ol className="text-amber-300/80 leading-relaxed space-y-1 ml-4 list-decimal">
+                  <li>Click "open accessibility settings" below</li>
+                  <li>Find "Blink" in the app list and enable it</li>
+                  <li>Quit and restart Blink completely</li>
+                  <li>Test shortcuts with the buttons above</li>
+                </ol>
+              </div>
+              
+              <div className="text-muted-foreground/50 text-[11px] leading-relaxed">
+                <p className="font-medium mb-1">Why these permissions?</p>
+                <p>Global shortcuts allow you to create notes instantly from anywhere on your system - 
+                whether you're browsing, coding, or in a meeting. The "Hyperkey" (⌘⌃⌥⇧) combination 
+                is specifically chosen to avoid conflicts with existing shortcuts.</p>
+              </div>
               
               <button
                 onClick={() => invoke('open_system_settings')}
@@ -806,9 +902,9 @@ function calculateMetrics(data) {
         </div>
       </div>
       
-      <div className="bg-card/20 rounded p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M5 12h14M7 12l2-2M7 12l2 2"/>
           </svg>
@@ -857,31 +953,42 @@ function calculateMetrics(data) {
   );
 
   const renderAISection = () => (
-    <div className="space-y-6">
-      <div className="bg-card/20 rounded p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+    <div data-section="ai" className="space-y-4">
+      {/* Section Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+          AI & Plugins
+        </h2>
+        <p className="text-xs text-muted-foreground/60">AI integration and extensibility (coming soon)</p>
+      </div>
+
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
           </svg>
           AI Integration
         </h3>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-28">Status</span>
+            <span className="text-xs text-muted-foreground/80 font-mono w-24">Status</span>
             <div className="flex-1"></div>
             <span className="text-xs text-muted-foreground/60 font-mono">coming soon</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-28">Features</span>
+            <span className="text-xs text-muted-foreground/80 font-mono w-24">Features</span>
             <div className="flex-1"></div>
             <span className="text-xs text-muted-foreground/60 font-mono">phase 2</span>
           </div>
         </div>
       </div>
 
-      <div className="bg-card/20 rounded p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-4 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="3"/>
             <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
           </svg>
@@ -889,12 +996,12 @@ function calculateMetrics(data) {
         </h3>
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-28">System</span>
+            <span className="text-xs text-muted-foreground/80 font-mono w-24">System</span>
             <div className="flex-1"></div>
             <span className="text-xs text-muted-foreground/60 font-mono">extensible</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-28">Integrations</span>
+            <span className="text-xs text-muted-foreground/80 font-mono w-24">Integrations</span>
             <div className="flex-1"></div>
             <span className="text-xs text-muted-foreground/60 font-mono">custom workflows</span>
           </div>
@@ -903,81 +1010,47 @@ function calculateMetrics(data) {
     </div>
   );
 
-  const renderSectionContent = () => {
-    switch (activeSection) {
-      case 'general':
-        return renderGeneralSection();
-      case 'appearance':
-        return renderAppearanceSection();
-      case 'shortcuts':
-        return renderShortcutsSection();
-      case 'ai':
-        return renderAISection();
-      default:
-        return renderGeneralSection();
-    }
-  };
-
   return (
-    <div className="flex h-full">
-      {/* Settings Navigation Sidebar */}
-      <div className="w-48 bg-card border-r border-border/30 p-4 flex flex-col">
-        <div className="mb-6">
-          <h2 className="text-sm font-medium text-foreground">Settings</h2>
-          <p className="text-xs text-muted-foreground/70 mt-1">
-            Customize your experience
-          </p>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 48px - 20px)' }}>
+      {/* Settings Content - Respects title bar and status bar */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
+        <div className="p-6 space-y-8 max-w-3xl mx-auto pb-20">
+          
+          {/* General Section */}
+          {renderGeneralSection()}
+          
+          {/* Appearance Section */}
+          {renderAppearanceSection()}
+          
+          {/* Shortcuts Section */}
+          {renderShortcutsSection()}
+          
+          {/* AI Section */}
+          {renderAISection()}
+          
         </div>
-        
-        <nav className="space-y-1 flex-1">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => setActiveSection(section.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded transition-colors ${
-                activeSection === section.id
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
-              }`}
-            >
-              {section.icon}
-              {section.name}
-            </button>
-          ))}
-        </nav>
       </div>
 
-      {/* Settings Content */}
-      <div className="flex-1 flex flex-col">
-        <div className="flex-1 p-6 overflow-y-auto scrollbar-thin" style={{ maxHeight: 'calc(100vh - 60px)', paddingBottom: '60px' }}>
-          <div className="w-full">
-            {renderSectionContent()}
-          </div>
+      {/* Save Button - Fixed at bottom */}
+      <div className="border-t border-border/20 p-4 bg-card/60 backdrop-blur-md flex-shrink-0">
+        <div className="flex justify-end max-w-3xl mx-auto">
+          <button
+            onClick={handleSave}
+            disabled={isLoading || saveStatus === 'saving'}
+            className={`px-4 py-2 text-xs rounded-md transition-all disabled:opacity-50 font-mono ${
+              saveStatus === 'saved' 
+                ? 'bg-green-600/80 text-white' 
+                : saveStatus === 'error'
+                ? 'bg-red-600/80 text-white'
+                : 'bg-primary/80 text-primary-foreground hover:bg-primary/90'
+            }`}
+          >
+            {saveStatus === 'saving' ? 'saving...' : 
+             saveStatus === 'saved' ? '✓ saved' :
+             saveStatus === 'error' ? 'error' :
+             'save changes'}
+          </button>
         </div>
-        
-        {/* Save Button - Always visible at bottom */}
-        {activeSection === 'appearance' && (
-          <div className="fixed bottom-5 right-2 border-t border-border/20 px-2 py-1 bg-card/95 backdrop-blur-md">
-            <div className="flex justify-end">
-              <button
-                onClick={handleSave}
-                disabled={isLoading || saveStatus === 'saving'}
-                className={`px-3 py-1.5 text-xs rounded transition-all disabled:opacity-50 font-mono ${
-                  saveStatus === 'saved' 
-                    ? 'bg-green-600/80 text-white' 
-                    : saveStatus === 'error'
-                    ? 'bg-red-600/80 text-white'
-                    : 'bg-primary/80 text-primary-foreground hover:bg-primary/90'
-                }`}
-              >
-                {saveStatus === 'saving' ? 'saving...' : 
-                 saveStatus === 'saved' ? '✓ saved' :
-                 saveStatus === 'error' ? 'error' :
-                 'save'}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
