@@ -289,16 +289,6 @@ function App() {
     };
   }, []); // Empty dependency array - set up only once
 
-  const checkGlobalShortcutPermissions = async () => {
-    // Check if user has already dismissed the prompt
-    const dismissed = localStorage.getItem('shortcut-permission-dismissed');
-    if (dismissed === 'true') return;
-    
-    // Show permission prompt after a short delay to let the app settle
-    setTimeout(() => {
-      setShowPermissionPrompt(true);
-    }, 2000);
-  };
 
   // Extract title from markdown content (first header)
   const extractTitleFromContent = (content: string): string => {
@@ -449,11 +439,6 @@ function App() {
     return fuzzySearch(commandQuery, getCommands());
   };
 
-  const executeCommand = (command: Command | undefined) => {
-    if (command) {
-      command.action();
-    }
-  };
 
   // Handle keyboard shortcuts
 
