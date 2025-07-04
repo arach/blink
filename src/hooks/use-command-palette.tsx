@@ -52,7 +52,6 @@ export function useCommandPalette({
   notes,
   selectedNoteId,
   isPreviewMode,
-  sidebarVisible,
   onCreateNewNote,
   onSelectNote,
   onToggleSidebar,

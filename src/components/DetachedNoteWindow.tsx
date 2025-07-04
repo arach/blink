@@ -342,11 +342,12 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
                       {children}
                     </blockquote>
                   ),
-                  code: ({inline, children}) => (
-                    inline ? 
+                  code: ({children, ...props}) => {
+                    const inline = !props.className?.includes('language-');
+                    return inline ? 
                       <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code> :
                       <code className="block">{children}</code>
-                  ),
+                  },
                   pre: ({children}) => (
                     <pre className="bg-muted/50 border border-border/30 rounded-lg p-4 overflow-x-auto my-4">
                       {children}

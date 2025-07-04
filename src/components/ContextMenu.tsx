@@ -11,7 +11,6 @@ export function ContextMenu({
   y,
   noteId,
   onAction,
-  onClose,
 }: ContextMenuProps) {
   return (
     <div 
