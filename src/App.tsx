@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -10,6 +9,9 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { ResizablePanel } from './components/ResizablePanel';
 import { CustomTitleBar } from './components/CustomTitleBar';
 import { WindowWrapper } from './components/WindowWrapper';
+import { CommandPalette } from './components/CommandPalette';
+import { PermissionPrompt } from './components/PermissionPrompt';
+import { ContextMenu } from './components/ContextMenu';
 import { useDetachedWindowsStore } from './stores/detached-windows-store';
 import { useConfigStore } from './stores/config-store';
 import { useSaveStatus } from './hooks/use-save-status';
@@ -17,7 +19,11 @@ import { useWindowTransparency } from './hooks/use-window-transparency';
 import { useTypewriterMode } from './hooks/use-typewriter-mode';
 import { useDragToDetach } from './hooks/use-drag-to-detach';
 import { useWindowShade } from './hooks/use-window-shade';
-import { noteSyncService, useNoteSync } from './services/note-sync';
+import { useNoteManagement } from './hooks/use-note-management';
+import { useCommandPalette } from './hooks/use-command-palette';
+import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
+import { usePermissions } from './hooks/use-permissions';
+import { useContextMenu } from './hooks/use-context-menu';
 
 interface Note {
   id: string;
@@ -29,23 +35,10 @@ interface Note {
 }
 
 function App() {
-  const { config } = useConfigStore();
+  const { config, updateConfig } = useConfigStore();
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [currentContent, setCurrentContent] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [showPermissionPrompt, setShowPermissionPrompt] = useState(false);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [commandQuery, setCommandQuery] = useState('');
-  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    noteId: string;
-  } | null>(null);
   // Drag-to-detach functionality
   const { dragState, startDrag, isDragging } = useDragToDetach({
     onDrop: async (noteId: string, x: number, y: number) => {
@@ -77,9 +70,6 @@ function App() {
     refreshWindows 
   } = useDetachedWindowsStore();
 
-  // Config store
-  const { loadConfig, updateConfig } = useConfigStore();
-
   // Save status tracking
   const saveStatus = useSaveStatus();
   
@@ -92,23 +82,100 @@ function App() {
   // Window shade hook - tracks if window is shaded
   const isShaded = useWindowShade();
 
-  const selectedNote = notes.find(note => note.id === selectedNoteId);
+  // Note management hook
+  const {
+    notes,
+    selectedNoteId,
+    currentContent,
+    loading,
+    selectedNote,
+    createNewNote,
+    selectNote,
+    updateNoteContent,
+    deleteNote,
+    setCurrentContent,
+  } = useNoteManagement();
+
+  // Permission management hook
+  const {
+    showPermissionPrompt,
+    requestPermissions,
+    dismissPermissionPrompt,
+    openSystemSettings,
+  } = usePermissions();
+
+  // Command palette hook
+  const {
+    showCommandPalette,
+    commandQuery,
+    selectedCommandIndex,
+    filteredCommands,
+    openCommandPalette,
+    closeCommandPalette,
+    setCommandQuery,
+    setSelectedCommandIndex,
+    executeSelectedCommand,
+    executeCommand,
+    handleCommandKeyDown,
+  } = useCommandPalette({
+    notes,
+    selectedNoteId,
+    isPreviewMode,
+    sidebarVisible,
+    onCreateNewNote: createNewNote,
+    onSelectNote: selectNote,
+    onToggleSidebar: () => setSidebarVisible(!sidebarVisible),
+    onTogglePreview: () => setIsPreviewMode(!isPreviewMode),
+    onOpenSettings: () => {
+      setCurrentView('settings');
+      setSidebarVisible(true);
+    },
+  });
+
+  // Context menu hook
+  const {
+    contextMenu,
+    showContextMenu,
+    hideContextMenu,
+    handleContextMenuAction,
+  } = useContextMenu({
+    onDeleteNote: deleteNote,
+    onDetachNote: async (noteId: string) => {
+      try {
+        await createWindow(noteId, window.screen.width / 2, window.screen.height / 2);
+      } catch (error) {
+        console.error('Failed to detach note:', error);
+      }
+    },
+  });
+
+  // Keyboard shortcuts hook
+  useKeyboardShortcuts({
+    onNewNote: createNewNote,
+    onToggleCommandPalette: openCommandPalette,
+    onTogglePreview: () => setIsPreviewMode(!isPreviewMode),
+    onOpenSettings: () => {
+      setCurrentView('settings');
+      setSidebarVisible(true);
+    },
+    onToggleFocus: () => {
+      const newConfig = {
+        ...config,
+        appearance: {
+          ...config.appearance,
+          focusMode: !config.appearance?.focusMode
+        }
+      };
+      updateConfig(newConfig);
+    },
+    isCommandPaletteOpen: showCommandPalette,
+  });
   
   // Debug logging
   console.log('Config loaded:', config);
   console.log('Focus mode:', config.appearance?.focusMode);
   console.log('Current notes count:', notes.length);
   console.log('Selected note ID:', selectedNoteId);
-
-  // Real-time sync for selected note
-  useNoteSync(selectedNoteId, (updatedNote) => {
-    setNotes(prev => prev.map(note => 
-      note.id === updatedNote.id ? updatedNote : note
-    ));
-    if (selectedNoteId === updatedNote.id) {
-      setCurrentContent(updatedNote.content);
-    }
-  });
 
   // Detect if this is a detached window or drag ghost
   useEffect(() => {
@@ -126,163 +193,24 @@ function App() {
     }
   }, []);
 
-  // Load notes on startup and check permissions
+  // Load windows and check permissions on startup
   useEffect(() => {
     const initializeApp = async () => {
       console.log('[BLINK] [FRONTEND] Initializing app...');
       
-      // Load config first and wait for it to complete
-      await loadConfig();
-      
-      // Small delay to ensure window is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Then load other data
-      await loadNotes();
+      // Load detached windows
       loadWindows();
       
       console.log('[BLINK] [FRONTEND] App initialization complete');
       
       if (!isDetachedWindow) {
-        checkGlobalShortcutPermissions();
+        requestPermissions();
       }
     };
     
     initializeApp();
-  }, [isDetachedWindow, loadConfig, loadWindows]);
+  }, [isDetachedWindow, loadWindows, requestPermissions]);
 
-  // Define createNewNote function before using it in ref
-  const createNewNote = async () => {
-    console.log('[BLINK] [FRONTEND] Creating new note...');
-    console.log('[BLINK] [FRONTEND] Function called from:', new Error().stack?.split('\n')[2]);
-    console.log('[BLINK] [FRONTEND] Current app state:', {
-      notesCount: notes.length,
-      selectedNoteId,
-      isDetachedWindow,
-      loading
-    });
-    
-    try {
-      console.log('[BLINK] [FRONTEND] Invoking create_note command...');
-      const newNote = await invoke<Note>('create_note', {
-        request: {
-          title: 'Untitled',
-          content: '',
-          tags: []
-        }
-      });
-      console.log('[BLINK] [FRONTEND] ✅ New note created:', newNote.id);
-      console.log('[BLINK] [FRONTEND] Note object:', JSON.stringify(newNote));
-      console.log('[BLINK] [FRONTEND] Current notes before update:', notes.length);
-      
-      setNotes(prev => {
-        console.log('[BLINK] [FRONTEND] Updating notes array, previous length:', prev.length);
-        const updated = [newNote, ...prev];
-        console.log('[BLINK] [FRONTEND] New notes array length:', updated.length);
-        return updated;
-      });
-      
-      setSelectedNoteId(newNote.id);
-      setCurrentContent('');
-      console.log('[BLINK] [FRONTEND] State updates queued');
-      
-      // Force a re-render by logging the state
-      setTimeout(() => {
-        console.log('[BLINK] [FRONTEND] After state update - notes count:', notes.length);
-      }, 100);
-    } catch (error) {
-      console.error('[BLINK] [FRONTEND] ❌ Failed to create note:', error);
-      console.error('[BLINK] [FRONTEND] Error details:', JSON.stringify(error));
-    }
-  };
-
-  // Listen for menu events - use a ref to avoid stale closures
-  const createNewNoteRef = useRef(createNewNote);
-  createNewNoteRef.current = createNewNote;
-  
-  // Also store in window for debugging
-  useEffect(() => {
-    (window as any).createNewNoteRef = createNewNoteRef;
-    (window as any).directCreateNewNote = createNewNote;
-    
-    // Add test for window resizing
-    (window as any).testWindowResize = async () => {
-      console.log('[TEST-RESIZE] Testing window resize functionality...');
-      try {
-        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-        const { LogicalSize } = await import('@tauri-apps/api/dpi');
-        
-        const window = getCurrentWebviewWindow();
-        console.log('[TEST-RESIZE] Window instance:', window);
-        
-        const currentSize = await window.innerSize();
-        console.log('[TEST-RESIZE] Current size:', currentSize);
-        
-        console.log('[TEST-RESIZE] Setting size to 400x300...');
-        await window.setSize(new LogicalSize(400, 300));
-        
-        console.log('[TEST-RESIZE] Waiting 2 seconds...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        console.log('[TEST-RESIZE] Restoring original size...');
-        await window.setSize(new LogicalSize(currentSize.width, currentSize.height));
-        
-        console.log('[TEST-RESIZE] Test complete!');
-      } catch (error) {
-        console.error('[TEST-RESIZE] Error:', error);
-      }
-    };
-    
-    // Add test window creation function
-    (window as any).testWindowCreation = async () => {
-      try {
-        console.log('[TEST] Testing window creation...');
-        const result = await invoke('test_window_creation');
-        console.log('[TEST] Window creation result:', result);
-      } catch (error) {
-        console.error('[TEST] Window creation error:', error);
-      }
-    };
-    
-    // Add test for detached window creation
-    (window as any).testDetachedWindow = async (noteId?: string) => {
-      try {
-        const actualNoteId = noteId || selectedNoteId || notes[0]?.id;
-        if (!actualNoteId) {
-          console.error('[TEST] No note ID available for testing');
-          return;
-        }
-        console.log('[TEST] Testing detached window creation for note:', actualNoteId);
-        const result = await createWindow(actualNoteId);
-        console.log('[TEST] Detached window creation result:', result);
-      } catch (error) {
-        console.error('[TEST] Detached window creation error:', error);
-      }
-    };
-  }, [createNewNote, createWindow, selectedNoteId, notes]);
-  
-  // Expose createNewNote to window for debugging
-  useEffect(() => {
-    (window as any).debugCreateNewNote = () => {
-      console.log('[BLINK] [DEBUG] Manually triggering createNewNote from window');
-      createNewNote();
-    };
-    
-    (window as any).debugEmitEvent = async () => {
-      console.log('[BLINK] [DEBUG] Manually emitting menu-new-note event');
-      try {
-        const result = await invoke('test_emit_new_note');
-        console.log('[BLINK] [DEBUG] Emit result:', result);
-      } catch (error) {
-        console.error('[BLINK] [DEBUG] Emit error:', error);
-      }
-    };
-    
-    return () => {
-      delete (window as any).debugCreateNewNote;
-      delete (window as any).debugEmitEvent;
-    };
-  }, []);
   
   useEffect(() => {
     console.log('[BLINK] [FRONTEND] Setting up event listeners');
