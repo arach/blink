@@ -214,47 +214,15 @@ function App() {
   
   useEffect(() => {
     console.log('[BLINK] [FRONTEND] Setting up event listeners');
-    console.log('[BLINK] [FRONTEND] createNewNote function exists:', typeof createNewNote);
-    console.log('[BLINK] [FRONTEND] createNewNoteRef current:', createNewNoteRef.current);
     
     const setupListeners = async () => {
       const unlisteners: (() => void)[] = [];
       
       try {
-        // Listen for new note event
+        // Listen for new note event and delegate to our hook
         const unlistenNewNote = await listen('menu-new-note', async (event) => {
           console.log('[BLINK] [FRONTEND] 🔥 Received menu-new-note event!', event);
-          
-          // Simple inline implementation to test
-          try {
-            console.log('[BLINK] [FRONTEND] Creating note inline...');
-            const newNote = await invoke<Note>('create_note', {
-              request: {
-                title: 'Untitled',
-                content: '',
-                tags: []
-              }
-            });
-            console.log('[BLINK] [FRONTEND] Note created inline:', newNote);
-            
-            // Update state directly in the handler
-            setNotes(prev => {
-              console.log('[BLINK] [FRONTEND] Inline update - prev length:', prev.length);
-              const updated = [newNote, ...prev];
-              console.log('[BLINK] [FRONTEND] Inline update - new length:', updated.length);
-              // Force a re-render by creating a new array
-              return [...updated];
-            });
-            setSelectedNoteId(newNote.id);
-            setCurrentContent('');
-            
-            // Force update check
-            setTimeout(() => {
-              console.log('[BLINK] [FRONTEND] Post-update check - current DOM state');
-            }, 100);
-          } catch (error) {
-            console.error('[BLINK] [FRONTEND] Inline create failed:', error);
-          }
+          createNewNote();
         });
         unlisteners.push(unlistenNewNote);
         
