@@ -7,6 +7,8 @@ interface UseKeyboardShortcutsProps {
   onOpenSettings: () => void;
   onToggleFocus: () => void;
   isCommandPaletteOpen: boolean;
+  notes: Array<{ id: string; title: string }>;
+  onSelectNote: (noteId: string) => void;
 }
 
 export function useKeyboardShortcuts({
@@ -16,6 +18,8 @@ export function useKeyboardShortcuts({
   onOpenSettings,
   onToggleFocus,
   isCommandPaletteOpen,
+  notes,
+  onSelectNote,
 }: UseKeyboardShortcutsProps) {
   
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -26,6 +30,19 @@ export function useKeyboardShortcuts({
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
       return;
+    }
+
+    // Hyper key (Cmd+Ctrl+Alt+Shift) + number combinations for quick note access
+    if (e.metaKey && e.ctrlKey && e.altKey && e.shiftKey) {
+      const numberKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      if (numberKeys.includes(e.key)) {
+        e.preventDefault();
+        const noteIndex = parseInt(e.key) - 1;
+        if (notes[noteIndex]) {
+          onSelectNote(notes[noteIndex].id);
+        }
+        return;
+      }
     }
 
     // Command/Ctrl key shortcuts
@@ -77,7 +94,9 @@ export function useKeyboardShortcuts({
     onTogglePreview,
     onOpenSettings,
     onToggleFocus,
-    isCommandPaletteOpen
+    isCommandPaletteOpen,
+    notes,
+    onSelectNote
   ]);
 
   // Set up global keyboard event listeners

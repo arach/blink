@@ -22,11 +22,12 @@ export interface AppConfig {
     syntaxHighlighting?: boolean;
     focusMode?: boolean;
     typewriterMode?: boolean;
+    showNotePreviews?: boolean;
   };
 }
 
 export const defaultConfig: AppConfig = {
-  opacity: 0.55,
+  opacity: 0.95,
   alwaysOnTop: false,
   shortcuts: {
     toggleVisibility: 'Cmd+Ctrl+Alt+Shift+N',
@@ -47,6 +48,7 @@ export const defaultConfig: AppConfig = {
     syntaxHighlighting: true,
     focusMode: false,
     typewriterMode: false,
+    showNotePreviews: false,
   },
 };
 

@@ -24,6 +24,7 @@ import { useCommandPalette } from './hooks/use-command-palette';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { usePermissions } from './hooks/use-permissions';
 import { useContextMenu } from './hooks/use-context-menu';
+import { markdownToPlainText, truncateText } from './lib/utils';
 
 
 function App() {
@@ -157,6 +158,8 @@ function App() {
       updateConfig(newConfig);
     },
     isCommandPaletteOpen: showCommandPalette,
+    notes: notes,
+    onSelectNote: selectNote,
   });
   
   // Debug logging
@@ -401,7 +404,7 @@ function App() {
                       </div>
                     ) : (
                       <div className="p-2">
-                        {notes.map(note => (
+                        {notes.map((note, index) => (
                           <div
                             key={note.id}
                             className={`group relative p-3 rounded-lg mb-2 cursor-pointer transition-all ${
@@ -419,17 +422,30 @@ function App() {
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <h3 className={`text-sm font-medium truncate transition-colors ${
-                                  selectedNoteId === note.id 
-                                    ? 'text-primary' 
-                                    : 'text-foreground group-hover:text-foreground'
-                                }`}>
-                                  {note.title || 'Untitled'}
-                                </h3>
+                                <div className="flex items-center gap-2">
+                                  <h3 className={`text-sm font-medium truncate transition-colors ${
+                                    selectedNoteId === note.id 
+                                      ? 'text-primary' 
+                                      : 'text-foreground group-hover:text-foreground'
+                                  }`}>
+                                    {note.title || 'Untitled'}
+                                  </h3>
+                                  {index < 9 && (
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-mono transition-colors ${
+                                      selectedNoteId === note.id 
+                                        ? 'bg-primary/20 text-primary/80' 
+                                        : 'bg-muted-foreground/10 text-muted-foreground/50 group-hover:text-muted-foreground/70'
+                                    }`}>
+                                      ⌃⌘⌥⇧{index + 1}
+                                    </span>
+                                  )}
+                                </div>
                                 
-                                <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2 leading-relaxed">
-                                  {note.content || 'Empty note'}
-                                </p>
+                                {config.appearance?.showNotePreviews && (
+                                  <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2 leading-relaxed">
+                                    {note.content ? truncateText(markdownToPlainText(note.content), 80) : 'Empty note'}
+                                  </p>
+                                )}
                               </div>
                               
                               <div className="flex flex-col items-end gap-1 flex-shrink-0">
