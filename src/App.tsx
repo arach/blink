@@ -30,7 +30,7 @@ import { markdownToPlainText, truncateText } from './lib/utils';
 function App() {
   const { config, updateConfig } = useConfigStore();
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false); // Start in edit mode
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
 
   // Window detection states
@@ -519,7 +519,7 @@ function App() {
                     {/* Preview overlay */}
                     {isPreviewMode && selectedNote && (
                       <div 
-                        className="w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text"
+                        className="absolute inset-0 w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text bg-background z-10"
                         onDoubleClick={() => setIsPreviewMode(false)}
                         title="Double-click to edit"
                         style={{ 

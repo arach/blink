@@ -1316,7 +1316,7 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     
     // Notes menu
     let notes_menu = Submenu::new(app, "Notes", true).map_err(|e| e.to_string())?;
-    let new_note_item = MenuItem::with_id(app, "new-note", "New Note", true, Some("Cmd+N")).map_err(|e| e.to_string())?;
+    let new_note_item = MenuItem::with_id(app, "new-note", "New Note", true, Some("Cmd+Ctrl+Alt+Shift+N")).map_err(|e| e.to_string())?;
     let separator5 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     
     notes_menu.append(&new_note_item).map_err(|e| e.to_string())?;
