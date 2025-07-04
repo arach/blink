@@ -76,6 +76,42 @@ export function SettingsPanel() {
         </div>
       </div>
 
+      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9,22 9,12 15,12 15,22"/>
+          </svg>
+          Interface
+        </h3>
+        <div className="space-y-3 text-xs">
+          
+          {/* Show Note Previews Toggle */}
+          <div className="flex justify-between items-center gap-3">
+            <div className="flex flex-col">
+              <span className="text-foreground/90 font-mono text-xs">Note Previews</span>
+              <span className="text-muted-foreground/60 text-xs">Show content preview in sidebar</span>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="note-previews"
+                checked={localConfig.appearance?.showNotePreviews ?? false}
+                onChange={(e) => setLocalConfig({
+                  ...localConfig,
+                  appearance: {
+                    ...localConfig.appearance,
+                    showNotePreviews: e.target.checked
+                  }
+                })}
+                className="w-4 h-4 text-primary bg-background border-border/30 rounded focus:ring-primary/50 focus:ring-2 cursor-pointer"
+              />
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
     </div>
   );
 
