@@ -58,8 +58,8 @@
   
   body {
     color: hsl(var(--foreground, 220 6% 90%));
-    /* Keep body transparent for rounded corners - background will be set on content containers */
-    background: transparent;
+    /* Set a default background to ensure window is visible */
+    background: hsl(var(--background, 220 8% 8%));
     /* System font for UI elements - can be overridden by theme */
     font-feature-settings: 'liga' 1, 'calt' 1;
     letter-spacing: -0.025em;
