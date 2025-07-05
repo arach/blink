@@ -191,10 +191,15 @@ When implementing UI components, verify:
 3. **Navigation Buttons**: Fixed to exact 20px × 20px dimensions
 4. **Panel Headers**: Standardized Notes and Settings headers to 76px
 5. **Status Bar**: Confirmed 24px height with proper spacing
-6. **Title Font Size**: Corrected from 14px to 11px (grid system compliance)
+6. **Title Font Size**: Updated from 11px to 13px for improved hierarchy
 7. **Note Footer Height**: Standardized to 24px height (h-6)
 8. **Small Icons**: Updated from 11px to 12px minimum size
 9. **Rounded Corners**: Fixed transparent window background interference
+10. **Settings Navigation Icons**: Added consistent 14px icons to sidebar header and 12px icons to sections
+11. **Save Button Optimization**: Reduced from px-4 py-2 to px-3 py-1.5 with text-xs
+12. **Button Icon Consistency**: Aligned Save button icons to 12px (w-3 h-3)
+13. **Backdrop Blur**: Added backdrop-blur-sm to Save button background
+14. **Footer Text Contrast**: Enhanced directory text to text-foreground/90
 
 ## CSS Variables
 
@@ -212,6 +217,37 @@ Consider adding these CSS variables for easier maintenance:
   --icon-large: 1rem; /* 16px */
 }
 ```
+
+## Design Consistency Standards
+
+### Typography Hierarchy
+Established visual hierarchy with consistent font sizing:
+- **App Title**: 13px (improved from 11px for better prominence)
+- **Section Headers**: 14px (text-sm)
+- **Subsection Text**: 12px (text-xs) 
+- **Button Text**: 12px (text-xs) for proportional design
+- **Footer Text**: 12px with enhanced contrast (text-foreground/90 for directory)
+
+### Icon Size System
+Consistent iconography throughout the application:
+- **Navigation Icons**: 12px (w-3 h-3) - sidebar buttons
+- **Section Header Icons**: 14px (w-3.5 h-3.5) - main section headers  
+- **Subsection Icons**: 12px (w-3 h-3) - settings sidebar sections
+- **Footer Icons**: 16px (w-4 h-4) - status bar elements
+- **Button Icons**: 12px (w-3 h-3) - action buttons
+
+### Visual Treatment Standards
+Enhanced visual consistency with proper transparency:
+- **Save Button**: px-3 py-1.5 with backdrop-blur-sm background
+- **Footer Text**: Improved contrast hierarchy (directory at 90% opacity)
+- **Section Headers**: Consistent 76px height with flexbox centering
+- **Icon Alignment**: Proper optical centering in all containers
+
+### Navigation Structure Consistency
+Unified navigation patterns across all views:
+- **Sidebar Headers**: Icon + title + optional action button
+- **Section Navigation**: Icon + title + subtitle structure
+- **Visual States**: Consistent hover, active, and selected states
 
 ## Common Patterns
 
