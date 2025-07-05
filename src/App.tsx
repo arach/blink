@@ -10,7 +10,6 @@ import { ResizablePanel } from './components/ResizablePanel';
 import { CustomTitleBar } from './components/CustomTitleBar';
 import { WindowWrapper } from './components/WindowWrapper';
 import { CommandPalette } from './components/CommandPalette';
-import { PermissionPrompt } from './components/PermissionPrompt';
 import { ContextMenu } from './components/ContextMenu';
 import { useDetachedWindowsStore } from './stores/detached-windows-store';
 import { useConfigStore } from './stores/config-store';
@@ -22,13 +21,14 @@ import { useWindowShade } from './hooks/use-window-shade';
 import { useNoteManagement } from './hooks/use-note-management';
 import { useCommandPalette } from './hooks/use-command-palette';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
-import { usePermissions } from './hooks/use-permissions';
 import { useContextMenu } from './hooks/use-context-menu';
 import { markdownToPlainText, truncateText } from './lib/utils';
+import { themes, applyTheme, getThemeById } from './types/theme';
+import { Palette, Eye, Focus, Keyboard, Pin, Save } from 'lucide-react';
 
 
 function App() {
-  const { config, updateConfig } = useConfigStore();
+  const { config, updateConfig, loadConfig } = useConfigStore();
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false); // Start in edit mode
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
@@ -86,13 +86,7 @@ function App() {
     setCurrentContent,
   } = useNoteManagement();
 
-  // Permission management hook
-  const {
-    showPermissionPrompt,
-    requestPermissions,
-    dismissPermissionPrompt,
-    openSystemSettings,
-  } = usePermissions();
+  // Permissions resolved - no longer needed
 
   // Command palette hook
   const {
@@ -184,23 +178,53 @@ function App() {
     }
   }, []);
 
+  // Apply theme on startup and when config changes
+  useEffect(() => {
+    const themeId = config.appearance?.themeId || 'midnight-ink';
+    const theme = getThemeById(themeId);
+    console.log('[APP] Theme effect triggered. Config:', config);
+    console.log('[APP] ThemeId:', themeId, 'Theme found:', !!theme);
+    
+    // Force apply the theme regardless
+    if (theme) {
+      console.log('[APP] Applying theme:', theme.name);
+      applyTheme(theme);
+    } else {
+      console.error('[APP] Theme not found:', themeId, 'Available themes:', Object.values(themes).map(t => t.id));
+    }
+  }, [config]); // Trigger when config changes
+
+  // Also apply default theme on mount to ensure it loads
+  useEffect(() => {
+    console.log('[DEBUG] Themes object:', themes);
+    console.log('[DEBUG] Available theme IDs:', Object.values(themes).map(t => t.id));
+    const defaultTheme = getThemeById('midnight-ink');
+    if (defaultTheme) {
+      console.log('[APP] Applying default theme on mount:', defaultTheme.name);
+      applyTheme(defaultTheme);
+    } else {
+      console.error('[DEBUG] midnight-ink theme not found in themes object');
+    }
+  }, []); // Only run once on mount
+
   // Load windows and check permissions on startup
   useEffect(() => {
     const initializeApp = async () => {
       console.log('[BLINK] [FRONTEND] Initializing app...');
+      
+      // Load config first
+      await loadConfig();
       
       // Load detached windows
       loadWindows();
       
       console.log('[BLINK] [FRONTEND] App initialization complete');
       
-      if (!isDetachedWindow) {
-        requestPermissions();
-      }
+      // Permissions resolved - no longer needed
     };
     
     initializeApp();
-  }, [isDetachedWindow, loadWindows, requestPermissions]);
+  }, [isDetachedWindow, loadWindows]);
 
   // Set up event listeners for Tauri events
   useEffect(() => {
@@ -247,7 +271,13 @@ function App() {
         console.log('[BLINK] [FRONTEND] ✅ All listeners setup complete');
         
         return () => {
-          unlisteners.forEach(fn => fn());
+          unlisteners.forEach(fn => {
+            try {
+              fn();
+            } catch (error) {
+              console.warn('[BLINK] Failed to unlisten event:', error);
+            }
+          });
         };
       } catch (error) {
         console.error('[BLINK] [FRONTEND] ❌ Failed to setup listeners:', error);
@@ -281,6 +311,9 @@ function App() {
   // Calculate word count for current content
   const wordCount = currentContent.split(/\s+/).filter(word => word.length > 0).length;
   
+  const themeId = config.appearance?.themeId || 'midnight-ink';
+  const theme = getThemeById(themeId);
+  
   return (
     <WindowWrapper className={`main-window transition-all duration-300 ${
       isDragging ? 'bg-blue-500/5' : ''
@@ -298,7 +331,7 @@ function App() {
       {!isShaded && (
         <div className="flex-1 flex">
         {/* Left sidebar - navigation */}
-        <div className="w-8 bg-background flex flex-col items-center justify-between border-r border-border/30 flex-shrink-0 relative z-10">
+        <div className="w-8 bg-muted/80 flex flex-col items-center justify-between border-r border-primary/30 flex-shrink-0 relative z-10 backdrop-blur-sm">
           <div className="flex flex-col items-center">
             {/* Notes view icon */}
             <button 
@@ -310,10 +343,10 @@ function App() {
                   setSidebarVisible(true);
                 }
               }}
-              className={`p-2 m-1 rounded transition-colors ${
+              className={`p-1 m-0.5 rounded transition-colors ${
                 currentView === 'notes' 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+                  ? 'bg-primary text-background' 
+                  : 'text-primary/80 hover:text-primary hover:bg-primary/20'
               }`}
               title={sidebarVisible && currentView === 'notes' ? 'Hide notes' : 'Notes'}
             >
@@ -338,10 +371,10 @@ function App() {
                   setSidebarVisible(true);
                 }
               }}
-              className={`p-2 m-1 rounded transition-colors ${
+              className={`p-1 m-0.5 rounded transition-colors ${
                 currentView === 'settings' 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/60'
+                  ? 'bg-primary text-background' 
+                  : 'text-primary/80 hover:text-primary hover:bg-primary/20'
               }`}
               title={sidebarVisible && currentView === 'settings' ? 'Hide settings' : 'Settings (⌘,)'}
             >
@@ -396,11 +429,14 @@ function App() {
                   <div className="flex-1 overflow-y-auto">
                     {loading ? (
                       <div className="p-4 text-center text-muted-foreground/60 text-sm">
-                        Loading notes...
+                        Loading your thoughts...
                       </div>
                     ) : notes.length === 0 ? (
                       <div className="p-4 text-center text-muted-foreground/60 text-sm">
-                        No notes yet. Create your first note!
+                        <div className="space-y-1">
+                          <div>Your workspace awaits ✨</div>
+                          <div className="text-xs text-muted-foreground/40">Press ⌘N to create your first note</div>
+                        </div>
                       </div>
                     ) : (
                       <div className="p-2">
@@ -507,8 +543,8 @@ function App() {
                         setCurrentContent(e.target.value);
                         updateNoteContent(e.target.value);
                       }}
-                      placeholder="Start writing..."
-                      className="w-full h-full resize-none bg-transparent border-none outline-none p-6 text-foreground placeholder-muted-foreground/50 scrollbar-thin"
+                      placeholder="Your thoughts, unfiltered..."
+                      className="w-full h-full resize-none bg-transparent border-none outline-none p-5 text-foreground placeholder-muted-foreground/50 scrollbar-thin"
                       style={{
                         fontSize: `${config.appearance?.fontSize || 15}px`,
                         fontFamily: config.appearance?.editorFontFamily || 'system-ui',
@@ -587,23 +623,23 @@ function App() {
                   
                   {/* Note-specific footer */}
                   {selectedNote && (
-                    <div className="bg-card/20 border-t border-border/15 px-6 py-2 flex items-center justify-between">
+                    <div className="status-footer bg-background/95 border-t border-border/30 px-6 py-2.5 flex items-center justify-between backdrop-blur-sm">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           {saveStatus.isSaving ? (
                             <>
-                              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
-                              <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+                              <div className="w-1.5 h-1.5 bg-yellow-500/70 rounded-full animate-pulse"></div>
+                              <span className="text-xs text-muted-foreground/60 font-medium">Capturing thoughts...</span>
                             </>
                           ) : (
                             <>
-                              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved</span>
-                              <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
+                              <div className="w-1.5 h-1.5 bg-green-500/70 rounded-full"></div>
+                              <span className="text-xs text-muted-foreground/60 font-medium">Safe & sound ✓</span>
                             </>
                           )}
                         </div>
                         
-                        <div className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>
+                        <div className="text-xs text-muted-foreground/60 font-medium">
                           {wordCount} words
                         </div>
                       </div>
@@ -611,10 +647,10 @@ function App() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setIsPreviewMode(!isPreviewMode)}
-                          className={`px-2 py-1 text-xs rounded transition-colors ${
+                          className={`px-3 py-1.5 text-xs rounded-md transition-all duration-200 font-medium ${
                             isPreviewMode 
-                              ? 'bg-primary/80 text-primary-foreground' 
-                              : 'bg-background/60 text-muted-foreground hover:text-foreground'
+                              ? 'bg-primary/90 text-primary-foreground shadow-sm' 
+                              : 'bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background/90 border border-border/30'
                           }`}
                           title="Toggle preview (⌘⇧P)"
                         >
@@ -626,9 +662,12 @@ function App() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-muted-foreground/60">
-                  <div className="text-center">
-                    <p className="text-sm mb-2">Select a note to start editing</p>
-                    <p className="text-xs">or create a new one with ⌘N</p>
+                  <div className="text-center space-y-3">
+                    <div className="text-4xl">✨</div>
+                    <div>
+                      <p className="text-sm mb-1">Your canvas awaits</p>
+                      <p className="text-xs text-muted-foreground/40">Select a note or press ⌘N to begin</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -730,13 +769,6 @@ function App() {
         onKeyDown={handleCommandKeyDown}
       />
 
-      {/* Permission Prompt */}
-      <PermissionPrompt
-        show={showPermissionPrompt}
-        onOpenSettings={openSystemSettings}
-        onDismiss={dismissPermissionPrompt}
-      />
-
       {/* Context Menu */}
       {contextMenu && (
         <ContextMenu
@@ -747,6 +779,55 @@ function App() {
           onClose={hideContextMenu}
         />
       )}
+
+      {/* App-wide footer */}
+      <footer className="app-footer w-full bg-background/95 border-t border-border/30 px-4 py-1 flex items-center justify-between text-xs text-muted-foreground/80 h-7 min-h-[1.75rem] gap-4 select-none">
+        <div className="flex items-center gap-3">
+          {/* Theme swatch and name */}
+          <span className="flex items-center gap-1">
+            <Palette className="w-4 h-4 text-primary/80" />
+            <span className="w-3 h-3 rounded-full border border-border/40 mr-1" style={{ backgroundColor: theme ? theme.colors?.accent || '#3b82f6' : '#3b82f6' }} />
+            {theme ? theme.name : themeId}
+          </span>
+          {/* Opacity */}
+          {typeof config.appearance?.windowOpacity === 'number' && (
+            <span className="flex items-center gap-1">
+              <Eye className="w-4 h-4" />
+              {Math.round(config.appearance.windowOpacity * 100)}%
+            </span>
+          )}
+          {/* Focus mode */}
+          {config.appearance?.focusMode && (
+            <span className="flex items-center gap-1 text-primary">
+              <Focus className="w-4 h-4" /> Focus
+            </span>
+          )}
+          {/* Typewriter mode */}
+          {config.appearance?.typewriterMode && (
+            <span className="flex items-center gap-1 text-primary">
+              <Keyboard className="w-4 h-4" /> Typewriter
+            </span>
+          )}
+          {/* Always on top */}
+          {config.alwaysOnTop && (
+            <span className="flex items-center gap-1 text-primary">
+              <Pin className="w-4 h-4" /> Pinned
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Save className="w-4 h-4" />
+          <span>
+            {saveStatus.isSaving
+              ? 'Saving...'
+              : saveStatus.saveError
+                ? 'Error'
+                : saveStatus.getRelativeTime
+                  ? `Saved ${saveStatus.getRelativeTime}`
+                  : 'Idle'}
+          </span>
+        </div>
+      </footer>
     </WindowWrapper>
   );
 }

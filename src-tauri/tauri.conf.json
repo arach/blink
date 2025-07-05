@@ -71,7 +71,8 @@
             "global-shortcut:allow-unregister",
             "global-shortcut:allow-is-registered",
             "core:event:allow-listen",
-            "core:event:allow-emit"
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
           ]
         },
         {
@@ -99,7 +100,8 @@
             "core:window:allow-set-title",
             "core:webview:allow-create-webview-window",
             "core:event:allow-listen",
-            "core:event:allow-emit"
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
           ]
         },
         {
@@ -116,7 +118,8 @@
             "core:window:allow-set-title",
             "core:webview:allow-create-webview-window",
             "core:event:allow-listen",
-            "core:event:allow-emit"
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
           ]
         },
         {
@@ -137,7 +140,8 @@
             "core:window:allow-set-always-on-top",
             "core:webview:allow-create-webview-window",
             "core:event:allow-listen",
-            "core:event:allow-emit"
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
           ]
         },
         {
