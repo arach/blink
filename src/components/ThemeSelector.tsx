@@ -34,16 +34,7 @@ export function ThemeSelector() {
     }
   }, [config.appearance?.themeId, selectedThemeId]);
 
-  // Apply theme preview on hover
-  useEffect(() => {
-    if (previewThemeId) {
-      const theme = getThemeById(previewThemeId);
-      console.log('[THEME] Applying preview theme:', previewThemeId);
-      if (theme) {
-        applyTheme(theme);
-      }
-    }
-  }, [previewThemeId]);
+  // No longer applying theme previews automatically
 
   const handleThemeSelect = async (themeId: string) => {
     console.log('[THEME] User selected theme:', themeId);
@@ -73,16 +64,7 @@ export function ThemeSelector() {
 
   const handleThemeHover = (themeId: string | null) => {
     setPreviewThemeId(themeId);
-    
-    // If hovering out, reapply the currently selected/original theme
-    if (!themeId) {
-      const currentThemeId = config.appearance?.themeId || 'midnight-ink';
-      const theme = getThemeById(currentThemeId);
-      if (theme) {
-        console.log('[THEME] Reapplying current theme:', currentThemeId);
-        applyTheme(theme);
-      }
-    }
+    // Visual preview only - no theme application
   };
 
   const allThemes = getAllThemes();
@@ -90,6 +72,9 @@ export function ThemeSelector() {
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-muted-foreground/70 mb-2">
+        Hover to preview, click to apply theme
+      </p>
       <div className="grid grid-cols-3 gap-2">
         {allThemes.map((theme) => (
           <button
@@ -100,6 +85,8 @@ export function ThemeSelector() {
             className={`group relative p-2 rounded border transition-all text-left ${
               selectedThemeId === theme.id 
                 ? 'border-primary bg-primary/10' 
+                : previewThemeId === theme.id
+                ? 'border-primary/60 bg-primary/5 hover:border-primary hover:bg-primary/10'
                 : 'border-border/50 hover:border-border bg-card/30 hover:bg-card/50'
             }`}
           >
@@ -144,6 +131,9 @@ export function ThemeSelector() {
                   {theme.name}
                   {selectedThemeId === theme.id && (
                     <Check className="w-2.5 h-2.5 text-primary" />
+                  )}
+                  {previewThemeId === theme.id && selectedThemeId !== theme.id && (
+                    <span className="text-xs text-primary/60">preview</span>
                   )}
                 </h4>
               </div>

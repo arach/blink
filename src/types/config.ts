@@ -41,6 +41,14 @@ export interface AppConfig {
     windowOpacity?: number; // Background transparency (0-1)
     appFontFamily: string;
   };
+  editor?: {
+    fontSize?: number;
+    lineHeight?: number;
+  };
+  advanced?: {
+    developerMode?: boolean;
+    autoUpdate?: boolean;
+  };
 }
 
 export const defaultConfig: AppConfig = {
@@ -67,6 +75,14 @@ export const defaultConfig: AppConfig = {
     typewriterMode: false,
     showNotePreviews: false,
     appFontFamily: 'system-ui',
+  },
+  editor: {
+    fontSize: 16,
+    lineHeight: 1.6,
+  },
+  advanced: {
+    developerMode: false,
+    autoUpdate: true,
   },
 };
 

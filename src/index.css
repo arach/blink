@@ -385,7 +385,8 @@
   }
   
   /* Focus Mode - hide some UI elements for minimal distraction */
-  .focus-mode [data-sidebar] {
+  /* Note: Navigation bar should always remain visible */
+  .focus-mode [data-sidebar]:not(.w-8) {
     display: none;
   }
   
