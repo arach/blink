@@ -106,14 +106,14 @@ export function ThemeSelector({ onSave }: ThemeSelectorProps) {
             onClick={() => handleThemeClick(theme.id)}
             onMouseEnter={() => handleThemeHover(theme.id)}
             onMouseLeave={() => handleThemeHover(null)}
-            className={`group relative p-2 rounded border transition-all text-left ${
+            className={`group relative p-2 rounded transition-all text-left ${
               getThemeState(theme.id) === 'selected'
-                ? 'border-primary bg-primary/10' 
+                ? 'border-primary border-solid bg-primary/10' 
                 : getThemeState(theme.id) === 'preview'
-                ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/20'
+                ? 'border-primary border-dashed bg-primary/5 border-2'
                 : getThemeState(theme.id) === 'hover'
-                ? 'border-primary/60 bg-primary/5'
-                : 'border-border/50 hover:border-border bg-card/30 hover:bg-card/50'
+                ? 'border-primary/60 bg-primary/5 border-solid'
+                : 'border-border/50 hover:border-border bg-card/30 hover:bg-card/50 border-solid'
             }`}
           >
             {/* Theme Preview */}
@@ -159,7 +159,7 @@ export function ThemeSelector({ onSave }: ThemeSelectorProps) {
                     <span className="text-xs px-1 py-0.5 bg-primary/20 text-primary rounded">current</span>
                   )}
                   {getThemeState(theme.id) === 'preview' && (
-                    <span className="text-xs px-1 py-0.5 bg-amber-500/20 text-amber-600 rounded">preview</span>
+                    <span className="text-xs px-1 py-0.5 bg-primary/15 text-primary rounded">preview</span>
                   )}
                 </h4>
               </div>
