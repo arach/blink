@@ -86,6 +86,9 @@ fn default_appearance() -> AppearanceConfig {
         syntax_highlighting: Some(true),
         focus_mode: Some(false),
         typewriter_mode: Some(false),
+        theme_id: Some("midnightInk".to_string()),
+        show_note_previews: Some(true),
+        window_opacity: None,
     }
 }
 
@@ -132,6 +135,15 @@ pub struct AppearanceConfig {
     #[serde(rename = "typewriterMode")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub typewriter_mode: Option<bool>,
+    #[serde(rename = "themeId")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theme_id: Option<String>,
+    #[serde(rename = "showNotePreviews")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_note_previews: Option<bool>,
+    #[serde(rename = "windowOpacity")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub window_opacity: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -1471,7 +1483,7 @@ async fn save_window_position(note_id: String, x: f64, y: f64) -> Result<(), Str
             position: (x, y),
             size: (800.0, 600.0), // Default size
             always_on_top: false,
-            opacity: 0.95,
+            opacity: 1.0,
             is_shaded: false,
             original_height: None,
         };
@@ -1494,7 +1506,7 @@ async fn save_window_size(note_id: String, width: f64, height: f64) -> Result<()
             position: (100.0, 100.0), // Default position
             size: (width, height),
             always_on_top: false,
-            opacity: 0.95,
+            opacity: 1.0,
             is_shaded: false,
             original_height: None,
         };
