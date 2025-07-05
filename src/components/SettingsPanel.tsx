@@ -43,8 +43,8 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
     <div data-section="general" className="space-y-4">
       {/* Section Header - Standardized 76px height to match notes sidebar */}
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
           </svg>
@@ -163,8 +163,8 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
     <div data-section="appearance" className="space-y-4">
       {/* Section Header - Standardized spacing */}
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
@@ -803,8 +803,8 @@ function calculateMetrics(data) {
     <div data-section="shortcuts" className="space-y-4">
       {/* Section Header - Standardized spacing */}
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
           </svg>
@@ -1051,8 +1051,8 @@ function calculateMetrics(data) {
     <div data-section="ai" className="space-y-4">
       {/* Section Header - Standardized spacing */}
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
           </svg>
           AI & Plugins
@@ -1109,8 +1109,8 @@ function calculateMetrics(data) {
   const renderEditorSection = () => (
     <div data-section="editor" className="space-y-6">
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
             <path d="m15 5 4 4"/>
           </svg>
@@ -1174,8 +1174,8 @@ function calculateMetrics(data) {
   const renderAdvancedSection = () => (
     <div data-section="advanced" className="space-y-6">
       <div className="h-[76px] flex flex-col justify-center">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             <path d="M12 8v4"/>
             <path d="M12 16h.01"/>
