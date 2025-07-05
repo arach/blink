@@ -55,7 +55,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 8v4l3 3"/>
           </svg>
@@ -82,7 +82,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             <polyline points="9,22 9,12 15,12 15,22"/>
           </svg>
@@ -180,7 +180,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         {/* Theme Selector */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
             </svg>
             Themes
@@ -191,7 +191,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         {/* Typography Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
             </svg>
             Typography
@@ -528,7 +528,7 @@ function calculateMetrics(data) {
         {/* Visual Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <circle cx="12" cy="12" r="10"/>
               <circle cx="12" cy="12" r="4"/>
               <line x1="21.17" y1="8" x2="12" y2="8"/>
@@ -620,7 +620,7 @@ function calculateMetrics(data) {
         {/* Window Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <circle cx="9" cy="9" r="2"/>
               <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
@@ -708,7 +708,7 @@ function calculateMetrics(data) {
         {/* Features Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <line x1="9" y1="9" x2="15" y2="9"/>
               <line x1="9" y1="12" x2="15" y2="12"/>
@@ -811,7 +811,7 @@ function calculateMetrics(data) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
           </svg>
@@ -995,7 +995,7 @@ function calculateMetrics(data) {
       
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M5 12h14M7 12l2-2M7 12l2 2"/>
           </svg>
@@ -1058,7 +1058,7 @@ function calculateMetrics(data) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
           </svg>
           AI Integration
@@ -1079,7 +1079,7 @@ function calculateMetrics(data) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="3"/>
             <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
           </svg>

@@ -15,7 +15,9 @@ export function WindowWrapper({ children, className = '', style }: WindowWrapper
     <div 
       className={`w-full h-full text-foreground flex flex-col bg-background rounded-xl overflow-hidden ${className}`}
       style={{ 
-        backgroundColor: windowOpacity !== undefined ? `hsl(var(--background) / ${windowOpacity})` : undefined,
+        backgroundColor: windowOpacity !== undefined 
+          ? `hsl(var(--background) / ${windowOpacity})` 
+          : `hsl(var(--background))`, // Ensure background is always visible
         minHeight: '100vh',
         ...style,
       }}

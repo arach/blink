@@ -634,7 +634,7 @@ function App() {
                     
                     {/* Note-specific footer */}
                     {selectedNote && (
-                      <div className="status-footer bg-background/90 border-t border-border/30 px-6 py-2.5 flex items-center justify-between backdrop-blur-sm">
+                      <div className="status-footer bg-background/90 border-t border-border/30 px-6 h-6 flex items-center justify-between backdrop-blur-sm">
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-2">
                             {saveStatus.isSaving ? (

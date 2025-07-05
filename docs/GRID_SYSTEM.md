@@ -81,7 +81,7 @@ Our grid system is based on a 4px base unit, following the Tailwind CSS spacing 
 - **List container padding**: 8px (2 units)
 
 #### Settings Panel
-- **Section headers**: 60px height (using flexbox centering)
+- **Section headers**: 76px height (matching notes panel headers)
   - **Title**: 14px font size
   - **Subtitle**: 12px font size, 60% opacity
   - **Icon**: 14px size with 8px gap
@@ -177,7 +177,7 @@ When implementing UI components, verify:
 - [x] Headers maintain consistent 76px height across views (Notes and Settings panels)
 - [x] Navigation buttons are 20px × 20px with 12px icons
 - [x] All spacing uses the defined scale (multiples of 4px)
-- [x] Section headers use 60px height with flexbox centering
+- [x] Section headers use 76px height with flexbox centering (consistent across notes and settings)
 - [x] Cards use standardized padding (16px)
 - [x] Form controls follow the defined spacing
 - [x] Icons are properly sized and aligned (12px nav, 14px sections)
@@ -187,10 +187,14 @@ When implementing UI components, verify:
 ## Fixes Applied
 
 1. **Title Bar Height**: Reduced from 48px to 32px to match navigation width
-2. **Section Headers**: Standardized to 60px height with flexbox centering
+2. **Section Headers**: Standardized to 76px height (updated from 60px) for consistency
 3. **Navigation Buttons**: Fixed to exact 20px × 20px dimensions
 4. **Panel Headers**: Standardized Notes and Settings headers to 76px
 5. **Status Bar**: Confirmed 24px height with proper spacing
+6. **Title Font Size**: Corrected from 14px to 11px (grid system compliance)
+7. **Note Footer Height**: Standardized to 24px height (h-6)
+8. **Small Icons**: Updated from 11px to 12px minimum size
+9. **Rounded Corners**: Fixed transparent window background interference
 
 ## CSS Variables
 

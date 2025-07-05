@@ -163,7 +163,7 @@ export function CustomTitleBar({
             </div>
           </div>
         ) : (
-          <span className="text-sm text-foreground/80 font-semibold select-none tracking-wide" title="Middle-click to shade">
+          <span className="text-foreground/80 font-semibold select-none tracking-wide" style={{ fontSize: '11px' }} title="Middle-click to shade">
             {title}
           </span>
         )}
