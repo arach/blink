@@ -431,7 +431,7 @@ function App() {
                         <input
                           type="text"
                           placeholder="Search notes..."
-                          className="w-full pl-9 pr-3 py-1.5 bg-background border border-border/20 rounded text-sm placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
+                          className="w-full pl-9 pr-3 py-1.5 bg-background border border-border/20 rounded text-xs placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
                         />
                       </div>
                     </div>
@@ -573,7 +573,7 @@ function App() {
                             fontSize: `${config.appearance?.contentFontSize || config.appearance?.fontSize || 16}px`,
                             fontFamily: config.appearance?.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
                             lineHeight: config.appearance?.lineHeight || 1.6,
-                            padding: '1.5rem 0' 
+                            padding: '1.25rem' 
                           }}
                         >
                           <ReactMarkdown 
