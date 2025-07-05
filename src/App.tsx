@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -24,7 +24,7 @@ import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useContextMenu } from './hooks/use-context-menu';
 import { markdownToPlainText, truncateText } from './lib/utils';
 import { themes, applyTheme, getThemeById } from './types/theme';
-import { Palette, Eye, Focus, Keyboard, Pin, Save } from 'lucide-react';
+import { Palette, Eye, Focus, Keyboard, Pin, Save, Folder } from 'lucide-react';
 
 
 function App() {
@@ -298,6 +298,39 @@ function App() {
     };
   }, [createNewNote, refreshWindows]);
 
+  // Animation refs
+  const notesBtnRef = useRef<HTMLButtonElement>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Animation handlers
+  const handleNotesClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (notesBtnRef.current) {
+      notesBtnRef.current.classList.remove('animate-flip-x');
+      // Force reflow to restart animation
+      void notesBtnRef.current.offsetWidth;
+      notesBtnRef.current.classList.add('animate-flip-x');
+    }
+    if (currentView === 'notes') {
+      setSidebarVisible(!sidebarVisible);
+    } else {
+      setCurrentView('notes');
+      setSidebarVisible(true);
+    }
+  };
+  const handleSettingsClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (settingsBtnRef.current) {
+      settingsBtnRef.current.classList.remove('animate-spin-fast');
+      void settingsBtnRef.current.offsetWidth;
+      settingsBtnRef.current.classList.add('animate-spin-fast');
+    }
+    if (currentView === 'settings') {
+      setSidebarVisible(!sidebarVisible);
+    } else {
+      setCurrentView('settings');
+      setSidebarVisible(true);
+    }
+  };
+
   // If this is a detached window, render the detached note component
   if (isDetachedWindow && detachedNoteId) {
     return <DetachedNoteWindow noteId={detachedNoteId} />;
@@ -315,9 +348,16 @@ function App() {
   const theme = getThemeById(themeId);
   
   return (
-    <WindowWrapper className={`main-window transition-all duration-300 ${
-      isDragging ? 'bg-blue-500/5' : ''
-    } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}>
+    <WindowWrapper
+      className={`main-window transition-all duration-300 ${
+        isDragging ? 'bg-blue-500/5' : ''
+      } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}
+      style={
+        config.appearance?.appFontFamily
+          ? ({ ['--font-ui']: config.appearance.appFontFamily } as any)
+          : undefined
+      }
+    >
       <CustomTitleBar 
         title="Blink"
         isMainWindow={true}
@@ -335,14 +375,8 @@ function App() {
           <div className="flex flex-col items-center">
             {/* Notes view icon */}
             <button 
-              onClick={() => {
-                if (currentView === 'notes') {
-                  setSidebarVisible(!sidebarVisible);
-                } else {
-                  setCurrentView('notes');
-                  setSidebarVisible(true);
-                }
-              }}
+              ref={notesBtnRef}
+              onClick={handleNotesClick}
               className={`p-1 m-0.5 rounded transition-colors ${
                 currentView === 'notes' 
                   ? 'bg-primary text-background' 
@@ -363,14 +397,8 @@ function App() {
           <div className="flex flex-col items-center">
             {/* Settings icon */}
             <button 
-              onClick={() => {
-                if (currentView === 'settings') {
-                  setSidebarVisible(!sidebarVisible);
-                } else {
-                  setCurrentView('settings');
-                  setSidebarVisible(true);
-                }
-              }}
+              ref={settingsBtnRef}
+              onClick={handleSettingsClick}
               className={`p-1 m-0.5 rounded transition-colors ${
                 currentView === 'settings' 
                   ? 'bg-primary text-background' 
@@ -662,115 +690,38 @@ function App() {
                 </>
               ) : (
                 <div className="flex-1 flex items-center justify-center text-muted-foreground/60">
-                  <div className="text-center space-y-3">
-                    <div className="text-4xl">✨</div>
-                    <div>
-                      <p className="text-sm mb-1">Your canvas awaits</p>
-                      <p className="text-xs text-muted-foreground/40">Select a note or press ⌘N to begin</p>
-                    </div>
-                  </div>
+                  <p>Select a note to start editing</p>
                 </div>
               )}
             </div>
           </div>
         ) : (
-          /* Settings sidebar with sub-navigation */
-          <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
-            sidebarVisible ? 'w-64' : 'w-0'
-          }`}>
-            <div className="h-full bg-card border-r border-border/30 flex flex-col">
-              <div className="p-4">
-                <h2 className="text-sm font-medium text-foreground mb-4">Settings</h2>
-                
-                {/* Settings Sub-Navigation */}
-                <nav className="space-y-1">
-                  <button
-                    onClick={() => {
-                      const element = document.querySelector('[data-section="general"]');
-                      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="3"/>
-                      <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
-                    </svg>
-                    General
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const element = document.querySelector('[data-section="appearance"]');
-                      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                      <polyline points="14,2 14,8 20,8"/>
-                      <line x1="16" y1="13" x2="8" y2="13"/>
-                      <line x1="16" y1="17" x2="8" y2="17"/>
-                      <line x1="10" y1="9" x2="8" y2="9"/>
-                    </svg>
-                    Appearance
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const element = document.querySelector('[data-section="shortcuts"]');
-                      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="2" y="7" width="20" height="10" rx="1"/>
-                      <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
-                    </svg>
-                    Shortcuts
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const element = document.querySelector('[data-section="ai"]');
-                      element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-2 text-xs rounded transition-colors text-muted-foreground hover:text-foreground hover:bg-background/60"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                    </svg>
-                    AI & Plugins
-                  </button>
-                </nav>
-              </div>
+          /* Settings view */
+          <div className="flex-1 flex">
+            <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
+              sidebarVisible ? 'w-80' : 'w-0'
+            }`}>
+              <SettingsPanel />
             </div>
-          </div>
-        )}
-
-        {/* Settings content area */}
-        {currentView === 'settings' && (
-          <div className="flex-1">
-            <SettingsPanel />
+            <div className="flex-1 flex items-center justify-center text-muted-foreground/60">
+              <p>Adjust your preferences in the settings panel</p>
+            </div>
           </div>
         )}
         </div>
       )}
-      
+
       {/* Command Palette */}
       <CommandPalette
-        show={showCommandPalette}
-        query={commandQuery}
-        selectedIndex={selectedCommandIndex}
-        commands={filteredCommands}
-        onQueryChange={setCommandQuery}
-        onSelectedIndexChange={setSelectedCommandIndex}
-        onExecuteCommand={executeCommand}
-        onClose={closeCommandPalette}
-        onKeyDown={handleCommandKeyDown}
+        isOpen={commandPalette.isOpen}
+        onClose={hideCommandPalette}
+        notes={notes}
+        onSelectNote={handleCommandPaletteSelect}
+        onAction={handleCommandPaletteAction}
       />
 
       {/* Context Menu */}
-      {contextMenu && (
+      {contextMenu.visible && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
@@ -816,16 +767,8 @@ function App() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <Save className="w-4 h-4" />
-          <span>
-            {saveStatus.isSaving
-              ? 'Saving...'
-              : saveStatus.saveError
-                ? 'Error'
-                : saveStatus.getRelativeTime
-                  ? `Saved ${saveStatus.getRelativeTime}`
-                  : 'Idle'}
-          </span>
+          <Folder className="w-4 h-4" />
+          <span className="truncate">~/Notes</span>
         </div>
       </footer>
     </WindowWrapper>

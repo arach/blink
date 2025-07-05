@@ -53,6 +53,7 @@
     height: 100%;
     margin: 0;
     padding: 0;
+    font-family: var(--font-ui, system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
   }
   
   body {
@@ -60,7 +61,6 @@
     /* Keep body transparent for rounded corners - background will be set on content containers */
     background: transparent;
     /* System font for UI elements - can be overridden by theme */
-    font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
     font-feature-settings: 'liga' 1, 'calt' 1;
     letter-spacing: -0.025em;
     line-height: 1.5;
@@ -596,4 +596,19 @@
   .detached-note-window {
     /* Custom window styling is handled inline in the component */
   }
+}
+
+@keyframes spin-fast {
+  100% { transform: rotate(360deg); }
+}
+.animate-spin-fast {
+  animation: spin-fast 0.35s linear;
+}
+
+@keyframes flip-x {
+  0% { transform: perspective(200px) rotateX(0deg); }
+  100% { transform: perspective(200px) rotateX(360deg); }
+}
+.animate-flip-x {
+  animation: flip-x 0.35s cubic-bezier(0.4,0,0.2,1);
 }

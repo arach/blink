@@ -1,19 +1,22 @@
 import { ReactNode } from 'react';
+import { useConfigStore } from '../stores/config-store';
 
 interface WindowWrapperProps {
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function WindowWrapper({ children, className = '' }: WindowWrapperProps) {
+export function WindowWrapper({ children, className = '', style }: WindowWrapperProps) {
+  const { config } = useConfigStore();
+  const windowOpacity = config.appearance?.windowOpacity;
+  
   return (
     <div 
-      className={`w-full h-full text-foreground flex flex-col ${className}`}
+      className={`w-full h-full text-foreground flex flex-col rounded-xl overflow-hidden ${className}`}
       style={{ 
-        background: 'rgba(18, 19, 23, 0.98)',
-        borderRadius: '10px',
-        overflow: 'hidden',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+        backgroundColor: windowOpacity !== undefined ? `hsl(var(--background) / ${windowOpacity})` : undefined,
+        ...style,
       }}
     >
       {children}
