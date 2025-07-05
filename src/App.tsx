@@ -409,7 +409,16 @@ function App() {
                     {/* Header - Standardized 76px height */}
                     <div className="h-[76px] flex flex-col justify-center px-4 border-b border-border/20">
                       <div className="flex items-center justify-between mb-3">
-                        <h2 className="text-sm font-medium text-foreground">Notes</h2>
+                        <div className="flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <line x1="10" y1="9" x2="8" y2="9"/>
+                          </svg>
+                          <h2 className="text-sm font-medium text-foreground">Notes</h2>
+                        </div>
                         <button
                           onClick={createNewNote}
                           className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
@@ -689,7 +698,7 @@ function App() {
                   <div className="h-full bg-card border-r border-border/30 flex flex-col">
                     {/* Header - Standardized 76px height */}
                     <div className="h-[76px] flex flex-col justify-center px-4 border-b border-border/20">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
                             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
@@ -698,6 +707,9 @@ function App() {
                           <h2 className="text-sm font-medium text-foreground">Settings</h2>
                         </div>
                       </div>
+                      
+                      {/* Empty row for vertical structure alignment */}
+                      <div className="h-7"></div>
                     </div>
                     
                     {/* Settings sections list */}
