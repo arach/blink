@@ -157,10 +157,10 @@ function App() {
   });
   
   // Debug logging
-  console.log('Config loaded:', config);
-  console.log('Focus mode:', config.appearance?.focusMode);
-  console.log('Current notes count:', notes.length);
-  console.log('Selected note ID:', selectedNoteId);
+  // console.log('Config loaded:', config);
+  // console.log('Focus mode:', config.appearance?.focusMode);
+  // console.log('Current notes count:', notes.length);
+  // console.log('Selected note ID:', selectedNoteId);
 
   // Detect if this is a detached window or drag ghost
   useEffect(() => {
@@ -182,12 +182,12 @@ function App() {
   useEffect(() => {
     const themeId = config.appearance?.themeId || 'midnight-ink';
     const theme = getThemeById(themeId);
-    console.log('[APP] Theme effect triggered. Config:', config);
-    console.log('[APP] ThemeId:', themeId, 'Theme found:', !!theme);
+    // console.log('[APP] Theme effect triggered. Config:', config);
+    // console.log('[APP] ThemeId:', themeId, 'Theme found:', !!theme);
     
     // Force apply the theme regardless
     if (theme) {
-      console.log('[APP] Applying theme:', theme.name);
+      // console.log('[APP] Applying theme:', theme.name);
       applyTheme(theme);
     } else {
       console.error('[APP] Theme not found:', themeId, 'Available themes:', Object.values(themes).map(t => t.id));
@@ -196,11 +196,11 @@ function App() {
 
   // Also apply default theme on mount to ensure it loads
   useEffect(() => {
-    console.log('[DEBUG] Themes object:', themes);
-    console.log('[DEBUG] Available theme IDs:', Object.values(themes).map(t => t.id));
+    // console.log('[DEBUG] Themes object:', themes);
+    // console.log('[DEBUG] Available theme IDs:', Object.values(themes).map(t => t.id));
     const defaultTheme = getThemeById('midnight-ink');
     if (defaultTheme) {
-      console.log('[APP] Applying default theme on mount:', defaultTheme.name);
+      // console.log('[APP] Applying default theme on mount:', defaultTheme.name);
       applyTheme(defaultTheme);
     } else {
       console.error('[DEBUG] midnight-ink theme not found in themes object');
@@ -210,7 +210,7 @@ function App() {
   // Load windows and check permissions on startup
   useEffect(() => {
     const initializeApp = async () => {
-      console.log('[BLINK] [FRONTEND] Initializing app...');
+      // console.log('[BLINK] [FRONTEND] Initializing app...');
       
       // Load config first
       await loadConfig();
@@ -218,7 +218,7 @@ function App() {
       // Load detached windows
       loadWindows();
       
-      console.log('[BLINK] [FRONTEND] App initialization complete');
+      // console.log('[BLINK] [FRONTEND] App initialization complete');
       
       // Permissions resolved - no longer needed
     };
@@ -370,16 +370,16 @@ function App() {
       
       {!isShaded && (
         <div className="flex-1 flex">
-        {/* Left sidebar - navigation */}
+        {/* Left sidebar - navigation (32px wide) */}
         <div className="w-8 bg-muted/80 flex flex-col items-center justify-between border-r border-primary/30 flex-shrink-0 relative z-10 backdrop-blur-sm">
-          <div className="flex flex-col items-center">
-            {/* Notes view icon */}
+          <div className="flex flex-col items-center pt-1">
+            {/* Notes view icon (20px button, 12px icon) */}
             <button 
               ref={notesBtnRef}
               onClick={handleNotesClick}
-              className={`p-1 m-0.5 rounded transition-colors ${
+              className={`w-5 h-5 flex items-center justify-center m-0.5 rounded transition-colors hover:animate-flip-x ${
                 currentView === 'notes' 
-                  ? 'bg-primary text-background' 
+                  ? 'bg-primary text-background hover:animate-spin-fast' 
                   : 'text-primary/80 hover:text-primary hover:bg-primary/20'
               }`}
               title={sidebarVisible && currentView === 'notes' ? 'Hide notes' : 'Notes'}
@@ -395,11 +395,11 @@ function App() {
           </div>
           
           <div className="flex flex-col items-center">
-            {/* Settings icon */}
+            {/* Settings icon (20px button, 12px icon) */}
             <button 
               ref={settingsBtnRef}
               onClick={handleSettingsClick}
-              className={`p-1 m-0.5 rounded transition-colors ${
+              className={`w-5 h-5 flex items-center justify-center m-0.5 mb-1 rounded transition-colors hover:animate-spin-fast ${
                 currentView === 'settings' 
                   ? 'bg-primary text-background' 
                   : 'text-primary/80 hover:text-primary hover:bg-primary/20'
@@ -423,8 +423,8 @@ function App() {
             }`}>
               <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={400}>
                 <div className="h-full bg-card border-r border-border/30 flex flex-col">
-                  {/* Header */}
-                  <div className="p-4 border-b border-border/20">
+                  {/* Header - Standardized 76px height */}
+                  <div className="h-[76px] flex flex-col justify-center px-4 border-b border-border/20">
                     <div className="flex items-center justify-between mb-3">
                       <h2 className="text-sm font-medium text-foreground">Notes</h2>
                       <button
@@ -651,7 +651,7 @@ function App() {
                   
                   {/* Note-specific footer */}
                   {selectedNote && (
-                    <div className="status-footer bg-background/95 border-t border-border/30 px-6 py-2.5 flex items-center justify-between backdrop-blur-sm">
+                    <div className="status-footer bg-background/90 border-t border-border/30 px-6 py-2.5 flex items-center justify-between backdrop-blur-sm">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                           {saveStatus.isSaving ? (
@@ -698,13 +698,48 @@ function App() {
         ) : (
           /* Settings view */
           <div className="flex-1 flex">
+            {/* Settings sidebar */}
             <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
               sidebarVisible ? 'w-80' : 'w-0'
             }`}>
-              <SettingsPanel />
+              <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={400}>
+                <div className="h-full bg-card border-r border-border/30 flex flex-col">
+                  {/* Header - Standardized 76px height */}
+                  <div className="h-[76px] flex flex-col justify-center px-4 border-b border-border/20">
+                    <h2 className="text-sm font-medium text-foreground">Settings</h2>
+                  </div>
+                  
+                  {/* Settings sections list */}
+                  <div className="flex-1 overflow-y-auto p-2">
+                    <div className="space-y-1">
+                      <button className="w-full p-3 rounded-lg text-left transition-all bg-primary/10 border border-primary/20">
+                        <h3 className="text-sm font-medium text-primary">Appearance</h3>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Theme, fonts, and visual preferences</p>
+                      </button>
+                      
+                      <button className="w-full p-3 rounded-lg text-left transition-all hover:bg-background/60">
+                        <h3 className="text-sm font-medium text-foreground">Editor</h3>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Writing and editing preferences</p>
+                      </button>
+                      
+                      <button className="w-full p-3 rounded-lg text-left transition-all hover:bg-background/60">
+                        <h3 className="text-sm font-medium text-foreground">Shortcuts</h3>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Keyboard shortcuts and hotkeys</p>
+                      </button>
+                      
+                      <button className="w-full p-3 rounded-lg text-left transition-all hover:bg-background/60">
+                        <h3 className="text-sm font-medium text-foreground">Advanced</h3>
+                        <p className="text-xs text-muted-foreground/60 mt-1">Window behavior and system settings</p>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </ResizablePanel>
             </div>
-            <div className="flex-1 flex items-center justify-center text-muted-foreground/60">
-              <p>Adjust your preferences in the settings panel</p>
+            
+            {/* Settings content area */}
+            <div className="flex-1 overflow-y-auto">
+              <SettingsPanel />
             </div>
           </div>
         )}
@@ -713,15 +748,15 @@ function App() {
 
       {/* Command Palette */}
       <CommandPalette
-        isOpen={commandPalette.isOpen}
-        onClose={hideCommandPalette}
+        isOpen={showCommandPalette}
+        onClose={closeCommandPalette}
         notes={notes}
-        onSelectNote={handleCommandPaletteSelect}
-        onAction={handleCommandPaletteAction}
+        onSelectNote={selectNote}
+        onAction={executeCommand}
       />
 
       {/* Context Menu */}
-      {contextMenu.visible && (
+      {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
@@ -731,8 +766,8 @@ function App() {
         />
       )}
 
-      {/* App-wide footer */}
-      <footer className="app-footer w-full bg-background/95 border-t border-border/30 px-4 py-1 flex items-center justify-between text-xs text-muted-foreground/80 h-7 min-h-[1.75rem] gap-4 select-none">
+      {/* App-wide footer - Standardized 24px height */}
+      <footer className="app-footer w-full bg-background/90 border-t border-border/30 px-3 flex items-center justify-between text-xs text-muted-foreground/80 h-6 min-h-[1.5rem] gap-4 select-none">
         <div className="flex items-center gap-3">
           {/* Theme swatch and name */}
           <span className="flex items-center gap-1">

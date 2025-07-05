@@ -46,6 +46,10 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      animation: {
+        'flip-x': 'flip-x 0.35s cubic-bezier(0.4,0,0.2,1)',
+        'spin-fast': 'spin-fast 0.35s linear',
+      },
     },
   },
   plugins: [],

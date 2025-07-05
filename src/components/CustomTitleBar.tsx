@@ -72,7 +72,7 @@ export function CustomTitleBar({
 
   return (
     <div 
-      className="h-12 flex items-center px-4 border-b border-border/30 bg-background/95 backdrop-blur-sm"
+      className="h-8 flex items-center px-4 border-b border-border/30 bg-background/90 backdrop-blur-sm"
       data-tauri-drag-region
       style={{ 
         userSelect: 'none', 

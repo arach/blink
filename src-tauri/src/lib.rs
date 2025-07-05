@@ -273,7 +273,7 @@ async fn delete_note(id: String, notes: State<'_, NotesState>) -> Result<bool, S
 #[tauri::command]
 async fn get_config(config: State<'_, ConfigState>) -> Result<AppConfig, String> {
     let config_lock = config.lock().await;
-    log_debug!("CONFIG", "Returning config: {:?}", config_lock.clone());
+    // log_debug!("CONFIG", "Returning config: {:?}", config_lock.clone());
     Ok(config_lock.clone())
 }
 
@@ -1189,7 +1189,7 @@ async fn load_config_from_disk() -> Result<AppConfig, String> {
     let config_file = notes_dir.join("config.json");
     
     if !config_file.exists() {
-        println!("Config file not found, creating default config");
+        // println!("Config file not found, creating default config");
         let default_config = AppConfig::default();
         save_config_to_disk(&default_config).await?;
         return Ok(default_config);
@@ -1198,12 +1198,12 @@ async fn load_config_from_disk() -> Result<AppConfig, String> {
     let config_json = fs::read_to_string(&config_file)
         .map_err(|e| format!("Failed to read config from disk: {}", e))?;
     
-    println!("Loaded config JSON from disk: {}", config_json);
+    // println!("Loaded config JSON from disk: {}", config_json);
     
     let config: AppConfig = serde_json::from_str(&config_json)
         .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
     
-    println!("Parsed config: opacity={}, alwaysOnTop={}", config.opacity, config.always_on_top);
+    // println!("Parsed config: opacity={}, alwaysOnTop={}", config.opacity, config.always_on_top);
     
     Ok(config)
 }
@@ -1527,7 +1527,7 @@ pub fn run() {
 
     let config_state = match tauri::async_runtime::block_on(load_config_from_disk()) {
         Ok(config) => {
-            println!("Loaded config from disk: {:?}", config);
+            // println!("Loaded config from disk: {:?}", config);
             ConfigState::new(config)
         },
         Err(e) => {

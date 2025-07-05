@@ -54,18 +54,23 @@
     margin: 0;
     padding: 0;
     font-family: var(--font-ui, system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+    background: hsl(var(--background, 220 8% 8%));
   }
   
   body {
     color: hsl(var(--foreground, 220 6% 90%));
     /* Set a default background to ensure window is visible */
-    background: hsl(var(--background, 220 8% 8%));
+    background: transparent;
     /* System font for UI elements - can be overridden by theme */
     font-feature-settings: 'liga' 1, 'calt' 1;
     letter-spacing: -0.025em;
     line-height: 1.5;
     font-size: 12px;
     font-weight: 500;
+  }
+  
+  #root {
+    background: transparent;
   }
   
   /* Content font for note text - optimized for reading */
@@ -611,4 +616,40 @@
 }
 .animate-flip-x {
   animation: flip-x 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Hover animations that work every time */
+@keyframes flip-x-hover {
+  0% { transform: perspective(200px) rotateX(0deg) scale(1); }
+  50% { transform: perspective(200px) rotateX(180deg) scale(1.1); }
+  100% { transform: perspective(200px) rotateX(360deg) scale(1); }
+}
+
+@keyframes spin-hover {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.group:hover .group-hover\:animate-flip-x {
+  animation: flip-x-hover 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+
+.group:hover .group-hover\:animate-spin-fast {
+  animation: spin-hover 0.4s ease-in-out;
+}
+
+/* Alternative approach with transform for continuous hover effect */
+.hover-flip {
+  transition: transform 0.3s ease;
+}
+.hover-flip:hover {
+  transform: perspective(200px) rotateX(180deg);
+}
+
+.hover-spin {
+  transition: transform 0.3s ease;
+}
+.hover-spin:hover {
+  transform: rotate(180deg);
 }

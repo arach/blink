@@ -112,3 +112,10 @@ The app uses a sophisticated multi-window system with different permission sets:
 - Follow existing TypeScript patterns - avoid `any` types
 - Maintain window transparency and glass-morphism aesthetic
 - Preserve spatial metaphors in UI/UX decisions
+
+## Process and Workflow Learnings
+
+- Process killing and server restarts require precision
+  - Avoid killing processes by app name to prevent unintended consequences
+  - Be more precise when restarting servers (e.g., kill by port number)
+  - Be cautious about killing processes in directories with similar names to avoid disrupting active work environments

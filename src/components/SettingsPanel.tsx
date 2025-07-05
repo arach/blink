@@ -38,8 +38,8 @@ export function SettingsPanel() {
 
   const renderGeneralSection = () => (
     <div data-section="general" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[60px] flex flex-col justify-center">
         <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <circle cx="12" cy="12" r="3"/>
@@ -158,8 +158,8 @@ export function SettingsPanel() {
 
   const renderAppearanceSection = () => (
     <div data-section="appearance" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[60px] flex flex-col justify-center">
         <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -451,12 +451,12 @@ Remember to check the [project roadmap](https://example.com) for updates.`}</div
                     <h1 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.8}px`, 
                       marginTop: 0,
-                      color: 'hsl(var(--foreground) / 0.95)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '700'
                     }}>Meeting Notes</h1>
                     <h2 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.4}px`,
-                      color: 'hsl(var(--foreground) / 0.9)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '600'
                     }}>Project Updates</h2>
                     <p style={{ color: 'hsl(var(--foreground) / 0.85)' }}>The team made significant progress on the new <strong style={{ color: 'hsl(var(--primary))' }}>dashboard feature</strong>. We completed:</p>
@@ -467,7 +467,7 @@ Remember to check the [project roadmap](https://example.com) for updates.`}</div
                     </ul>
                     <h3 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.2}px`,
-                      color: 'hsl(var(--foreground) / 0.9)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '600'
                     }}>Next Steps</h3>
                     <ol style={{ color: 'hsl(var(--foreground) / 0.8)' }}>
@@ -794,8 +794,8 @@ function calculateMetrics(data) {
 
   const renderShortcutsSection = () => (
     <div data-section="shortcuts" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[60px] flex flex-col justify-center">
         <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
@@ -1042,8 +1042,8 @@ function calculateMetrics(data) {
 
   const renderAISection = () => (
     <div data-section="ai" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[60px] flex flex-col justify-center">
         <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
