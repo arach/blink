@@ -185,7 +185,11 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
             </svg>
             Themes
           </h3>
-          <ThemeSelector />
+          <ThemeSelector onSave={() => {
+            // Theme changes are handled directly by ThemeSelector
+            // No need to trigger main save since themes auto-save
+            console.log('[SETTINGS] Theme applied successfully');
+          }} />
         </div>
 
         {/* Typography Group */}

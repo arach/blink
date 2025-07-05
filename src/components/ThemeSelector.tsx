@@ -1,70 +1,84 @@
 import { useState, useEffect } from 'react';
 import { themes, applyTheme, getAllThemes, getThemeById } from '../types/theme';
 import { useConfigStore } from '../stores/config-store';
-import { Check, Palette } from 'lucide-react';
+import { Palette } from 'lucide-react';
 
-export function ThemeSelector() {
+interface ThemeSelectorProps {
+  onSave?: () => void;
+}
+
+export function ThemeSelector({ onSave }: ThemeSelectorProps) {
   const { config, updateConfig } = useConfigStore();
-  const [selectedThemeId, setSelectedThemeId] = useState(config.appearance?.themeId || 'midnight-ink');
+  // Current saved theme in config
+  const savedThemeId = config.appearance?.themeId || 'midnight-ink';
+  // Theme that user has clicked to preview (not yet saved)
   const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
-  const [originalThemeId, setOriginalThemeId] = useState<string | null>(null);
+  // Theme being hovered (visual preview only)
+  const [hoverThemeId, setHoverThemeId] = useState<string | null>(null);
 
-  // Store original theme on mount and revert on unmount
+  // Apply preview theme when it changes
   useEffect(() => {
-    const currentThemeId = config.appearance?.themeId || 'midnight-ink';
-    setOriginalThemeId(currentThemeId);
-    console.log('[THEME] ThemeSelector mounted, storing original theme:', currentThemeId);
-    
-    // Cleanup function to revert to original theme if no selection was made
+    const themeToApply = previewThemeId || savedThemeId;
+    const theme = getThemeById(themeToApply);
+    if (theme) {
+      console.log('[THEME] Applying theme:', themeToApply, previewThemeId ? '(preview)' : '(saved)');
+      applyTheme(theme);
+    }
+  }, [previewThemeId, savedThemeId]);
+
+  // Reset preview on unmount
+  useEffect(() => {
     return () => {
-      if (originalThemeId && originalThemeId !== selectedThemeId) {
-        console.log('[THEME] ThemeSelector unmounting, reverting to original theme:', originalThemeId);
-        const originalTheme = getThemeById(originalThemeId);
-        if (originalTheme) {
-          applyTheme(originalTheme);
+      if (previewThemeId) {
+        const savedTheme = getThemeById(savedThemeId);
+        if (savedTheme) {
+          applyTheme(savedTheme);
         }
       }
     };
-  }, []); // Only run on mount
+  }, []);
 
-  // Update selected theme when config changes
-  useEffect(() => {
-    if (config.appearance?.themeId && config.appearance.themeId !== selectedThemeId) {
-      setSelectedThemeId(config.appearance.themeId);
+  const handleThemeClick = (themeId: string) => {
+    console.log('[THEME] User clicked theme:', themeId);
+    if (previewThemeId === themeId) {
+      // Clicking same theme again cancels preview
+      setPreviewThemeId(null);
+    } else {
+      // Set as preview theme
+      setPreviewThemeId(themeId);
     }
-  }, [config.appearance?.themeId, selectedThemeId]);
-
-  // No longer applying theme previews automatically
-
-  const handleThemeSelect = async (themeId: string) => {
-    console.log('[THEME] User selected theme:', themeId);
-    setSelectedThemeId(themeId);
-    setPreviewThemeId(null);
+  };
+  
+  const handleSaveTheme = async () => {
+    if (!previewThemeId) return;
     
-    // Apply theme immediately
-    const theme = getThemeById(themeId);
-    if (theme) {
-      console.log('[THEME] Applying theme immediately:', theme.name);
-      applyTheme(theme);
-    }
-    
-    // Save to config
+    console.log('[THEME] Saving theme:', previewThemeId);
     try {
       await updateConfig({
         appearance: {
           ...config.appearance,
-          themeId: themeId,
+          themeId: previewThemeId,
         }
       });
       console.log('[THEME] Theme saved to config successfully');
+      setPreviewThemeId(null); // Clear preview since it's now saved
+      onSave?.(); // Notify parent component
     } catch (error) {
       console.error('[THEME] Failed to save theme to config:', error);
     }
   };
 
   const handleThemeHover = (themeId: string | null) => {
-    setPreviewThemeId(themeId);
+    setHoverThemeId(themeId);
     // Visual preview only - no theme application
+  };
+  
+  // Get the display state for a theme
+  const getThemeState = (themeId: string) => {
+    if (savedThemeId === themeId && !previewThemeId) return 'selected';
+    if (previewThemeId === themeId) return 'preview';
+    if (hoverThemeId === themeId) return 'hover';
+    return 'default';
   };
 
   const allThemes = getAllThemes();
@@ -72,21 +86,33 @@ export function ThemeSelector() {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground/70 mb-2">
-        Hover to preview, click to apply theme
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-muted-foreground/70">
+          Click to preview theme
+        </p>
+        {previewThemeId && (
+          <button
+            onClick={handleSaveTheme}
+            className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+          >
+            Apply Theme
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-3 gap-2">
         {allThemes.map((theme) => (
           <button
             key={theme.id}
-            onClick={() => handleThemeSelect(theme.id)}
+            onClick={() => handleThemeClick(theme.id)}
             onMouseEnter={() => handleThemeHover(theme.id)}
             onMouseLeave={() => handleThemeHover(null)}
             className={`group relative p-2 rounded border transition-all text-left ${
-              selectedThemeId === theme.id 
+              getThemeState(theme.id) === 'selected'
                 ? 'border-primary bg-primary/10' 
-                : previewThemeId === theme.id
-                ? 'border-primary/60 bg-primary/5 hover:border-primary hover:bg-primary/10'
+                : getThemeState(theme.id) === 'preview'
+                ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/20'
+                : getThemeState(theme.id) === 'hover'
+                ? 'border-primary/60 bg-primary/5'
                 : 'border-border/50 hover:border-border bg-card/30 hover:bg-card/50'
             }`}
           >
@@ -129,11 +155,11 @@ export function ThemeSelector() {
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-medium text-foreground/90 truncate flex items-center gap-1">
                   {theme.name}
-                  {selectedThemeId === theme.id && (
-                    <Check className="w-2.5 h-2.5 text-primary" />
+                  {getThemeState(theme.id) === 'selected' && (
+                    <span className="text-xs px-1 py-0.5 bg-primary/20 text-primary rounded">current</span>
                   )}
-                  {previewThemeId === theme.id && selectedThemeId !== theme.id && (
-                    <span className="text-xs text-primary/60">preview</span>
+                  {getThemeState(theme.id) === 'preview' && (
+                    <span className="text-xs px-1 py-0.5 bg-amber-500/20 text-amber-600 rounded">preview</span>
                   )}
                 </h4>
               </div>
