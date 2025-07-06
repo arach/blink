@@ -1,0 +1,29 @@
+{
+  "opacity": 0.95,
+  "alwaysOnTop": false,
+  "shortcuts": {
+    "toggleVisibility": "Cmd+Ctrl+Alt+Shift+N"
+  },
+  "window": {
+    "width": 1000.0,
+    "height": 700.0,
+    "x": null,
+    "y": null
+  },
+  "appearance": {
+    "fontSize": 11.0,
+    "contentFontSize": 11.0,
+    "theme": "dark",
+    "editorFontFamily": "ui-monospace",
+    "previewFontFamily": "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    "lineHeight": 1.4,
+    "accentColor": "#3b82f6",
+    "backgroundPattern": "none",
+    "syntaxHighlighting": true,
+    "focusMode": false,
+    "typewriterMode": false,
+    "themeId": "morning-mist",
+    "showNotePreviews": false,
+    "windowOpacity": 1.0
+  }
+}
