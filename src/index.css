@@ -54,12 +54,12 @@
     margin: 0;
     padding: 0;
     font-family: var(--font-ui, system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
-    background: hsl(var(--background, 220 8% 8%));
+    background: transparent;
   }
   
   body {
     color: hsl(var(--foreground, 220 6% 90%));
-    /* Set a default background to ensure window is visible */
+    /* Transparent background for proper window transparency */
     background: transparent;
     /* System font for UI elements - can be overridden by theme */
     font-feature-settings: 'liga' 1, 'calt' 1;

@@ -51,7 +51,7 @@ export function Sidebar() {
             placeholder="Search notes..."
             value={searchInput}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full pl-10 pr-4 py-2 border rounded-2xl bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>
@@ -70,7 +70,7 @@ export function Sidebar() {
                 key={note.id}
                 onClick={() => setSelectedNote(note.id)}
                 className={cn(
-                  'group p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent',
+                  'group p-3 rounded-2xl cursor-pointer transition-colors hover:bg-accent',
                   selectedNoteId === note.id && 'bg-accent'
                 )}
               >
@@ -94,7 +94,7 @@ export function Sidebar() {
                           {note.tags.slice(0, 2).map((tag) => (
                             <span
                               key={tag}
-                              className="text-xs bg-secondary text-secondary-foreground px-1 rounded"
+                              className="text-xs bg-secondary text-secondary-foreground px-1 rounded-xl"
                             >
                               {tag}
                             </span>

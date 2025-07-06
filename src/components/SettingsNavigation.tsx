@@ -40,7 +40,7 @@ export function SettingsNavigation({
             <div className="space-y-1">
               <button 
                 onClick={() => onSectionChange('general')}
-                className={`w-full p-3 rounded-lg text-left transition-all ${
+                className={`w-full p-3 rounded-2xl text-left transition-all ${
                   selectedSection === 'general'
                     ? 'bg-primary/10 border border-primary/20'
                     : 'hover:bg-background/60 border border-transparent'
@@ -60,7 +60,7 @@ export function SettingsNavigation({
               
               <button 
                 onClick={() => onSectionChange('appearance')}
-                className={`w-full p-3 rounded-lg text-left transition-all ${
+                className={`w-full p-3 rounded-2xl text-left transition-all ${
                   selectedSection === 'appearance'
                     ? 'bg-primary/10 border border-primary/20'
                     : 'hover:bg-background/60 border border-transparent'
@@ -79,7 +79,7 @@ export function SettingsNavigation({
               
               <button 
                 onClick={() => onSectionChange('shortcuts')}
-                className={`w-full p-3 rounded-lg text-left transition-all ${
+                className={`w-full p-3 rounded-2xl text-left transition-all ${
                   selectedSection === 'shortcuts'
                     ? 'bg-primary/10 border border-primary/20'
                     : 'hover:bg-background/60 border border-transparent'
@@ -100,7 +100,7 @@ export function SettingsNavigation({
               
               <button 
                 onClick={() => onSectionChange('editor')}
-                className={`w-full p-3 rounded-lg text-left transition-all ${
+                className={`w-full p-3 rounded-2xl text-left transition-all ${
                   selectedSection === 'editor'
                     ? 'bg-primary/10 border border-primary/20'
                     : 'hover:bg-background/60 border border-transparent'
@@ -120,7 +120,7 @@ export function SettingsNavigation({
               
               <button 
                 onClick={() => onSectionChange('advanced')}
-                className={`w-full p-3 rounded-lg text-left transition-all ${
+                className={`w-full p-3 rounded-2xl text-left transition-all ${
                   selectedSection === 'advanced'
                     ? 'bg-primary/10 border border-primary/20'
                     : 'hover:bg-background/60 border border-transparent'

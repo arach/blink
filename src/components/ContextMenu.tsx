@@ -15,7 +15,7 @@ export function ContextMenu({
   return (
     <div 
       data-context-menu
-      className="fixed z-50 bg-card border border-border/30 rounded-lg shadow-xl py-1 min-w-[160px]"
+      className="fixed z-50 bg-card border border-border/30 rounded-2xl shadow-xl py-1 min-w-[160px]"
       style={{ 
         left: `${x}px`, 
         top: `${y}px`,

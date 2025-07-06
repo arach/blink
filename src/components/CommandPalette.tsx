@@ -79,7 +79,7 @@ export function CommandPalette({
         }
       }}
     >
-      <div className="bg-card border border-border/30 rounded-lg shadow-xl w-[500px] max-w-[90vw] overflow-hidden">
+      <div className="bg-card border border-border/30 rounded-2xl shadow-xl w-[500px] max-w-[90vw] overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-border/20">
           <div className="relative">
@@ -102,7 +102,7 @@ export function CommandPalette({
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               onKeyDown={onKeyDown}
-              className="w-full pl-10 pr-4 py-2 bg-background border border-border/20 rounded text-sm placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
+              className="w-full pl-10 pr-4 py-2 bg-background border border-border/20 rounded-xl text-sm placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
             />
           </div>
         </div>
@@ -139,7 +139,7 @@ export function CommandPalette({
                   </div>
                   {index === selectedIndex && (
                     <div className="flex-shrink-0">
-                      <kbd className="px-2 py-0.5 text-xs bg-background/40 border border-border/30 rounded">
+                      <kbd className="px-2 py-0.5 text-xs bg-background/40 border border-border/30 rounded-2xl">
                         ↵
                       </kbd>
                     </div>
@@ -155,16 +155,16 @@ export function CommandPalette({
           <div className="flex items-center justify-between text-xs text-muted-foreground/60">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded">↑</kbd>
-                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded">↓</kbd>
+                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded-2xl">↑</kbd>
+                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded-2xl">↓</kbd>
                 <span>navigate</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded">↵</kbd>
+                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded-2xl">↵</kbd>
                 <span>select</span>
               </div>
               <div className="flex items-center gap-1">
-                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded">esc</kbd>
+                <kbd className="px-1.5 py-0.5 bg-background/40 border border-border/30 rounded-2xl">esc</kbd>
                 <span>close</span>
               </div>
             </div>

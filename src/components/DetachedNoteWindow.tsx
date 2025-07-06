@@ -242,10 +242,10 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
   // Mode toggle component for the title bar
   const modeToggle = (
-    <div className="flex items-center bg-background/40 border border-border/30 rounded-md">
+    <div className="flex items-center bg-background/40 border border-border/30 rounded-xl">
       <button
         onClick={() => setIsPreviewMode(false)}
-        className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
+        className={`w-5 h-4 flex items-center justify-center rounded-2xl transition-all duration-200 ${
           !isPreviewMode 
             ? 'bg-primary/25 text-primary shadow-sm' 
             : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
@@ -259,7 +259,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
       </button>
       <button
         onClick={() => setIsPreviewMode(true)}
-        className={`w-5 h-4 flex items-center justify-center rounded-sm transition-all duration-200 ${
+        className={`w-5 h-4 flex items-center justify-center rounded-2xl transition-all duration-200 ${
           isPreviewMode 
             ? 'bg-primary/25 text-primary shadow-sm' 
             : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
@@ -344,11 +344,11 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
                   ),
                   code: ({inline, children}: {inline?: boolean, children?: React.ReactNode}) => (
                     inline ?
-                      <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code> :
+                      <code className="bg-muted px-1.5 py-0.5 rounded-xl text-sm font-mono">{children}</code> :
                       <code className="block">{children}</code>
                   ),
                   pre: ({children}) => (
-                    <pre className="bg-muted/50 border border-border/30 rounded-lg p-4 overflow-x-auto my-4">
+                    <pre className="bg-muted/50 border border-border/30 rounded-2xl p-4 overflow-x-auto my-4">
                       {children}
                     </pre>
                   ),

@@ -56,7 +56,7 @@ export function NotesPanel({
               </div>
               <button
                 onClick={onCreateNewNote}
-                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-xl transition-colors"
                 title="New note (⌘N)"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -75,7 +75,7 @@ export function NotesPanel({
               <input
                 type="text"
                 placeholder="Search notes..."
-                className="w-full pl-9 pr-3 py-1.5 bg-background border border-border/20 rounded text-xs placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
+                className="w-full pl-9 pr-3 py-1.5 bg-background border border-border/20 rounded-xl text-xs placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
               />
             </div>
           </div>
@@ -98,7 +98,7 @@ export function NotesPanel({
                 {notes.map((note, index) => (
                   <div
                     key={note.id}
-                    className={`group relative p-3 rounded-lg mb-2 cursor-pointer transition-all ${
+                    className={`group relative p-3 rounded-2xl mb-2 cursor-pointer transition-all ${
                       selectedNoteId === note.id
                         ? 'bg-primary/10 border border-primary/20'
                         : 'bg-background/40 hover:bg-background/60 border border-transparent'
@@ -122,7 +122,7 @@ export function NotesPanel({
                             {note.title || 'Untitled'}
                           </h3>
                           {index < 9 && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded font-mono transition-colors ${
+                            <span className={`text-xs px-1.5 py-0.5 rounded-xl font-mono transition-colors ${
                               selectedNoteId === note.id 
                                 ? 'bg-primary/20 text-primary/80' 
                                 : 'bg-muted-foreground/10 text-muted-foreground/50 group-hover:text-muted-foreground/70'
@@ -153,7 +153,7 @@ export function NotesPanel({
                             e.stopPropagation();
                             onDeleteNote(note.id);
                           }}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-red-400 p-1 rounded transition-all"
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-red-400 p-1 rounded-xl transition-all"
                           title="Delete note"
                         >
                           <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

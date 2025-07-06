@@ -97,7 +97,7 @@ export function DragCancelEffect({ x, y, onComplete }: DragCancelEffectProps) {
             transition: 'opacity 800ms cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
-          <div className="bg-black/80 text-white/90 text-xs px-3 py-1.5 rounded-md shadow-lg">
+          <div className="bg-black/80 text-white/90 text-xs px-3 py-1.5 rounded-2xl shadow-lg">
             Drag outside sidebar to detach
           </div>
         </div>

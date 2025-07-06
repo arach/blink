@@ -90,11 +90,11 @@ export function EditorArea({
                     ),
                     code: ({inline, children}: {inline?: boolean, children?: React.ReactNode}) => (
                       inline ? 
-                        <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code> :
+                        <code className="bg-muted px-1.5 py-0.5 rounded-xl text-sm font-mono">{children}</code> :
                         <code className="block">{children}</code>
                     ),
                     pre: ({children}) => (
-                      <pre className="bg-muted/50 border border-border/30 rounded-lg p-4 overflow-x-auto my-4">
+                      <pre className="bg-muted/50 border border-border/30 rounded-2xl p-4 overflow-x-auto my-4">
                         {children}
                       </pre>
                     ),
@@ -156,7 +156,7 @@ export function EditorArea({
               <div className="flex items-center gap-2">
                 <button
                   onClick={onPreviewToggle}
-                  className={`px-3 py-1.5 text-xs rounded-md transition-all duration-200 font-medium ${
+                  className={`px-3 py-1.5 text-xs rounded-2xl transition-all duration-200 font-medium ${
                     isPreviewMode 
                       ? 'bg-primary/90 text-primary-foreground shadow-sm' 
                       : 'bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background/90 border border-border/30'

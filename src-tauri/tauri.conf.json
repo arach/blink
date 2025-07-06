@@ -172,7 +172,8 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "visible": true,
-        "center": true
+        "center": true,
+        "shadow": false
       }
     ]
   },

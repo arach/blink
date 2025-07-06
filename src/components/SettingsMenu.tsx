@@ -72,7 +72,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors rounded"
+              className="w-8 h-8 flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-white/10 transition-colors rounded-xl"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18"/>
@@ -116,14 +116,14 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                         fontSize: parseInt(e.target.value)
                       }
                     })}
-                    className="flex-1 h-2 bg-background/40 rounded-lg appearance-none cursor-pointer accent-primary"
+                    className="flex-1 h-2 bg-background/40 rounded-2xl appearance-none cursor-pointer accent-primary"
                   />
                   <span className="text-xs text-muted-foreground/60 w-8">24px</span>
                   <span className="text-sm text-foreground min-w-[3rem] text-center">
                     {localConfig.appearance?.fontSize ?? 15}px
                   </span>
                 </div>
-                <div className="mt-3 p-3 bg-background/30 rounded border border-border/20">
+                <div className="mt-3 p-3 bg-background/30 rounded-2xl border border-border/20">
                   <div 
                     className="text-muted-foreground/80"
                     style={{ fontSize: `${localConfig.appearance?.fontSize ?? 15}px` }}
@@ -153,7 +153,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                         lineHeight: parseFloat(e.target.value)
                       }
                     })}
-                    className="flex-1 h-2 bg-background/40 rounded-lg appearance-none cursor-pointer accent-primary"
+                    className="flex-1 h-2 bg-background/40 rounded-2xl appearance-none cursor-pointer accent-primary"
                   />
                   <span className="text-xs text-muted-foreground/60 w-8">2.0</span>
                   <span className="text-sm text-foreground min-w-[2.5rem] text-center">
@@ -176,7 +176,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                       editorFontFamily: e.target.value
                     }
                   })}
-                  className="w-full p-3 bg-background/20 border border-border/20 rounded text-foreground text-sm focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer"
+                  className="w-full p-3 bg-background/20 border border-border/20 rounded-2xl text-foreground text-sm focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -224,7 +224,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                       ...localConfig,
                       opacity: parseFloat(e.target.value)
                     })}
-                    className="flex-1 h-2 bg-background/40 rounded-lg appearance-none cursor-pointer accent-primary"
+                    className="flex-1 h-2 bg-background/40 rounded-2xl appearance-none cursor-pointer accent-primary"
                   />
                   <span className="text-xs text-muted-foreground/60 w-8">100%</span>
                   <span className="text-sm text-foreground min-w-[3rem] text-center">
@@ -248,7 +248,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                     ...localConfig,
                     alwaysOnTop: !localConfig.alwaysOnTop
                   })}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                  className={`relative w-11 h-6 rounded-2xl transition-colors ${
                     localConfig.alwaysOnTop ? 'bg-primary' : 'bg-background/40 border border-border/40'
                   }`}
                 >
@@ -280,7 +280,7 @@ export function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
             <button
               onClick={handleSave}
               disabled={isLoading || saveStatus === 'saving'}
-              className={`px-4 py-2 text-sm rounded transition-all disabled:opacity-50 ${
+              className={`px-4 py-2 text-sm rounded-2xl transition-all disabled:opacity-50 ${
                 saveStatus === 'saved' 
                   ? 'bg-green-600 text-white' 
                   : saveStatus === 'error'

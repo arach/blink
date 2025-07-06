@@ -46,7 +46,7 @@ export function DragGhost({ noteTitle, distance, threshold, isSuccess = false }:
             width: '280px',
             height: '180px',
             background: 'rgba(18, 19, 23, 0.98)',
-            borderRadius: '10px',
+            borderRadius: '16px',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)'
           }}
         >
@@ -63,8 +63,8 @@ export function DragGhost({ noteTitle, distance, threshold, isSuccess = false }:
             
             <div className="flex items-center gap-1">
               {/* Edit/preview buttons */}
-              <div className="w-4 h-3 bg-primary/20 rounded-sm"></div>
-              <div className="w-4 h-3 bg-background/40 rounded-sm"></div>
+              <div className="w-4 h-3 bg-primary/20 rounded-xl"></div>
+              <div className="w-4 h-3 bg-background/40 rounded-xl"></div>
             </div>
           </div>
           
@@ -76,17 +76,17 @@ export function DragGhost({ noteTitle, distance, threshold, isSuccess = false }:
             
             {/* Simulated content lines */}
             <div className="space-y-1.5">
-              <div className="h-1.5 bg-muted-foreground/20 rounded w-full"></div>
-              <div className="h-1.5 bg-muted-foreground/15 rounded w-4/5"></div>
-              <div className="h-1.5 bg-muted-foreground/10 rounded w-3/4"></div>
-              <div className="h-1.5 bg-muted-foreground/10 rounded w-2/3"></div>
+              <div className="h-1.5 bg-muted-foreground/20 rounded-xl w-full"></div>
+              <div className="h-1.5 bg-muted-foreground/15 rounded-xl w-4/5"></div>
+              <div className="h-1.5 bg-muted-foreground/10 rounded-xl w-3/4"></div>
+              <div className="h-1.5 bg-muted-foreground/10 rounded-xl w-2/3"></div>
             </div>
           </div>
         </div>
         
         {/* Status indicator */}
         <div 
-          className={`absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
+          className={`absolute -bottom-8 left-1/2 transform -translate-x-1/2 px-3 py-1.5 rounded-2xl text-xs font-medium transition-all duration-200 ${
             canDetach 
               ? 'bg-green-500/20 text-green-400 border border-green-500/40' 
               : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'

@@ -15,7 +15,7 @@ export const TransparencyControls = () => {
   };
 
   return (
-    <div className="flex items-center gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+    <div className="flex items-center gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl border border-white/20">
       <div className="flex items-center gap-2">
         {isTransparent ? (
           <EyeOff className="h-4 w-4 text-gray-600" />

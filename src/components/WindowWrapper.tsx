@@ -13,7 +13,7 @@ export function WindowWrapper({ children, className = '', style }: WindowWrapper
   
   return (
     <div 
-      className={`w-full h-full text-foreground flex flex-col bg-background rounded-xl overflow-hidden ${className}`}
+      className={`w-full h-full text-foreground flex flex-col bg-background rounded-2xl overflow-hidden border border-border/30 shadow-xl ${className}`}
       style={{ 
         backgroundColor: windowOpacity !== undefined 
           ? `hsl(var(--background) / ${windowOpacity})` 

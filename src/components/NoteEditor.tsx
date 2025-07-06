@@ -132,7 +132,7 @@ export function NoteEditor() {
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm cursor-pointer hover:bg-secondary/80"
+                className="bg-secondary text-secondary-foreground px-2 py-1 rounded-xl text-sm cursor-pointer hover:bg-secondary/80"
                 onClick={() => handleRemoveTag(tag)}
               >
                 {tag} ×
@@ -145,7 +145,7 @@ export function NoteEditor() {
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={handleAddTag}
             placeholder="Add a tag and press Enter..."
-            className="w-full px-3 py-1 border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-1 border rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
       </div>

@@ -53,7 +53,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         <p className="text-xs text-muted-foreground/60">The essentials • who we are, what we do</p>
       </div>
 
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+      <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="10"/>
@@ -80,7 +80,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         </div>
       </div>
 
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+      <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -108,7 +108,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
                     showNotePreviews: e.target.checked
                   }
                 })}
-                className="w-4 h-4 text-primary bg-background border border-border/30 rounded focus:ring-primary/50 focus:ring-2 cursor-pointer"
+                className="w-4 h-4 text-primary bg-background border border-border/30 rounded-xl focus:ring-primary/50 focus:ring-2 cursor-pointer"
               />
             </div>
           </div>
@@ -178,7 +178,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
 
       <div className="space-y-4">
         {/* Theme Selector */}
-        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
@@ -193,7 +193,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         </div>
 
         {/* Typography Group */}
-        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
@@ -288,7 +288,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
                     editorFontFamily: e.target.value
                   }
                 })}
-                className="w-48 px-2 py-1 bg-background/20 border border-border/20 rounded text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
+                className="w-48 px-2 py-1 bg-background/20 border border-border/20 rounded-xl text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                   backgroundPosition: 'right 0.5rem center',
@@ -320,7 +320,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
                     previewFontFamily: e.target.value
                   }
                 })}
-                className="w-48 px-2 py-1 bg-background/20 border border-border/20 rounded text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
+                className="w-48 px-2 py-1 bg-background/20 border border-border/20 rounded-xl text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                   backgroundPosition: 'right 0.5rem center',
@@ -385,10 +385,10 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
               </label>
               
               {/* Preview Toggle Buttons */}
-              <div className="flex gap-1 mb-4 bg-background/30 p-1 rounded-lg w-fit">
+              <div className="flex gap-1 mb-4 bg-background/30 p-1 rounded-2xl w-fit">
                 <button 
                   onClick={() => setPreviewMode('editor')}
-                  className={`px-3 py-1.5 text-xs font-mono rounded transition-all ${
+                  className={`px-3 py-1.5 text-xs font-mono rounded-xl transition-all ${
                     previewMode === 'editor' 
                       ? 'bg-primary/80 text-primary-foreground shadow-sm' 
                       : 'text-muted-foreground/70 hover:text-foreground hover:bg-background/40'
@@ -398,7 +398,7 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
                 </button>
                 <button 
                   onClick={() => setPreviewMode('preview')}
-                  className={`px-3 py-1.5 text-xs font-mono rounded transition-all ${
+                  className={`px-3 py-1.5 text-xs font-mono rounded-xl transition-all ${
                     previewMode === 'preview' 
                       ? 'bg-primary/80 text-primary-foreground shadow-sm' 
                       : 'text-muted-foreground/70 hover:text-foreground hover:bg-background/40'
@@ -530,7 +530,7 @@ function calculateMetrics(data) {
         </div>
 
         {/* Visual Group */}
-        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <circle cx="12" cy="12" r="10"/>
@@ -601,7 +601,7 @@ function calculateMetrics(data) {
                       backgroundPattern: e.target.value as any
                     }
                   })}
-                  className="w-32 px-2 py-1 bg-background/20 border border-border/20 rounded text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
+                  className="w-32 px-2 py-1 bg-background/20 border border-border/20 rounded-xl text-foreground text-xs focus:outline-none focus:border-primary/40 hover:bg-background/30 transition-colors appearance-none cursor-pointer font-mono"
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -622,7 +622,7 @@ function calculateMetrics(data) {
         </div>
 
         {/* Window Group */}
-        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -710,7 +710,7 @@ function calculateMetrics(data) {
         </div>
 
         {/* Features Group */}
-        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -813,7 +813,7 @@ function calculateMetrics(data) {
         <p className="text-xs text-muted-foreground/60">Global and in-app keyboard shortcuts</p>
       </div>
 
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+      <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
@@ -831,22 +831,22 @@ function calculateMetrics(data) {
             <div className="flex items-center gap-3">
               <span className="text-xs text-foreground/80 font-mono w-32">Create New Note</span>
               <div className="flex-1 flex items-center gap-2">
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌃</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌥</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">N</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌃</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌥</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⇧</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">N</kbd>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
               <span className="text-xs text-foreground/80 font-mono w-32">Toggle Hover Mode</span>
               <div className="flex-1 flex items-center gap-2">
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌃</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌥</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
-                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">H</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌃</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌥</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⇧</kbd>
+                <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">H</kbd>
               </div>
             </div>
           </div>
@@ -940,7 +940,7 @@ function calculateMetrics(data) {
             <div className="text-xs text-muted-foreground/60 space-y-3">
               <p className="font-medium text-foreground/80">Required macOS Permissions:</p>
               
-              <div className="bg-background/20 border border-border/20 rounded-lg p-3 space-y-2">
+              <div className="bg-background/20 border border-border/20 rounded-2xl p-3 space-y-2">
                 <div className="flex items-start gap-2">
                   <div className="w-1.5 h-1.5 bg-primary/60 rounded-full mt-1.5 flex-shrink-0"></div>
                   <div>
@@ -964,7 +964,7 @@ function calculateMetrics(data) {
                 </div>
               </div>
               
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3">
                 <p className="font-medium text-amber-400/90 mb-1 flex items-center gap-2">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
@@ -997,7 +997,7 @@ function calculateMetrics(data) {
         </div>
       </div>
       
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+      <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
@@ -1009,37 +1009,37 @@ function calculateMetrics(data) {
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Command Palette</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">K</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">K</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">New Note</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">N</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">N</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Toggle Preview</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">P</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⇧</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">P</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Open Settings</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">,</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">,</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Focus Mode</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
-              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">.</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded-xl font-mono">.</kbd>
             </div>
           </div>
         </div>
@@ -1077,7 +1077,7 @@ function calculateMetrics(data) {
                   fontSize: parseInt(e.target.value, 10)
                 }
               })}
-              className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-32 h-2 bg-gray-200 rounded-2xl appearance-none cursor-pointer"
             />
             <span className="text-sm text-muted-foreground w-8 text-right">
               {localConfig.editor?.fontSize || 16}px
@@ -1101,7 +1101,7 @@ function calculateMetrics(data) {
                   lineHeight: parseFloat(e.target.value)
                 }
               })}
-              className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+              className="w-32 h-2 bg-gray-200 rounded-2xl appearance-none cursor-pointer"
             />
             <span className="text-sm text-muted-foreground w-8 text-right">
               {localConfig.editor?.lineHeight || 1.6}
