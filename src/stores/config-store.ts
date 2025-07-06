@@ -25,11 +25,11 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   loadConfig: async () => {
     set({ isLoading: true, error: null });
     try {
-      console.log('Loading config from backend...');
+      // console.log('Loading config from backend...');
       const rawConfig = await configApi.getConfig();
-      console.log('Raw config loaded:', rawConfig);
+      // console.log('Raw config loaded:', rawConfig);
       const config = migrateConfig(rawConfig);
-      console.log('Migrated config:', config);
+      // console.log('Migrated config:', config);
       set({ config, isLoading: false });
     } catch (error) {
       console.warn('Failed to load config, using defaults:', error);
@@ -89,13 +89,13 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       }
     };
     
-    console.log('Updating config from:', config);
-    console.log('With update:', configUpdate);
-    console.log('Result:', updatedConfig);
+    // console.log('Updating config from:', config);
+    // console.log('With update:', configUpdate);
+    // console.log('Result:', updatedConfig);
     
     try {
       const newConfig = await configApi.updateConfig(updatedConfig);
-      console.log('Received from backend:', newConfig);
+      // console.log('Received from backend:', newConfig);
       set({ config: newConfig });
     } catch (error) {
       set({ 

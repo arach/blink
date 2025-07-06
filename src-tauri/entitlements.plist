@@ -14,12 +14,5 @@
     <key>com.apple.security.files.downloads.read-write</key>
     <true/>
     
-    <!-- For global shortcuts -->
-    <key>com.apple.security.accessibility</key>
-    <true/>
-    
-    <!-- Allow input monitoring for global shortcuts -->
-    <key>com.apple.security.device.keyboard-events</key>
-    <true/>
 </dict>
 </plist>

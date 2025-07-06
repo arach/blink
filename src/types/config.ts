@@ -14,6 +14,21 @@ export interface AppConfig {
     fontSize: number;
     contentFontSize?: number;
     theme: 'dark' | 'light' | 'system';
+    themeId?: string; // ID of the selected theme preset
+    customTheme?: { // Custom theme overrides
+      fonts?: {
+        editor?: string;
+        preview?: string;
+        ui?: string;
+      };
+      colors?: Record<string, string>;
+      backgroundTexture?: {
+        type: 'none' | 'paper' | 'canvas' | 'grid' | 'dots' | 'noise' | 'gradient';
+        opacity?: number;
+        scale?: number;
+        color?: string;
+      };
+    };
     editorFontFamily: string;
     previewFontFamily?: string;
     lineHeight: number;
@@ -23,11 +38,21 @@ export interface AppConfig {
     focusMode?: boolean;
     typewriterMode?: boolean;
     showNotePreviews?: boolean;
+    windowOpacity?: number; // Background transparency (0-1)
+    appFontFamily: string;
+  };
+  editor?: {
+    fontSize?: number;
+    lineHeight?: number;
+  };
+  advanced?: {
+    developerMode?: boolean;
+    autoUpdate?: boolean;
   };
 }
 
 export const defaultConfig: AppConfig = {
-  opacity: 0.95,
+  opacity: 1,
   alwaysOnTop: false,
   shortcuts: {
     toggleVisibility: 'Cmd+Ctrl+Alt+Shift+N',
@@ -49,6 +74,15 @@ export const defaultConfig: AppConfig = {
     focusMode: false,
     typewriterMode: false,
     showNotePreviews: false,
+    appFontFamily: 'system-ui',
+  },
+  editor: {
+    fontSize: 16,
+    lineHeight: 1.6,
+  },
+  advanced: {
+    developerMode: false,
+    autoUpdate: true,
   },
 };
 

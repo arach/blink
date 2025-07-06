@@ -33,6 +33,13 @@
     --sidebar-background: 220 10% 10%;
     --content-background: 220 8% 8%;
     --footer-background: 220 12% 6%;
+    
+    /* Theme system variables */
+    --font-editor: 'JetBrains Mono', monospace;
+    --font-preview: 'Inter', -apple-system, sans-serif;
+    --font-ui: system-ui, -apple-system, sans-serif;
+    --texture-opacity: 0.05;
+    --texture-color: currentColor;
   }
 
 }
@@ -46,19 +53,24 @@
     height: 100%;
     margin: 0;
     padding: 0;
+    font-family: var(--font-ui, system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+    background: hsl(var(--background, 220 8% 8%));
   }
   
   body {
-    @apply text-foreground;
-    /* Semi-transparent background for window transparency effect */
-    background: rgba(18, 19, 23, 0.95); /* Rich dark gray with opacity */
-    /* System font for UI elements */
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: hsl(var(--foreground, 220 6% 90%));
+    /* Set a default background to ensure window is visible */
+    background: transparent;
+    /* System font for UI elements - can be overridden by theme */
     font-feature-settings: 'liga' 1, 'calt' 1;
     letter-spacing: -0.025em;
     line-height: 1.5;
     font-size: 12px;
     font-weight: 500;
+  }
+  
+  #root {
+    background: transparent;
   }
   
   /* Content font for note text - optimized for reading */
@@ -255,17 +267,152 @@
       radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.15) 1px, transparent 1px);
     background-size: 20px 20px;
   }
+
+  /* Theme Background Textures */
+  .bg-texture-paper::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background-image: 
+      repeating-linear-gradient(
+        100deg,
+        transparent,
+        transparent 2px,
+        var(--texture-color, hsl(var(--foreground))) 2px,
+        var(--texture-color, hsl(var(--foreground))) 3px
+      );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bg-texture-canvas::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background-image: 
+      repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        var(--texture-color, hsl(var(--foreground))) 10px,
+        var(--texture-color, hsl(var(--foreground))) 11px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 10px,
+        var(--texture-color, hsl(var(--foreground))) 10px,
+        var(--texture-color, hsl(var(--foreground))) 11px
+      );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bg-texture-grid::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background-image: 
+      linear-gradient(var(--texture-color, hsl(var(--foreground))) 1px, transparent 1px),
+      linear-gradient(90deg, var(--texture-color, hsl(var(--foreground))) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bg-texture-dots::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background-image: 
+      radial-gradient(circle at 1px 1px, var(--texture-color, hsl(var(--foreground))) 1px, transparent 1px);
+    background-size: 20px 20px;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bg-texture-noise::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bg-texture-gradient::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: var(--texture-opacity);
+    background: radial-gradient(ellipse at top, var(--texture-color, hsl(var(--primary))), transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Ensure content is above textures */
+  .bg-texture-paper > *,
+  .bg-texture-canvas > *,
+  .bg-texture-grid > *,
+  .bg-texture-dots > *,
+  .bg-texture-noise > *,
+  .bg-texture-gradient > * {
+    position: relative;
+    z-index: 2;
+  }
   
-  /* Focus Mode */
-  .focus-mode .h-6[data-tauri-drag-region],
-  .focus-mode .h-5,
-  .focus-mode .w-8,
-  .focus-mode [data-sidebar] {
+  /* Focus Mode - hide some UI elements for minimal distraction */
+  /* Note: Navigation bar should always remain visible */
+  .focus-mode [data-sidebar]:not(.w-8) {
     display: none;
   }
   
-  .focus-mode {
-    padding: 2rem;
+  /* Apply extra padding to the editor area in focus mode for better focus */
+  .focus-mode textarea {
+    padding: 2rem 3rem !important;
+  }
+  
+  /* Ensure status footer remains visible in focus mode */
+  .focus-mode .status-footer {
+    display: flex !important;
+    position: relative;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  
+  /* Make sure the editor container uses proper flex layout */
+  .focus-mode .flex-col {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  
+  /* Force status footer to always be visible */
+  .status-footer {
+    display: flex !important;
+    flex-shrink: 0 !important;
   }
   
   /* Typewriter Mode */
@@ -449,13 +596,61 @@
   }
   
   
-  /* Ensure proper window styling for transparent windows */
-  body {
-    background: transparent;
-  }
+  /* Window background is controlled by theme system */
   
   /* Window container styling for detached notes */
   .detached-note-window {
     /* Custom window styling is handled inline in the component */
   }
+}
+
+@keyframes spin-fast {
+  100% { transform: rotate(360deg); }
+}
+.animate-spin-fast {
+  animation: spin-fast 0.35s linear;
+}
+
+@keyframes flip-x {
+  0% { transform: perspective(200px) rotateX(0deg); }
+  100% { transform: perspective(200px) rotateX(360deg); }
+}
+.animate-flip-x {
+  animation: flip-x 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Hover animations that work every time */
+@keyframes flip-x-hover {
+  0% { transform: perspective(200px) rotateX(0deg) scale(1); }
+  50% { transform: perspective(200px) rotateX(180deg) scale(1.1); }
+  100% { transform: perspective(200px) rotateX(360deg) scale(1); }
+}
+
+@keyframes spin-hover {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.group:hover .group-hover\:animate-flip-x {
+  animation: flip-x-hover 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+
+.group:hover .group-hover\:animate-spin-fast {
+  animation: spin-hover 0.4s ease-in-out;
+}
+
+/* Alternative approach with transform for continuous hover effect */
+.hover-flip {
+  transition: transform 0.3s ease;
+}
+.hover-flip:hover {
+  transform: perspective(200px) rotateX(180deg);
+}
+
+.hover-spin {
+  transition: transform 0.3s ease;
+}
+.hover-spin:hover {
+  transform: rotate(180deg);
 }

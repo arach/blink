@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { invoke } from '@tauri-apps/api/core';
+import { ThemeSelector } from './ThemeSelector';
 
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  selectedSection: 'general' | 'appearance' | 'shortcuts' | 'editor' | 'advanced';
+}
+
+export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
   const { config, updateConfig, isLoading } = useConfigStore();
   const [localConfig, setLocalConfig] = useState(config);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -34,24 +39,23 @@ export function SettingsPanel() {
     }
   };
 
-
   const renderGeneralSection = () => (
     <div data-section="general" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+      {/* Section Header - Standardized 76px height to match notes sidebar */}
+      <div className="h-[40px] flex flex-col justify-center">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <circle cx="12" cy="12" r="3"/>
             <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
           </svg>
           General
         </h2>
-        <p className="text-xs text-muted-foreground/60">Basic application information</p>
+        <p className="text-xs text-muted-foreground/60">The essentials • who we are, what we do</p>
       </div>
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <circle cx="12" cy="12" r="10"/>
             <path d="M12 8v4l3 3"/>
           </svg>
@@ -71,14 +75,14 @@ export function SettingsPanel() {
           <div className="flex justify-between items-center gap-3">
             <span className="text-muted-foreground/80 font-mono w-24">Author</span>
             <div className="flex-1"></div>
-            <span className="text-foreground font-mono">AI-Native Spatial Notes</span>
+            <span className="text-foreground font-mono">AI-Native Spatial Notes ✨</span>
           </div>
         </div>
       </div>
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
             <polyline points="9,22 9,12 15,12 15,22"/>
           </svg>
@@ -90,7 +94,7 @@ export function SettingsPanel() {
           <div className="flex justify-between items-center gap-3">
             <div className="flex flex-col">
               <span className="text-foreground/90 font-mono text-xs">Note Previews</span>
-              <span className="text-muted-foreground/60 text-xs">Show content preview in sidebar</span>
+              <span className="text-muted-foreground/60 text-xs">Peek at note content without opening</span>
             </div>
             <div className="flex items-center">
               <input
@@ -104,9 +108,49 @@ export function SettingsPanel() {
                     showNotePreviews: e.target.checked
                   }
                 })}
-                className="w-4 h-4 text-primary bg-background border-border/30 rounded focus:ring-primary/50 focus:ring-2 cursor-pointer"
+                className="w-4 h-4 text-primary bg-background border border-border/30 rounded focus:ring-primary/50 focus:ring-2 cursor-pointer"
               />
             </div>
+          </div>
+          
+          {/* Window Opacity Slider */}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col w-28">
+              <span className="text-foreground/90 font-mono text-xs">Window Opacity</span>
+              <span className="text-muted-foreground/60 text-xs">Background transparency</span>
+            </div>
+            <div className="flex-1 flex items-center gap-3">
+              <span className="text-xs text-muted-foreground/70">🫥</span>
+              <div className="flex-1 relative h-5 slider-container">
+                <div className="slider-track"></div>
+                <div className="slider-ticks">
+                  <div className="slider-tick" style={{ left: '10%' }}></div>
+                  <div className="slider-tick" style={{ left: '30%' }}></div>
+                  <div className="slider-tick" style={{ left: '50%' }}></div>
+                  <div className="slider-tick" style={{ left: '70%' }}></div>
+                  <div className="slider-tick" style={{ left: '90%' }}></div>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1.0"
+                  step="0.05"
+                  value={localConfig.appearance?.windowOpacity}
+                  onChange={(e) => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      windowOpacity: parseFloat(e.target.value)
+                    }
+                  })}
+                  className="slider-input"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground/70">🫧</span>
+            </div>
+            <span className="text-xs text-muted-foreground/70 min-w-[3rem] text-right font-mono">
+              {Math.round((localConfig.appearance?.windowOpacity ?? 1) * 100)}%
+            </span>
           </div>
           
         </div>
@@ -117,10 +161,10 @@ export function SettingsPanel() {
 
   const renderAppearanceSection = () => (
     <div data-section="appearance" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[40px] flex flex-col justify-center">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14,2 14,8 20,8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
@@ -129,14 +173,29 @@ export function SettingsPanel() {
           </svg>
           Appearance
         </h2>
-        <p className="text-xs text-muted-foreground/60">Customize typography, colors, and visual style</p>
+        <p className="text-xs text-muted-foreground/60">Make Blink uniquely yours • fonts, colors & textures</p>
       </div>
 
       <div className="space-y-4">
+        {/* Theme Selector */}
+        <div className="bg-card/20 rounded-lg p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
+            </svg>
+            Themes
+          </h3>
+          <ThemeSelector onSave={() => {
+            // Theme changes are handled directly by ThemeSelector
+            // No need to trigger main save since themes auto-save
+            console.log('[SETTINGS] Theme applied successfully');
+          }} />
+        </div>
+
         {/* Typography Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
             </svg>
             Typography
@@ -318,7 +377,7 @@ export function SettingsPanel() {
             {/* Typography Preview */}
             <div className="mt-6">
               <label className="block text-xs text-muted-foreground mb-3 flex items-center gap-2">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
                   <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
                   <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
                 </svg>
@@ -399,12 +458,12 @@ Remember to check the [project roadmap](https://example.com) for updates.`}</div
                     <h1 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.8}px`, 
                       marginTop: 0,
-                      color: 'hsl(var(--foreground) / 0.95)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '700'
                     }}>Meeting Notes</h1>
                     <h2 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.4}px`,
-                      color: 'hsl(var(--foreground) / 0.9)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '600'
                     }}>Project Updates</h2>
                     <p style={{ color: 'hsl(var(--foreground) / 0.85)' }}>The team made significant progress on the new <strong style={{ color: 'hsl(var(--primary))' }}>dashboard feature</strong>. We completed:</p>
@@ -415,7 +474,7 @@ Remember to check the [project roadmap](https://example.com) for updates.`}</div
                     </ul>
                     <h3 style={{ 
                       fontSize: `${(localConfig.appearance?.contentFontSize ?? localConfig.appearance?.fontSize ?? 15) * 1.2}px`,
-                      color: 'hsl(var(--foreground) / 0.9)',
+                      color: 'hsl(var(--foreground) / 1)',
                       fontWeight: '600'
                     }}>Next Steps</h3>
                     <ol style={{ color: 'hsl(var(--foreground) / 0.8)' }}>
@@ -473,7 +532,7 @@ function calculateMetrics(data) {
         {/* Visual Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <circle cx="12" cy="12" r="10"/>
               <circle cx="12" cy="12" r="4"/>
               <line x1="21.17" y1="8" x2="12" y2="8"/>
@@ -565,7 +624,7 @@ function calculateMetrics(data) {
         {/* Window Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <circle cx="9" cy="9" r="2"/>
               <path d="M21 15l-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
@@ -653,7 +712,7 @@ function calculateMetrics(data) {
         {/* Features Group */}
         <div className="bg-card/20 rounded-lg p-4 border border-border/10">
           <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
               <line x1="9" y1="9" x2="15" y2="9"/>
               <line x1="9" y1="12" x2="15" y2="12"/>
@@ -676,12 +735,12 @@ function calculateMetrics(data) {
                       focusMode: !localConfig.appearance?.focusMode
                     }
                   })}
-                  className={`relative w-8 h-4 rounded-full transition-colors ${
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
                     localConfig.appearance?.focusMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
                   }`}
                 >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                    localConfig.appearance?.focusMode ? 'translate-x-4' : 'translate-x-0'
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.focusMode ? 'translate-x-3.5' : 'translate-x-0'
                   }`} />
                 </button>
               </div>
@@ -700,12 +759,12 @@ function calculateMetrics(data) {
                       syntaxHighlighting: !localConfig.appearance?.syntaxHighlighting
                     }
                   })}
-                  className={`relative w-8 h-4 rounded-full transition-colors ${
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
                     localConfig.appearance?.syntaxHighlighting ? 'bg-primary' : 'bg-background/40 border border-border/40'
                   }`}
                 >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                    localConfig.appearance?.syntaxHighlighting ? 'translate-x-4' : 'translate-x-0'
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.syntaxHighlighting ? 'translate-x-3.5' : 'translate-x-0'
                   }`} />
                 </button>
               </div>
@@ -724,12 +783,12 @@ function calculateMetrics(data) {
                       typewriterMode: !localConfig.appearance?.typewriterMode
                     }
                   })}
-                  className={`relative w-8 h-4 rounded-full transition-colors ${
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
                     localConfig.appearance?.typewriterMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
                   }`}
                 >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full transition-transform ${
-                    localConfig.appearance?.typewriterMode ? 'translate-x-4' : 'translate-x-0'
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.typewriterMode ? 'translate-x-3.5' : 'translate-x-0'
                   }`} />
                 </button>
               </div>
@@ -742,10 +801,10 @@ function calculateMetrics(data) {
 
   const renderShortcutsSection = () => (
     <div data-section="shortcuts" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+      {/* Section Header - Standardized spacing */}
+      <div className="h-[40px] flex flex-col justify-center">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
           </svg>
@@ -756,7 +815,7 @@ function calculateMetrics(data) {
 
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M7 21c0-2.5 2-2.5 2-5M15 21c0-2.5 2-2.5 2-5M9 7v-4M15 7v-4"/>
           </svg>
@@ -940,7 +999,7 @@ function calculateMetrics(data) {
       
       <div className="bg-card/20 rounded-lg p-4 border border-border/10">
         <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
             <rect x="2" y="7" width="20" height="10" rx="1"/>
             <path d="M5 12h14M7 12l2-2M7 12l2 2"/>
           </svg>
@@ -950,37 +1009,37 @@ function calculateMetrics(data) {
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Command Palette</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">K</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">K</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">New Note</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">N</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">N</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Toggle Preview</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⇧</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">P</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⇧</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">P</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Open Settings</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">,</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">,</kbd>
             </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-foreground/80 font-mono">Focus Mode</span>
             <div className="flex items-center gap-1">
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">⌘</kbd>
-              <kbd className="px-2 py-0.5 bg-background/40 border border-border/30 rounded text-[10px] font-mono">.</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">⌘</kbd>
+              <kbd className="px-2 py-1 text-xs bg-background/40 border border-border/30 rounded font-mono">.</kbd>
             </div>
           </div>
         </div>
@@ -988,103 +1047,201 @@ function calculateMetrics(data) {
     </div>
   );
 
-  const renderAISection = () => (
-    <div data-section="ai" className="space-y-4">
-      {/* Section Header */}
-      <div className="mb-4">
-        <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
-            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+
+  const renderEditorSection = () => (
+    <div data-section="editor" className="space-y-6">
+      <div className="h-[40px] flex flex-col justify-center">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            <path d="m15 5 4 4"/>
           </svg>
-          AI & Plugins
+          Editor
         </h2>
-        <p className="text-xs text-muted-foreground/60">AI integration and extensibility (coming soon)</p>
+        <p className="text-xs text-muted-foreground/60">Customize your writing experience</p>
       </div>
-
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
-            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
-          AI Integration
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Status</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">coming soon</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Features</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">phase 2</span>
-          </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Font Size</span>
+            <input
+              type="range"
+              min="12"
+              max="24"
+              value={localConfig.editor?.fontSize || 16}
+              onChange={(e) => setLocalConfig({
+                ...localConfig,
+                editor: {
+                  ...localConfig.editor,
+                  fontSize: parseInt(e.target.value, 10)
+                }
+              })}
+              className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground w-8 text-right">
+              {localConfig.editor?.fontSize || 16}px
+            </span>
+          </label>
         </div>
-      </div>
-
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
-          </svg>
-          Plugins
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">System</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">extensible</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Integrations</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">custom workflows</span>
-          </div>
+        
+        <div>
+          <label className="flex items-center justify-between">
+            <span className="text-sm font-medium text-foreground">Line Height</span>
+            <input
+              type="range"
+              min="1"
+              max="3"
+              step="0.1"
+              value={localConfig.editor?.lineHeight || 1.6}
+              onChange={(e) => setLocalConfig({
+                ...localConfig,
+                editor: {
+                  ...localConfig.editor,
+                  lineHeight: parseFloat(e.target.value)
+                }
+              })}
+              className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground w-8 text-right">
+              {localConfig.editor?.lineHeight || 1.6}
+            </span>
+          </label>
         </div>
       </div>
     </div>
   );
 
-  return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 48px - 20px)' }}>
-      {/* Settings Content - Respects title bar and status bar */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="p-6 space-y-8 max-w-3xl mx-auto pb-20">
-          
-          {/* General Section */}
-          {renderGeneralSection()}
-          
-          {/* Appearance Section */}
-          {renderAppearanceSection()}
-          
-          {/* Shortcuts Section */}
-          {renderShortcutsSection()}
-          
-          {/* AI Section */}
-          {renderAISection()}
-          
+
+  const renderAdvancedSection = () => (
+    <div data-section="advanced" className="space-y-6">
+      <div className="h-[40px] flex flex-col justify-center">
+        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M12 8v4"/>
+            <path d="M12 16h.01"/>
+          </svg>
+          Advanced
+        </h2>
+        <p className="text-xs text-muted-foreground/60">Advanced application settings</p>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-foreground">Developer Mode</div>
+              <div className="text-xs text-muted-foreground/60">Enable developer tools and features</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={localConfig.advanced?.developerMode || false}
+                onChange={(e) => setLocalConfig({
+                  ...localConfig,
+                  advanced: {
+                    ...localConfig.advanced,
+                    developerMode: e.target.checked
+                  }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </label>
+        </div>
+        
+        <div>
+          <label className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-foreground">Auto Update</div>
+              <div className="text-xs text-muted-foreground/60">Automatically download and install updates</div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={localConfig.advanced?.autoUpdate !== false}
+                onChange={(e) => setLocalConfig({
+                  ...localConfig,
+                  advanced: {
+                    ...localConfig.advanced,
+                    autoUpdate: e.target.checked
+                  }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </label>
         </div>
       </div>
+    </div>
+  );
 
-      {/* Save Button - Fixed at bottom */}
-      <div className="border-t border-border/20 p-4 bg-card/60 backdrop-blur-md flex-shrink-0">
-        <div className="flex justify-end max-w-3xl mx-auto">
+
+  const renderSection = () => {
+    switch (selectedSection) {
+      case 'general':
+        return renderGeneralSection();
+      case 'appearance':
+        return renderAppearanceSection();
+      case 'shortcuts':
+        return renderShortcutsSection();
+      case 'editor':
+        return renderEditorSection();
+      case 'advanced':
+        return renderAdvancedSection();
+      default:
+        return renderAppearanceSection();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto p-5">
+        {renderSection()}
+      </div>
+      <div className="border-t border-border/20 px-5 py-3 bg-background/60 backdrop-blur-xl flex-shrink-0">
+        <div className="flex justify-end">
           <button
             onClick={handleSave}
-            disabled={isLoading || saveStatus === 'saving'}
-            className={`px-4 py-2 text-xs rounded-md transition-all disabled:opacity-50 font-mono ${
-              saveStatus === 'saved' 
-                ? 'bg-green-600/80 text-white' 
-                : saveStatus === 'error'
-                ? 'bg-red-600/80 text-white'
-                : 'bg-primary/80 text-primary-foreground hover:bg-primary/90'
-            }`}
+            disabled={saveStatus === 'saving'}
+            className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-medium text-white bg-primary rounded hover:bg-primary/90 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saveStatus === 'saving' ? 'saving...' : 
-             saveStatus === 'saved' ? '✓ saved' :
-             saveStatus === 'error' ? 'error' :
-             'save changes'}
+            {saveStatus === 'saving' ? (
+              <>
+                <svg className="w-3 h-3 mr-2 -ml-1 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </>
+            ) : saveStatus === 'saved' ? (
+              <>
+                <svg className="w-3 h-3 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Saved
+              </>
+            ) : saveStatus === 'error' ? (
+              <>
+                <svg className="w-3 h-3 mr-2 -ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                Error
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </button>
         </div>
       </div>

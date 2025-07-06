@@ -72,7 +72,7 @@ export function CustomTitleBar({
 
   return (
     <div 
-      className="h-12 flex items-center px-4 border-b border-border/30"
+      className="h-8 flex items-center px-4 border-b border-border/30 bg-background/90 backdrop-blur-sm"
       data-tauri-drag-region
       style={{ 
         userSelect: 'none', 
@@ -106,15 +106,15 @@ export function CustomTitleBar({
     >
       {/* Window controls (traffic lights on macOS) */}
       {showTrafficLights && (
-        <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5" onMouseDown={(e) => e.stopPropagation()}>
           {/* Close button */}
           <button
             onClick={handleClose}
             onMouseDown={(e) => e.stopPropagation()}
-            className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors group relative"
+            className="w-3.5 h-3.5 rounded-full bg-red-500/90 hover:bg-red-500 transition-all duration-200 group relative shadow-sm"
             title="Close"
           >
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-red-900 font-bold" style={{ fontSize: '8px' }}>
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-red-900 font-bold transition-opacity duration-150" style={{ fontSize: '9px' }}>
               ×
             </span>
           </button>
@@ -123,10 +123,10 @@ export function CustomTitleBar({
           <button
             onClick={handleMinimize}
             onMouseDown={(e) => e.stopPropagation()}
-            className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors group relative"
+            className="w-3.5 h-3.5 rounded-full bg-yellow-500/90 hover:bg-yellow-500 transition-all duration-200 group relative shadow-sm"
             title="Minimize"
           >
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-yellow-900 font-bold" style={{ fontSize: '8px' }}>
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-yellow-900 font-bold transition-opacity duration-150" style={{ fontSize: '9px' }}>
               −
             </span>
           </button>
@@ -135,10 +135,10 @@ export function CustomTitleBar({
           <button
             onClick={handleMaximize}
             onMouseDown={(e) => e.stopPropagation()}
-            className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors group relative"
+            className="w-3.5 h-3.5 rounded-full bg-green-500/90 hover:bg-green-500 transition-all duration-200 group relative shadow-sm"
             title="Maximize"
           >
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-green-900 font-bold" style={{ fontSize: '8px' }}>
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-green-900 font-bold transition-opacity duration-150" style={{ fontSize: '9px' }}>
               +
             </span>
           </button>
@@ -163,7 +163,7 @@ export function CustomTitleBar({
             </div>
           </div>
         ) : (
-          <span className="text-xs text-foreground/70 font-medium select-none" title="Middle-click to shade">
+          <span className="text-foreground/80 font-semibold select-none tracking-wide" style={{ fontSize: '13px' }} title="Middle-click to shade">
             {title}
           </span>
         )}
