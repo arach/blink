@@ -173,7 +173,8 @@
         "hiddenTitle": true,
         "visible": true,
         "center": true,
-        "shadow": false
+        "shadow": false,
+        "backgroundColor": "#00000000"
       }
     ]
   },
