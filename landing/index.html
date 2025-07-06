@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blink - AI-Native Spatial Notes</title>
+    <meta name="description" content="Revolutionary spatial note-taking app. Drag notes into floating windows, work across multiple spaces, and experience writing like never before.">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Blink - AI-Native Spatial Notes">
+    <meta property="og:description" content="Revolutionary spatial note-taking app with drag-to-detach windows and beautiful glass-morphism design.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://github.com/arach/blink">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blink - AI-Native Spatial Notes">
+    <meta name="twitter:description" content="Revolutionary spatial note-taking app with drag-to-detach windows.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'blink-blue': '#3b82f6',
+                        'blink-purple': '#8b5cf6',
+                        'blink-dark': '#0f172a',
+                        'blink-gray': '#1e293b'
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'slide-up': 'slideUp 0.8s ease-out forwards',
+                        'fade-in': 'fadeIn 0.6s ease-out forwards'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-20px)' }
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.5)' },
+                            '100%': { boxShadow: '0 0 30px rgba(59, 130, 246, 0.8)' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Custom CSS -->
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-dark {
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .hero-bg {
+            background: radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+        }
+        
+        .window-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                        0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+        
+        .feature-card {
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-white overflow-x-hidden">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 glass-dark">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center space-x-2">
+                    <div class="text-2xl">📝</div>
+                    <span class="text-xl font-bold gradient-text">Blink</span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="hover:text-blink-blue transition-colors">Features</a>
+                    <a href="#download" class="hover:text-blink-blue transition-colors">Download</a>
+                    <a href="https://github.com/arach/blink" class="hover:text-blink-blue transition-colors">GitHub</a>
+                </div>
+                <a href="#download" class="bg-blink-blue hover:bg-blue-600 px-4 py-2 rounded-lg font-medium transition-colors">
+                    Download v0.1.0
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center relative hero-bg">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <div class="animate-slide-up">
+                <h1 class="text-6xl md:text-8xl font-bold mb-6">
+                    <span class="gradient-text">Spatial Notes</span><br>
+                    <span class="text-white">Reimagined</span>
+                </h1>
+                
+                <p class="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed">
+                    Drag notes into floating windows. Work across multiple spaces. 
+                    Experience the future of note-taking with <strong class="text-blink-blue">Blink</strong>.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                    <a href="#download" class="bg-blink-blue hover:bg-blue-600 px-8 py-4 rounded-xl font-semibold text-lg transition-all hover:scale-105 animate-glow">
+                        Download Free
+                    </a>
+                    <a href="#demo" class="glass px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-all">
+                        Watch Demo
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Hero Visual -->
+            <div class="relative animate-fade-in" style="animation-delay: 0.3s;">
+                <div class="glass-dark rounded-2xl p-8 window-shadow animate-float">
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span class="ml-4 text-sm text-gray-400">Blink - Meeting Notes</span>
+                    </div>
+                    <div class="text-left space-y-3 font-mono text-sm">
+                        <div class="text-blink-blue"># Project Kickoff</div>
+                        <div class="text-gray-300">## Key Objectives</div>
+                        <div class="text-gray-400">- Build revolutionary note-taking app</div>
+                        <div class="text-gray-400">- Implement spatial multi-window design</div>
+                        <div class="text-gray-400">- Launch with beautiful glass-morphism UI</div>
+                        <div class="text-gray-300 mt-4">**Status**: ✅ Shipped v0.1.0!</div>
+                    </div>
+                </div>
+                
+                <!-- Floating Note Windows -->
+                <div class="absolute -top-4 -right-8 glass-dark rounded-lg p-4 window-shadow animate-float" style="animation-delay: -2s;">
+                    <div class="text-xs text-gray-400 mb-1">Quick Note</div>
+                    <div class="text-sm">💡 Spatial notes = game changer</div>
+                </div>
+                
+                <div class="absolute -bottom-4 -left-8 glass-dark rounded-lg p-4 window-shadow animate-float" style="animation-delay: -4s;">
+                    <div class="text-xs text-gray-400 mb-1">Reminder</div>
+                    <div class="text-sm">⚡ Try drag-to-detach!</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-slate-800">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                    <span class="gradient-text">Revolutionary Features</span>
+                </h2>
+                <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+                    Every feature designed to enhance your thinking and creativity
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Spatial Windows -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">🪟</div>
+                    <h3 class="text-xl font-bold mb-3">Spatial Multi-Windows</h3>
+                    <p class="text-gray-300 mb-4">Drag any note to create floating windows. Arrange them across your desktop for spatial thinking.</p>
+                    <div class="text-sm text-blink-blue font-medium">Perfect for research & brainstorming</div>
+                </div>
+                
+                <!-- Glass Design -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">🎨</div>
+                    <h3 class="text-xl font-bold mb-3">Glass-morphism Design</h3>
+                    <p class="text-gray-300 mb-4">Beautiful translucent UI with blur effects that integrates seamlessly with your desktop.</p>
+                    <div class="text-sm text-blink-blue font-medium">Elegant & non-intrusive</div>
+                </div>
+                
+                <!-- Live Preview -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">⚡</div>
+                    <h3 class="text-xl font-bold mb-3">Live Markdown Preview</h3>
+                    <p class="text-gray-300 mb-4">Toggle between edit and rendered modes instantly. See your formatting come to life.</p>
+                    <div class="text-sm text-blink-blue font-medium">Real-time rendering</div>
+                </div>
+                
+                <!-- Keyboard First -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">⌨️</div>
+                    <h3 class="text-xl font-bold mb-3">Keyboard-First Workflow</h3>
+                    <p class="text-gray-300 mb-4">Command palette (⌘K), global shortcuts, and vim-inspired navigation for power users.</p>
+                    <div class="text-sm text-blink-blue font-medium">Lightning fast workflow</div>
+                </div>
+                
+                <!-- Themes -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">🌈</div>
+                    <h3 class="text-xl font-bold mb-3">Beautiful Themes</h3>
+                    <p class="text-gray-300 mb-4">Multiple built-in themes with live preview. Customize fonts, colors, and visual style.</p>
+                    <div class="text-sm text-blink-blue font-medium">Make it yours</div>
+                </div>
+                
+                <!-- Native Performance -->
+                <div class="feature-card glass-dark rounded-xl p-6">
+                    <div class="text-4xl mb-4">🚀</div>
+                    <h3 class="text-xl font-bold mb-3">Native Performance</h3>
+                    <p class="text-gray-300 mb-4">Built with Tauri v2 for optimal speed and minimal memory usage. Lightning fast startup.</p>
+                    <div class="text-sm text-blink-blue font-medium">Rust-powered efficiency</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="py-20 bg-slate-900">
+        <div class="max-w-6xl mx-auto px-4 text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-8">
+                <span class="gradient-text">See Blink in Action</span>
+            </h2>
+            
+            <div class="glass-dark rounded-2xl p-8 window-shadow">
+                <div class="aspect-video bg-slate-800 rounded-lg flex items-center justify-center mb-6">
+                    <div class="text-center">
+                        <div class="text-6xl mb-4">🎬</div>
+                        <div class="text-xl text-gray-300">Demo Video Coming Soon</div>
+                        <div class="text-sm text-gray-400 mt-2">Watch spatial note-taking in action</div>
+                    </div>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6 text-left">
+                    <div>
+                        <div class="text-blink-blue font-semibold mb-2">1. Create Notes</div>
+                        <div class="text-gray-300 text-sm">Start writing with ⌘N or global shortcut Hyperkey+N</div>
+                    </div>
+                    <div>
+                        <div class="text-blink-purple font-semibold mb-2">2. Drag to Detach</div>
+                        <div class="text-gray-300 text-sm">Drag any note title to create floating windows</div>
+                    </div>
+                    <div>
+                        <div class="text-green-400 font-semibold mb-2">3. Spatial Thinking</div>
+                        <div class="text-gray-300 text-sm">Arrange windows across your desktop for better organization</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Highlights -->
+    <section class="py-20 bg-slate-800">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold mb-4">
+                    <span class="gradient-text">Built for Developers</span>
+                </h2>
+                <p class="text-xl text-gray-300">Modern architecture with TypeScript, React, and Rust</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h3 class="text-2xl font-bold mb-6">Clean Architecture</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 bg-blink-blue rounded-full"></div>
+                            <span>Component-based React architecture</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 bg-blink-purple rounded-full"></div>
+                            <span>Full TypeScript coverage</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <span>Custom hooks for reusable logic</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                            <span>Rust backend with Tauri v2</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-dark rounded-xl p-6">
+                    <div class="text-sm text-gray-400 mb-3">src/components/</div>
+                    <div class="font-mono text-sm space-y-1">
+                        <div class="text-blink-blue">├── NavigationSidebar.tsx</div>
+                        <div class="text-blink-blue">├── NotesPanel.tsx</div>
+                        <div class="text-blink-blue">├── EditorArea.tsx</div>
+                        <div class="text-blink-blue">├── SettingsNavigation.tsx</div>
+                        <div class="text-blink-blue">└── AppFooter.tsx</div>
+                        <div class="text-gray-400 mt-3">Clean separation of concerns</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="py-20 bg-slate-900">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-8">
+                <span class="gradient-text">Ready to Transform</span><br>
+                <span class="text-white">Your Note-Taking?</span>
+            </h2>
+            
+            <p class="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
+                Download Blink v0.1.0 now and experience spatial note-taking like never before.
+            </p>
+            
+            <div class="glass-dark rounded-2xl p-8 window-shadow max-w-md mx-auto">
+                <div class="text-6xl mb-4">📦</div>
+                <h3 class="text-2xl font-bold mb-4">Blink v0.1.0</h3>
+                <div class="text-gray-300 mb-6">
+                    <div class="text-sm">macOS (Apple Silicon)</div>
+                    <div class="text-xs text-gray-400">Requires macOS 10.15+</div>
+                </div>
+                
+                <div class="space-y-3">
+                    <a href="https://github.com/arach/blink/releases/download/v0.1.0/Blink_0.1.0_aarch64.dmg" 
+                       class="block bg-blink-blue hover:bg-blue-600 px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105">
+                        Download DMG (Recommended)
+                    </a>
+                    <a href="https://github.com/arach/blink/releases/download/v0.1.0/Blink.app.tar.gz" 
+                       class="block glass hover:bg-white/10 px-6 py-3 rounded-lg font-medium transition-all">
+                        Download App Bundle
+                    </a>
+                </div>
+                
+                <div class="mt-6 text-xs text-gray-400">
+                    <p>Free & Open Source</p>
+                    <p>Built with ❤️ using Tauri, React & TypeScript</p>
+                </div>
+            </div>
+            
+            <div class="mt-12 text-center">
+                <a href="https://github.com/arach/blink" class="text-blink-blue hover:text-blue-400 font-medium">
+                    View on GitHub →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 bg-slate-800 border-t border-slate-700">
+        <div class="max-w-6xl mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center space-x-2 mb-4 md:mb-0">
+                    <div class="text-2xl">📝</div>
+                    <span class="text-xl font-bold gradient-text">Blink</span>
+                    <span class="text-gray-400">v0.1.0</span>
+                </div>
+                
+                <div class="flex items-center space-x-6">
+                    <a href="https://github.com/arach/blink" class="text-gray-400 hover:text-white transition-colors">
+                        GitHub
+                    </a>
+                    <a href="https://github.com/arach/blink/releases" class="text-gray-400 hover:text-white transition-colors">
+                        Releases
+                    </a>
+                    <a href="https://github.com/arach/blink/issues" class="text-gray-400 hover:text-white transition-colors">
+                        Support
+                    </a>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-8 border-t border-slate-700 text-center text-gray-400 text-sm">
+                <p>Built with AI assistance and human creativity ✨</p>
+                <p class="mt-2">© 2025 Blink. Open source software licensed under MIT.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Smooth scroll script -->
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+        
+        // Add scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-slide-up');
+                }
+            });
+        }, observerOptions);
+        
+        // Observe all feature cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>
