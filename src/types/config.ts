@@ -49,6 +49,10 @@ export interface AppConfig {
     developerMode?: boolean;
     autoUpdate?: boolean;
   };
+  storage?: {
+    notesDirectory?: string; // Custom directory for notes, defaults to app data directory
+    useCustomDirectory?: boolean; // Whether to use custom directory or default
+  };
 }
 
 export const defaultConfig: AppConfig = {
@@ -84,6 +88,10 @@ export const defaultConfig: AppConfig = {
     developerMode: false,
     autoUpdate: true,
   },
+  storage: {
+    notesDirectory: undefined, // Will use default app data directory
+    useCustomDirectory: false,
+  },
 };
 
 // Migration helper for old configs
@@ -94,6 +102,10 @@ export const migrateConfig = (config: any): AppConfig => {
     appearance: {
       ...defaultConfig.appearance,
       ...(config.appearance || {}),
+    },
+    storage: {
+      ...defaultConfig.storage,
+      ...(config.storage || {}),
     },
   };
 };

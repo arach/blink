@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { invoke } from '@tauri-apps/api/core';
 import { ThemeSelector } from './ThemeSelector';
+import { notesApi } from '../services/tauri-api';
 
 interface SettingsPanelProps {
   selectedSection: 'general' | 'appearance' | 'shortcuts' | 'editor' | 'advanced';
@@ -14,12 +15,28 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
   const [shortcutStatus, setShortcutStatus] = useState<'idle' | 'registering' | 'success' | 'error'>('idle');
   const [shortcutMessage, setShortcutMessage] = useState<string>('');
   const [previewMode, setPreviewMode] = useState<'editor' | 'preview'>('preview');
+  const [currentNotesDirectory, setCurrentNotesDirectory] = useState<string>('');
+  const [directoryInputValue, setDirectoryInputValue] = useState<string>('');
 
   useEffect(() => {
     // Set localConfig to match the loaded config directly
     console.log('Config changed in SettingsPanel:', JSON.stringify(config, null, 2));
     setLocalConfig(config);
   }, [config]);
+
+  useEffect(() => {
+    // Load current notes directory
+    const loadCurrentDirectory = async () => {
+      try {
+        const directory = await notesApi.getCurrentNotesDirectory();
+        setCurrentNotesDirectory(directory);
+        setDirectoryInputValue(directory);
+      } catch (error) {
+        console.error('Failed to load current notes directory:', error);
+      }
+    };
+    loadCurrentDirectory();
+  }, []);
 
   const handleSave = async () => {
     console.log('Saving config:', JSON.stringify(localConfig, null, 2));
@@ -36,6 +53,105 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
       console.error('Failed to save config:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  const handleImportFile = async () => {
+    try {
+      // For now, let's use a simple input approach
+      // In the future, we can use Tauri's file dialog
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.md,.txt';
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (file) {
+          try {
+            const text = await file.text();
+            // For now, create a note from the file content
+            // This will be enhanced when we add proper file import
+            console.log('File content:', text);
+            alert('File import functionality coming soon! For now, copy and paste the content into a new note.');
+          } catch (error) {
+            console.error('Failed to read file:', error);
+            alert('Failed to read file');
+          }
+        }
+      };
+      input.click();
+    } catch (error) {
+      console.error('Failed to import file:', error);
+      alert('Failed to import file');
+    }
+  };
+
+  const handleImportDirectory = async () => {
+    // This will be implemented once we have proper directory picker
+    alert('Directory import functionality coming soon! For now, use the Import File button for individual markdown files.');
+  };
+
+  const handleExportAll = async () => {
+    try {
+      // For now, let's just show a message about the feature
+      alert('Export functionality coming soon! This will save all your notes as markdown files with frontmatter.');
+    } catch (error) {
+      console.error('Failed to export notes:', error);
+      alert('Failed to export notes');
+    }
+  };
+
+  const handleSetNotesDirectory = async () => {
+    try {
+      if (directoryInputValue.trim()) {
+        await notesApi.setNotesDirectory(directoryInputValue.trim());
+        setCurrentNotesDirectory(directoryInputValue.trim());
+        
+        // Update the config store with the new directory
+        const updatedConfig = {
+          ...localConfig,
+          storage: {
+            ...localConfig.storage,
+            notesDirectory: directoryInputValue.trim(),
+            useCustomDirectory: true,
+          }
+        };
+        setLocalConfig(updatedConfig);
+        await updateConfig(updatedConfig);
+        
+        // Automatically reload notes from the new directory
+        const notes = await notesApi.reloadNotesFromDirectory();
+        alert(`Notes directory updated! Successfully loaded ${notes.length} notes from the new directory.`);
+      }
+    } catch (error) {
+      console.error('Failed to set notes directory:', error);
+      alert('Failed to set notes directory: ' + error);
+    }
+  };
+
+  const handleReloadNotes = async () => {
+    try {
+      const notes = await notesApi.reloadNotesFromDirectory();
+      alert(`Successfully loaded ${notes.length} notes from the configured directory!`);
+    } catch (error) {
+      console.error('Failed to reload notes:', error);
+      alert('Failed to reload notes: ' + error);
+    }
+  };
+
+  const handleBrowseDirectory = async () => {
+    try {
+      // Use Tauri's directory dialog
+      const result = await invoke<string | null>('open_directory_dialog');
+      if (result) {
+        setDirectoryInputValue(result);
+      }
+    } catch (error) {
+      console.error('Failed to open directory dialog:', error);
+      // Fallback to prompt
+      const newDir = prompt('Enter the path to your notes directory:', directoryInputValue);
+      if (newDir) {
+        setDirectoryInputValue(newDir);
+      }
     }
   };
 
@@ -151,6 +267,115 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
             <span className="text-xs text-muted-foreground/70 min-w-[3rem] text-right font-mono">
               {Math.round((localConfig.appearance?.windowOpacity ?? 1) * 100)}%
             </span>
+          </div>
+          
+        </div>
+      </div>
+
+      {/* File Operations Section */}
+      <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
+        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14,2 14,8 20,8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="10" y1="9" x2="8" y2="9"/>
+          </svg>
+          File Operations
+        </h3>
+        <div className="space-y-3 text-xs">
+          
+          {/* Notes Directory */}
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <div className="flex flex-col">
+                <span className="text-foreground/90 font-mono text-xs">Notes Directory</span>
+                <span className="text-muted-foreground/60 text-xs">Where your notes are stored</span>
+              </div>
+              <button
+                onClick={() => handleReloadNotes()}
+                className="px-3 py-1.5 text-xs bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 rounded-2xl transition-colors"
+              >
+                Reload Notes
+              </button>
+            </div>
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                value={directoryInputValue}
+                onChange={(e) => setDirectoryInputValue(e.target.value)}
+                placeholder="/path/to/your/notes"
+                className="flex-1 px-3 py-2 text-xs bg-background/20 border border-border/20 rounded-2xl text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/40"
+              />
+              <button
+                onClick={() => handleBrowseDirectory()}
+                className="px-3 py-2 text-xs bg-background/40 hover:bg-background/60 border border-border/30 rounded-2xl transition-colors"
+              >
+                Browse
+              </button>
+              <button
+                onClick={() => handleSetNotesDirectory()}
+                className="px-3 py-2 text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 rounded-2xl transition-colors"
+              >
+                Set
+              </button>
+            </div>
+            {currentNotesDirectory && (
+              <div className="text-xs text-muted-foreground/70 font-mono bg-muted/10 px-2 py-1 rounded-xl">
+                Current: {currentNotesDirectory}
+              </div>
+            )}
+          </div>
+          
+          {/* Import Notes */}
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <div className="flex flex-col">
+                <span className="text-foreground/90 font-mono text-xs">Import Notes</span>
+                <span className="text-muted-foreground/60 text-xs">Load notes from markdown files</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleImportFile()}
+                  className="px-3 py-1.5 text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 rounded-2xl transition-colors"
+                >
+                  Import File
+                </button>
+                <button
+                  onClick={() => handleImportDirectory()}
+                  className="px-3 py-1.5 text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 rounded-2xl transition-colors"
+                >
+                  Import Folder
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Export Notes */}
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col">
+              <span className="text-foreground/90 font-mono text-xs">Export Notes</span>
+              <span className="text-muted-foreground/60 text-xs">Save all notes as markdown files</span>
+            </div>
+            <button
+              onClick={() => handleExportAll()}
+              className="px-3 py-1.5 text-xs bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/20 rounded-2xl transition-colors"
+            >
+              Export All
+            </button>
+          </div>
+          
+          {/* File Format Info */}
+          <div className="bg-muted/10 rounded-2xl p-3 border border-border/10">
+            <div className="text-xs text-muted-foreground/80 leading-relaxed space-y-2">
+              <div>
+                <strong className="text-foreground/90">Markdown Format:</strong> Notes are stored as <code className="text-xs bg-background/40 px-1 rounded-xl">.md</code> files with YAML frontmatter containing metadata (title, tags, dates).
+              </div>
+              <div>
+                <strong className="text-foreground/90">Directory Mode:</strong> Set a custom directory to load/save notes directly as files, perfect for syncing with git, Dropbox, or other tools.
+              </div>
+            </div>
           </div>
           
         </div>

@@ -24,4 +24,39 @@ export const notesApi = {
   async deleteNote(id: string): Promise<boolean> {
     return await invoke('delete_note', { id });
   },
+
+  // File import/export operations
+  async importNotesFromDirectory(directoryPath: string): Promise<Note[]> {
+    return await invoke('import_notes_from_directory', { directoryPath });
+  },
+
+  async importSingleFile(filePath: string): Promise<Note> {
+    return await invoke('import_single_file', { filePath });
+  },
+
+  async exportNoteToFile(noteId: string, filePath: string): Promise<void> {
+    return await invoke('export_note_to_file', { noteId, filePath });
+  },
+
+  async exportAllNotesToDirectory(directoryPath: string): Promise<string[]> {
+    return await invoke('export_all_notes_to_directory', { directoryPath });
+  },
+
+  // Notes directory management
+  async setNotesDirectory(directoryPath: string): Promise<void> {
+    return await invoke('set_notes_directory', { directoryPath });
+  },
+
+  async reloadNotesFromDirectory(): Promise<Note[]> {
+    return await invoke('reload_notes_from_directory');
+  },
+
+  async getCurrentNotesDirectory(): Promise<string> {
+    return await invoke('get_current_notes_directory');
+  },
+
+  // Directory dialog
+  async openDirectoryDialog(): Promise<string | null> {
+    return await invoke('open_directory_dialog');
+  },
 };

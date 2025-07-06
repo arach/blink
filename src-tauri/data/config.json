@@ -25,5 +25,9 @@
     "themeId": "executive-suite",
     "showNotePreviews": false,
     "windowOpacity": 1.0
+  },
+  "storage": {
+    "notesDirectory": "/Users/arach/notes/",
+    "useCustomDirectory": true
   }
 }

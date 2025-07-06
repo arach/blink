@@ -1,18 +1,1 @@
-{
-  "61ecb7ce-6a29-4e81-932b-74f4741cf730": {
-    "id": "61ecb7ce-6a29-4e81-932b-74f4741cf730",
-    "title": "Untitled",
-    "content": "",
-    "created_at": "2025-07-05T16:21:04.175827+00:00",
-    "updated_at": "2025-07-05T17:34:03.170697+00:00",
-    "tags": []
-  },
-  "e7022cb6-3982-471f-8493-cbb6e57a3d0c": {
-    "id": "e7022cb6-3982-471f-8493-cbb6e57a3d0c",
-    "title": "Untitled",
-    "content": "## Idea List\n\n1. **Personalized Book Discovery Beyond Goodreads**  \n   Imagine an agentic-world version of Goodreads: a living, AI-curated reading space. Your lists evolve constantly based on your interests and community, not just static shelves. Reading becomes part of your broader personal knowledge graph.\n\n2. **Cultural Concierge / Spotify Discover for Life**  \n   An AI agent that surfaces a personalized feed of local cultural events — art, music, exhibits — and expands naturally to hobbies, restaurants, travel. Life’s enriching experiences, discovered and recommended dynamically.\n\n3. **Independent Brief for Emerging Tech**  \n   A curated, personal brief that highlights the most exciting projects on GitHub, cross-referenced with trends from Hacker News, Reddit, Twitter. A way to stay ahead of what’s happening in technology and developer culture.\n\n4. **Showcase Your AI Stack**  \n   A personal or team profile that showcases your evolving stack — what tools you’re using and why. Could inspire others, help with hiring, or document your working philosophy. A living artifact of your current way of building.\n\n5. **Personal Website as a Living Feed**  \n   Rethink personal websites: make them living, dynamic reflections of what you’re reading, building, thinking about. Update via text messages or conversational interactions with your AI assistant - not by editing static pages.\n\n6. **AI-Generated Reading/Project Journeys**  \n   Have an AI help you define and pursue learning journeys: e.g. \"Learn Rust\", \"Understand climate tech\". It curates books, articles, courses, GitHub projects — and even connects you to like-minded people along the way.\n",
-    "created_at": "2025-07-04T19:25:44.650669+00:00",
-    "updated_at": "2025-07-04T19:26:18.072172+00:00",
-    "tags": []
-  }
-}
+{}

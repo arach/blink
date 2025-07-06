@@ -1,13 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 use chrono::Local;
+use regex::Regex;
+// File watching imports - will be used when implementing file watching
+// use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+// use std::sync::mpsc::channel;
 
 // Custom logger macro for Blink
 macro_rules! notes_log {
@@ -71,6 +75,15 @@ pub struct AppConfig {
     pub window: WindowConfig,
     #[serde(default = "default_appearance")]
     pub appearance: AppearanceConfig,
+    #[serde(default = "default_storage")]
+    pub storage: StorageConfig,
+}
+
+fn default_storage() -> StorageConfig {
+    StorageConfig {
+        notes_directory: None,
+        use_custom_directory: false,
+    }
 }
 
 fn default_appearance() -> AppearanceConfig {
@@ -104,6 +117,15 @@ pub struct WindowConfig {
     pub height: f64,
     pub x: Option<f64>,
     pub y: Option<f64>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct StorageConfig {
+    #[serde(rename = "notesDirectory")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes_directory: Option<String>,
+    #[serde(rename = "useCustomDirectory")]
+    pub use_custom_directory: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -184,6 +206,7 @@ impl Default for AppConfig {
                 y: None,
             },
             appearance: default_appearance(),
+            storage: default_storage(),
         }
     }
 }
@@ -268,6 +291,306 @@ async fn delete_note(id: String, notes: State<'_, NotesState>) -> Result<bool, S
     }
     
     Ok(removed)
+}
+
+// File-based note operations
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct NoteFrontmatter {
+    id: String,
+    title: String,
+    created_at: String,
+    updated_at: String,
+    tags: Vec<String>,
+}
+
+#[tauri::command]
+async fn import_notes_from_directory(
+    directory_path: String,
+    notes: State<'_, NotesState>,
+) -> Result<Vec<Note>, String> {
+    log_info!("FILE_IMPORT", "Importing notes from directory: {}", directory_path);
+    
+    let mut imported_notes = Vec::new();
+    let mut notes_lock = notes.lock().await;
+    
+    let dir_path = Path::new(&directory_path);
+    if !dir_path.exists() {
+        return Err("Directory does not exist".to_string());
+    }
+    
+    // Read all markdown files in the directory
+    let entries = fs::read_dir(dir_path)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+        
+        if path.extension().and_then(|s| s.to_str()) == Some("md") {
+            match parse_markdown_file(&path).await {
+                Ok(note) => {
+                    log_info!("FILE_IMPORT", "Imported note: {} from {}", note.title, path.display());
+                    notes_lock.insert(note.id.clone(), note.clone());
+                    imported_notes.push(note);
+                },
+                Err(e) => {
+                    log_error!("FILE_IMPORT", "Failed to import {}: {}", path.display(), e);
+                }
+            }
+        }
+    }
+    
+    // Save updated notes to disk
+    save_notes_to_disk(&notes_lock).await?;
+    
+    log_info!("FILE_IMPORT", "Successfully imported {} notes", imported_notes.len());
+    Ok(imported_notes)
+}
+
+#[tauri::command]
+async fn import_single_file(
+    file_path: String,
+    notes: State<'_, NotesState>,
+) -> Result<Note, String> {
+    log_info!("FILE_IMPORT", "Importing single file: {}", file_path);
+    
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err("File does not exist".to_string());
+    }
+    
+    let note = parse_markdown_file(path).await?;
+    
+    let mut notes_lock = notes.lock().await;
+    notes_lock.insert(note.id.clone(), note.clone());
+    save_notes_to_disk(&notes_lock).await?;
+    
+    log_info!("FILE_IMPORT", "Successfully imported note: {}", note.title);
+    Ok(note)
+}
+
+#[tauri::command]
+async fn export_note_to_file(
+    note_id: String,
+    file_path: String,
+    notes: State<'_, NotesState>,
+) -> Result<(), String> {
+    log_info!("FILE_EXPORT", "Exporting note {} to {}", note_id, file_path);
+    
+    let notes_lock = notes.lock().await;
+    let note = notes_lock.get(&note_id)
+        .ok_or("Note not found")?;
+    
+    write_note_to_file(note, &file_path).await?;
+    
+    log_info!("FILE_EXPORT", "Successfully exported note to {}", file_path);
+    Ok(())
+}
+
+#[tauri::command]
+async fn export_all_notes_to_directory(
+    directory_path: String,
+    notes: State<'_, NotesState>,
+) -> Result<Vec<String>, String> {
+    log_info!("FILE_EXPORT", "Exporting all notes to directory: {}", directory_path);
+    
+    let dir_path = Path::new(&directory_path);
+    fs::create_dir_all(dir_path)
+        .map_err(|e| format!("Failed to create directory: {}", e))?;
+    
+    let notes_lock = notes.lock().await;
+    let mut exported_files = Vec::new();
+    
+    for note in notes_lock.values() {
+        let safe_title = sanitize_filename(&note.title);
+        let file_name = if safe_title.is_empty() {
+            format!("{}.md", note.id)
+        } else {
+            format!("{}.md", safe_title)
+        };
+        
+        let file_path = dir_path.join(&file_name);
+        
+        match write_note_to_file(note, file_path.to_str().unwrap()).await {
+            Ok(_) => {
+                exported_files.push(file_name);
+                log_info!("FILE_EXPORT", "Exported note: {}", note.title);
+            },
+            Err(e) => {
+                log_error!("FILE_EXPORT", "Failed to export {}: {}", note.title, e);
+            }
+        }
+    }
+    
+    log_info!("FILE_EXPORT", "Successfully exported {} notes", exported_files.len());
+    Ok(exported_files)
+}
+
+#[tauri::command]
+async fn set_notes_directory(
+    directory_path: String,
+    config: State<'_, ConfigState>,
+) -> Result<(), String> {
+    log_info!("STORAGE", "Setting notes directory to: {}", directory_path);
+    
+    let path = PathBuf::from(&directory_path);
+    if !path.exists() {
+        return Err("Directory does not exist".to_string());
+    }
+    
+    if !path.is_dir() {
+        return Err("Path is not a directory".to_string());
+    }
+    
+    let mut config_lock = config.lock().await;
+    config_lock.storage.notes_directory = Some(directory_path);
+    config_lock.storage.use_custom_directory = true;
+    
+    let config_clone = config_lock.clone();
+    drop(config_lock);
+    
+    save_config_to_disk(&config_clone).await?;
+    
+    log_info!("STORAGE", "Notes directory updated successfully");
+    Ok(())
+}
+
+#[tauri::command]
+async fn reload_notes_from_directory(
+    config: State<'_, ConfigState>,
+    notes: State<'_, NotesState>,
+) -> Result<Vec<Note>, String> {
+    log_info!("STORAGE", "Reloading notes from configured directory");
+    
+    let config_lock = config.lock().await;
+    let notes_dir = get_configured_notes_directory(&config_lock)?;
+    drop(config_lock);
+    
+    let mut loaded_notes = Vec::new();
+    let mut notes_lock = notes.lock().await;
+    
+    // Clear existing notes
+    notes_lock.clear();
+    
+    // Load all markdown files from the configured directory
+    if notes_dir.exists() {
+        let entries = fs::read_dir(&notes_dir)
+            .map_err(|e| format!("Failed to read notes directory: {}", e))?;
+        
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+            let path = entry.path();
+            
+            if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                match parse_markdown_file(&path).await {
+                    Ok(note) => {
+                        log_info!("STORAGE", "Loaded note: {} from {}", note.title, path.display());
+                        notes_lock.insert(note.id.clone(), note.clone());
+                        loaded_notes.push(note);
+                    },
+                    Err(e) => {
+                        log_error!("STORAGE", "Failed to load {}: {}", path.display(), e);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Also save to JSON for compatibility
+    save_notes_to_disk(&notes_lock).await?;
+    
+    log_info!("STORAGE", "Successfully loaded {} notes from directory", loaded_notes.len());
+    Ok(loaded_notes)
+}
+
+#[tauri::command]
+async fn get_current_notes_directory(config: State<'_, ConfigState>) -> Result<String, String> {
+    let config_lock = config.lock().await;
+    let notes_dir = get_configured_notes_directory(&config_lock)?;
+    Ok(notes_dir.to_string_lossy().to_string())
+}
+
+// Helper functions for file operations
+async fn parse_markdown_file(path: &Path) -> Result<Note, String> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    // Check if file has frontmatter
+    if content.starts_with("---\n") {
+        parse_markdown_with_frontmatter(&content)
+    } else {
+        // Plain markdown file - create note from filename and content
+        let title = path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Untitled")
+            .to_string();
+        
+        let now = chrono::Utc::now().to_rfc3339();
+        Ok(Note {
+            id: Uuid::new_v4().to_string(),
+            title,
+            content,
+            created_at: now.clone(),
+            updated_at: now,
+            tags: vec![],
+        })
+    }
+}
+
+fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
+    let re = Regex::new(r"(?s)^---\n(.*?)\n---\n(.*)$")
+        .map_err(|e| format!("Regex error: {}", e))?;
+    
+    let captures = re.captures(content)
+        .ok_or("Invalid frontmatter format")?;
+    
+    let frontmatter_str = captures.get(1)
+        .ok_or("No frontmatter found")?
+        .as_str();
+    
+    let body = captures.get(2)
+        .ok_or("No body found")?
+        .as_str();
+    
+    let frontmatter: NoteFrontmatter = serde_yaml::from_str(frontmatter_str)
+        .map_err(|e| format!("Failed to parse frontmatter: {}", e))?;
+    
+    Ok(Note {
+        id: frontmatter.id,
+        title: frontmatter.title,
+        content: body.to_string(),
+        created_at: frontmatter.created_at,
+        updated_at: frontmatter.updated_at,
+        tags: frontmatter.tags,
+    })
+}
+
+async fn write_note_to_file(note: &Note, file_path: &str) -> Result<(), String> {
+    let frontmatter = NoteFrontmatter {
+        id: note.id.clone(),
+        title: note.title.clone(),
+        created_at: note.created_at.clone(),
+        updated_at: note.updated_at.clone(),
+        tags: note.tags.clone(),
+    };
+    
+    let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
+        .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
+    
+    let full_content = format!("---\n{}---\n\n{}", frontmatter_yaml, note.content);
+    
+    fs::write(file_path, full_content)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+    
+    Ok(())
+}
+
+fn sanitize_filename(title: &str) -> String {
+    let re = Regex::new(r"[^a-zA-Z0-9\s\-_]").unwrap();
+    re.replace_all(title, "")
+        .trim()
+        .replace(" ", "-")
+        .to_lowercase()
 }
 
 #[tauri::command]
@@ -438,6 +761,45 @@ async fn open_system_settings() -> Result<(), String> {
     }
     
     Ok(())
+}
+
+#[tauri::command]
+async fn open_directory_dialog(_app: tauri::AppHandle) -> Result<Option<String>, String> {
+    // Use a simple cross-platform approach
+    // For now, we'll use std::process to open a native file dialog
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg("POSIX path of (choose folder with prompt \"Select Notes Directory\")")
+            .output()
+            .map_err(|e| format!("Failed to open directory dialog: {}", e))?;
+        
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                log_info!("DIRECTORY", "Selected directory: {}", path);
+                Ok(Some(path))
+            } else {
+                log_info!("DIRECTORY", "No directory selected");
+                Ok(None)
+            }
+        } else {
+            let error = String::from_utf8_lossy(&output.stderr);
+            if error.contains("User canceled") {
+                log_info!("DIRECTORY", "User canceled directory selection");
+                Ok(None)
+            } else {
+                Err(format!("Directory dialog failed: {}", error))
+            }
+        }
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        // For non-macOS platforms, return an error or implement platform-specific logic
+        Err("Directory dialog not implemented for this platform".to_string())
+    }
 }
 
 #[tauri::command]
@@ -1152,6 +1514,10 @@ async fn load_notes_from_disk() -> Result<HashMap<String, Note>, String> {
 }
 
 fn get_notes_directory() -> Result<PathBuf, String> {
+    get_default_notes_directory()
+}
+
+fn get_default_notes_directory() -> Result<PathBuf, String> {
     // Use app data directory for production builds
     let data_dir = if cfg!(debug_assertions) {
         // Development: use project directory
@@ -1166,8 +1532,26 @@ fn get_notes_directory() -> Result<PathBuf, String> {
             .join("data")
     };
     
-    log_debug!("STORAGE", "Data directory path: {:?}", data_dir);
+    log_debug!("STORAGE", "Default data directory path: {:?}", data_dir);
     Ok(data_dir)
+}
+
+fn get_configured_notes_directory(config: &AppConfig) -> Result<PathBuf, String> {
+    if config.storage.use_custom_directory {
+        if let Some(custom_dir) = &config.storage.notes_directory {
+            let path = PathBuf::from(custom_dir);
+            if path.exists() && path.is_dir() {
+                log_debug!("STORAGE", "Using custom notes directory: {:?}", path);
+                return Ok(path);
+            } else {
+                log_error!("STORAGE", "Custom directory does not exist or is not a directory: {:?}", path);
+                // Fall back to default
+            }
+        }
+    }
+    
+    // Use default directory
+    get_default_notes_directory()
 }
 
 async fn save_config_to_disk(config: &AppConfig) -> Result<(), String> {
@@ -1621,6 +2005,13 @@ pub fn run() {
             create_note,
             update_note,
             delete_note,
+            import_notes_from_directory,
+            import_single_file,
+            export_note_to_file,
+            export_all_notes_to_directory,
+            set_notes_directory,
+            reload_notes_from_directory,
+            get_current_notes_directory,
             get_config,
             update_config,
             toggle_window_visibility,
@@ -1628,6 +2019,7 @@ pub fn run() {
             set_window_always_on_top,
             toggle_all_windows_hover,
             open_system_settings,
+            open_directory_dialog,
             test_emit_new_note,
             set_window_focus,
             create_detached_window,
