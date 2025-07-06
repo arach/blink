@@ -12,6 +12,8 @@ const nextConfig = {
   output: 'export',
   trailingSlash: true,
   distDir: 'out',
+  basePath: '/blink',
+  assetPrefix: '/blink/',
 }
 
 export default nextConfig
