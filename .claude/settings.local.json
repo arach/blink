@@ -24,7 +24,8 @@
       "Bash(pnpm install:*)",
       "Bash(npx create-next-app:*)",
       "Bash(mv:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git clone:*)"
     ],
     "deny": []
   }

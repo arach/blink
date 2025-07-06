@@ -1,43 +1,30 @@
-# Blink Landing Page
+# Next.js Palantir Application
 
-A beautiful, modern landing page for Blink - the AI-native spatial note-taking application.
+*Automatically synced with your [v0.dev](https://v0.dev) deployments*
 
-## Features
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/arach/v0-next-js-palantir-application)
+[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/a3BCGat6Dd5)
 
-- 🎨 **Modern Design**: Glass-morphism UI with beautiful gradients and animations
-- 📱 **Fully Responsive**: Optimized for desktop, tablet, and mobile devices
-- ⚡ **Fast Loading**: Single HTML file with CDN resources for optimal performance
-- 🌟 **Interactive Elements**: Smooth scrolling, hover effects, and entrance animations
-- 🎯 **Conversion Focused**: Clear call-to-actions and download buttons
+## Overview
 
-## Sections
-
-- **Hero**: Eye-catching intro with animated visuals
-- **Features**: Comprehensive showcase of Blink's capabilities
-- **Demo**: Preview section (ready for video integration)
-- **Technical Highlights**: Developer-focused content
-- **Download**: Direct links to GitHub releases
-- **Footer**: Links and credits
-
-## Technology
-
-- Pure HTML5, CSS3, and vanilla JavaScript
-- Tailwind CSS for styling (CDN)
-- Custom animations and glass-morphism effects
-- Optimized for SEO and social sharing
-
-## Usage
-
-Simply open `index.html` in any modern web browser or serve it from a web server.
+This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
+Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
 
 ## Deployment
 
-This landing page can be deployed to:
-- GitHub Pages
-- Netlify
-- Vercel
-- Any static hosting service
+Your project is live at:
 
-## Customization
+**[https://vercel.com/arach/v0-next-js-palantir-application](https://vercel.com/arach/v0-next-js-palantir-application)**
 
-The page uses Tailwind CSS with custom configuration for easy theming and customization. All colors, animations, and content can be easily modified.
+## Build your app
+
+Continue building your app on:
+
+**[https://v0.dev/chat/projects/a3BCGat6Dd5](https://v0.dev/chat/projects/a3BCGat6Dd5)**
+
+## How It Works
+
+1. Create and modify your project using [v0.dev](https://v0.dev)
+2. Deploy your chats from the v0 interface
+3. Changes are automatically pushed to this repository
+4. Vercel deploys the latest version from this repository

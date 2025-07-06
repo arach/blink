@@ -1,0 +1,200 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { X, Keyboard, MousePointer, Layers, Zap, Eye, Settings } from "lucide-react"
+
+interface StrategicNote {
+  id: string
+  title: string
+  content: string
+  x: number
+  y: number
+  isCollapsed: boolean
+  color: string
+  icon: any
+  delay: number
+  section: string
+}
+
+export default function StrategicFloatingNotes() {
+  const [notes, setNotes] = useState<StrategicNote[]>([
+    {
+      id: "shortcut-tip",
+      title: "⌘ + H Shortcut",
+      content:
+        "This is your most powerful shortcut!\n\n• Instantly show/hide all notes\n• Works from any application\n• Perfect for presentations",
+      x: 85,
+      y: 15,
+      isCollapsed: false,
+      color: "bg-blue-50/90",
+      icon: Keyboard,
+      delay: 2000,
+      section: "hero",
+    },
+    {
+      id: "drag-demo",
+      title: "Drag & Drop Magic",
+      content:
+        "Try dragging the notes above!\n\n• Smooth, responsive movement\n• Stays within bounds\n• Visual feedback on drag",
+      x: 5,
+      y: 45,
+      isCollapsed: false,
+      color: "bg-green-50/90",
+      icon: MousePointer,
+      delay: 4000,
+      section: "demo",
+    },
+    {
+      id: "collapse-feature",
+      title: "Shadow Mode",
+      content: "Double-click any note to see the collapse feature in action.",
+      x: 75,
+      y: 65,
+      isCollapsed: true,
+      color: "bg-purple-50/90",
+      icon: Layers,
+      delay: 6000,
+      section: "demo",
+    },
+    {
+      id: "speed-tip",
+      title: "Lightning Fast",
+      content: "< 100ms response time means your notes appear instantly when you need them.",
+      x: 10,
+      y: 20,
+      isCollapsed: false,
+      color: "bg-yellow-50/90",
+      icon: Zap,
+      delay: 8000,
+      section: "features",
+    },
+    {
+      id: "always-on-top",
+      title: "Always Visible",
+      content: "Your notes stay above all other windows - perfect for reference while working.",
+      x: 80,
+      y: 30,
+      isCollapsed: false,
+      color: "bg-indigo-50/90",
+      icon: Eye,
+      delay: 10000,
+      section: "features",
+    },
+    {
+      id: "shortcuts-guide",
+      title: "Master Every Shortcut",
+      content: "⌘+1, ⌘+2, ⌘+3...\n\nAssign shortcuts to your most important notes for instant access.",
+      x: 15,
+      y: 70,
+      isCollapsed: false,
+      color: "bg-rose-50/90",
+      icon: Keyboard,
+      delay: 12000,
+      section: "shortcuts",
+    },
+    {
+      id: "customization",
+      title: "Personalize Everything",
+      content: "• Custom keyboard shortcuts\n• Theme preferences\n• Window behavior settings",
+      x: 70,
+      y: 80,
+      isCollapsed: false,
+      color: "bg-teal-50/90",
+      icon: Settings,
+      delay: 14000,
+      section: "download",
+    },
+  ])
+
+  const [visibleNotes, setVisibleNotes] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    // Show notes with staggered delays
+    notes.forEach((note) => {
+      setTimeout(() => {
+        setVisibleNotes((prev) => new Set([...prev, note.id]))
+      }, note.delay)
+    })
+
+    // Auto-collapse some notes after showing
+    setTimeout(() => {
+      setNotes((prev) =>
+        prev.map((note) =>
+          note.id === "collapse-feature" || note.id === "speed-tip" ? { ...note, isCollapsed: true } : note,
+        ),
+      )
+    }, 16000)
+  }, [])
+
+  const toggleNote = (id: string) => {
+    setNotes((prev) => prev.map((note) => (note.id === id ? { ...note, isCollapsed: !note.isCollapsed } : note)))
+  }
+
+  const dismissNote = (id: string) => {
+    setVisibleNotes((prev) => {
+      const newSet = new Set(prev)
+      newSet.delete(id)
+      return newSet
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50">
+      {notes
+        .filter((note) => visibleNotes.has(note.id))
+        .map((note) => (
+          <Card
+            key={note.id}
+            className={`absolute ${note.color} backdrop-blur-xl border border-white/40 shadow-xl pointer-events-auto cursor-pointer transition-all duration-500 hover:shadow-2xl hover:scale-105 animate-in fade-in slide-in-from-bottom-4`}
+            style={{
+              left: `${note.x}%`,
+              top: `${note.y}%`,
+              width: note.isCollapsed ? "180px" : "220px",
+              height: note.isCollapsed ? "44px" : "auto",
+              transform: "translate(-50%, -50%)",
+            }}
+            onClick={() => toggleNote(note.id)}
+          >
+            {/* Title bar */}
+            <div className="flex items-center justify-between p-3 border-b border-white/30">
+              <div className="flex items-center space-x-2">
+                <note.icon className="w-4 h-4 text-slate-600" />
+                <span className="font-text text-sm font-medium text-slate-700 truncate">{note.title}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    dismissNote(note.id)
+                  }}
+                  className="w-3 h-3 rounded-full bg-red-400/60 hover:bg-red-500 transition-colors flex items-center justify-center"
+                >
+                  <X className="w-2 h-2 text-white" />
+                </button>
+                <div className="w-3 h-3 rounded-full bg-yellow-400/60" />
+                <div className="w-3 h-3 rounded-full bg-green-400/60" />
+              </div>
+            </div>
+
+            {/* Content (hidden when collapsed) */}
+            {!note.isCollapsed && (
+              <div className="p-4">
+                <pre className="font-text text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  {note.content}
+                </pre>
+              </div>
+            )}
+
+            {/* Floating indicator */}
+            <div className="absolute -top-2 -right-2">
+              <Badge variant="outline" className="border-white/50 text-slate-600 bg-white/80 text-xs px-2 py-1">
+                Tip
+              </Badge>
+            </div>
+          </Card>
+        ))}
+    </div>
+  )
+}
