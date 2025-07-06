@@ -10,7 +10,20 @@
       "Bash(git push:*)",
       "Bash(rg:*)",
       "Bash(pnpm run:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(gh auth:*)",
+      "Bash(git tag:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh release upload:*)",
+      "Bash(tar:*)",
+      "Bash(gh release view:*)",
+      "Bash(mkdir:*)",
+      "Bash(open:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
