@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { themes, applyTheme, getAllThemes, getThemeById } from '../types/theme';
+import { applyTheme, getAllThemes, getThemeById } from '../types/theme';
 import { useConfigStore } from '../stores/config-store';
 import { Palette } from 'lucide-react';
 

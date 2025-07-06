@@ -1047,64 +1047,6 @@ function calculateMetrics(data) {
     </div>
   );
 
-  const renderAISection = () => (
-    <div data-section="ai" className="space-y-4">
-      {/* Section Header - Standardized spacing */}
-      <div className="h-[40px] flex flex-col justify-center">
-        <h2 className="text-sm font-medium text-foreground mb-1 flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
-            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
-          AI & Plugins
-        </h2>
-        <p className="text-xs text-muted-foreground/60">AI integration and extensibility (coming soon)</p>
-      </div>
-
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
-            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-          </svg>
-          AI Integration
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Status</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">coming soon</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Features</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">phase 2</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-card/20 rounded-lg p-4 border border-border/10">
-        <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M3 12h3m12 0h3M12 3v3m0 12v3"/>
-          </svg>
-          Plugins
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">System</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">extensible</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground/80 font-mono w-24">Integrations</span>
-            <div className="flex-1"></div>
-            <span className="text-xs text-muted-foreground/60 font-mono">custom workflows</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
 
   const renderEditorSection = () => (
     <div data-section="editor" className="space-y-6">

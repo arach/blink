@@ -3,10 +3,8 @@ import { useState, useEffect } from 'react';
 import { DetachedNoteWindow } from './components/DetachedNoteWindow';
 import { DragGhost } from './components/DragGhost';
 import { SettingsPanel } from './components/SettingsPanel';
-import { ResizablePanel } from './components/ResizablePanel';
 import { CustomTitleBar } from './components/CustomTitleBar';
 import { WindowWrapper } from './components/WindowWrapper';
-import { ContextMenu } from './components/ContextMenu';
 import { NavigationSidebar } from './components/NavigationSidebar';
 import { NotesPanel } from './components/NotesPanel';
 import { SettingsNavigation } from './components/SettingsNavigation';
@@ -23,7 +21,6 @@ import { useNoteManagement } from './hooks/use-note-management';
 import { useCommandPalette } from './hooks/use-command-palette';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useContextMenu } from './hooks/use-context-menu';
-import { markdownToPlainText, truncateText } from './lib/utils';
 import { themes, applyTheme, getThemeById } from './types/theme';
 
 
@@ -92,15 +89,7 @@ function App() {
   // Command palette hook
   const {
     showCommandPalette,
-    commandQuery,
-    selectedCommandIndex,
-    filteredCommands,
     openCommandPalette,
-    closeCommandPalette,
-    setCommandQuery,
-    setSelectedCommandIndex,
-    executeCommand,
-    handleCommandKeyDown,
   } = useCommandPalette({
     notes,
     selectedNoteId,
@@ -118,10 +107,7 @@ function App() {
 
   // Context menu hook
   const {
-    contextMenu,
     showContextMenu,
-    hideContextMenu,
-    handleContextMenuAction,
   } = useContextMenu({
     onDeleteNote: deleteNote,
     onDetachNote: async (noteId: string) => {
@@ -301,7 +287,7 @@ function App() {
 
 
   // Animation handlers
-  const handleNotesClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleNotesClick = () => {
     if (currentView === 'notes') {
       setSidebarVisible(!sidebarVisible);
     } else {
@@ -309,7 +295,7 @@ function App() {
       setSidebarVisible(true);
     }
   };
-  const handleSettingsClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSettingsClick = () => {
     if (currentView === 'settings') {
       setSidebarVisible(!sidebarVisible);
     } else {
@@ -382,7 +368,7 @@ function App() {
               />
 
               <EditorArea
-                selectedNote={selectedNote}
+                selectedNote={selectedNote || null}
                 currentContent={currentContent}
                 isPreviewMode={isPreviewMode}
                 saveStatus={saveStatus}
@@ -422,7 +408,7 @@ function App() {
         </div>
         
         <AppFooter 
-          theme={theme} 
+          theme={theme || null} 
           themeId={themeId} 
           config={config} 
         />
