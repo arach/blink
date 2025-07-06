@@ -9,11 +9,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  output: 'export',
-  trailingSlash: true,
-  distDir: 'out',
-  basePath: '/blink',
-  assetPrefix: '/blink/',
+  // Only use basePath and assetPrefix for production build/export
+  ...(process.env.NODE_ENV === 'production' && {
+    output: 'export',
+    trailingSlash: true,
+    distDir: 'out',
+    basePath: '/blink',
+    assetPrefix: '/blink/',
+  }),
 }
 
 export default nextConfig

@@ -8,7 +8,7 @@ export default function DownloadSection() {
     <section id="download" className="py-32 px-4 bg-gradient-to-b from-slate-50/50 to-white">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50">
+          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
             Ready to Start
           </Badge>
           <h2 className="font-display text-5xl md:text-6xl font-extralight text-slate-900 mb-6 leading-tight">
@@ -50,7 +50,7 @@ export default function DownloadSection() {
             { icon: Star, label: "GitHub Stars", value: "2,400+" },
             { icon: Download, label: "Downloads", value: "50,000+" },
           ].map((stat, index) => (
-            <Card key={index} className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg">
+            <Card key={index} className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg rounded-2xl">
               <CardContent className="p-8 text-center">
                 <stat.icon className="w-8 h-8 text-slate-600 mx-auto mb-4" />
                 <div className="font-display text-3xl font-light text-slate-900 mb-2">{stat.value}</div>
@@ -61,7 +61,7 @@ export default function DownloadSection() {
         </div>
 
         {/* System Requirements */}
-        <Card className="bg-white/40 backdrop-blur-xl border border-white/30 shadow-lg">
+        <Card className="bg-white/40 backdrop-blur-xl border border-white/30 shadow-lg rounded-2xl">
           <CardContent className="p-8">
             <h3 className="font-display text-xl font-medium text-slate-900 mb-6 text-center">System Requirements</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

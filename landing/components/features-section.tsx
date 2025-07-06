@@ -56,7 +56,7 @@ export default function FeaturesSection() {
     <section id="features" className="py-32 px-4 bg-gradient-to-b from-white to-slate-50/50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50">
+          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
             Core Features
           </Badge>
           <h2 className="font-display text-5xl md:text-6xl font-extralight text-slate-900 mb-6 leading-tight">
@@ -72,7 +72,7 @@ export default function FeaturesSection() {
           {features.map((feature, index) => (
             <Card
               key={index}
-              className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+              className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-2xl"
             >
               <CardContent className="p-8">
                 <div className="flex items-center justify-between mb-6">
@@ -82,13 +82,13 @@ export default function FeaturesSection() {
                       feature.demo.map((key, keyIndex) => (
                         <span
                           key={keyIndex}
-                          className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-xs font-medium text-slate-700"
+                          className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-xs font-medium text-slate-700"
                         >
                           {key}
                         </span>
                       ))
                     ) : (
-                      <Badge variant="outline" className="border-slate-200 text-slate-500 bg-slate-50/50 text-xs">
+                      <Badge variant="outline" className="border-slate-200 text-slate-500 bg-slate-50/50 text-xs rounded-xl">
                         {feature.demo[0]}
                       </Badge>
                     )}

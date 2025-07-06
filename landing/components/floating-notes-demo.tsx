@@ -126,7 +126,7 @@ export default function FloatingNotesDemo() {
     <section id="demo" className="py-32 px-4 relative">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50">
+          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
             Interactive Demo
           </Badge>
           <h2 className="font-display text-5xl md:text-6xl font-extralight text-slate-900 mb-6 leading-tight">
@@ -149,7 +149,7 @@ export default function FloatingNotesDemo() {
           {notes.map((note) => (
             <Card
               key={note.id}
-              className={`absolute ${note.color} backdrop-blur-xl border border-white/30 shadow-xl transition-all duration-200 ${
+              className={`absolute ${note.color} backdrop-blur-xl border border-white/30 shadow-xl transition-all duration-200 rounded-2xl ${
                 dragState.isDragging && dragState.noteId === note.id
                   ? "cursor-grabbing scale-105 shadow-2xl"
                   : "cursor-grab hover:shadow-2xl hover:scale-105"
@@ -187,7 +187,7 @@ export default function FloatingNotesDemo() {
 
           {/* Instruction overlay */}
           <div className="absolute bottom-4 left-4 right-4 text-center">
-            <p className="font-text text-sm text-slate-500 bg-white/70 backdrop-blur-sm rounded-lg px-4 py-2 inline-block">
+            <p className="font-text text-sm text-slate-500 bg-white/70 backdrop-blur-sm rounded-2xl px-4 py-2 inline-block">
               Drag notes around • Click to collapse/expand • Auto-demo running
             </p>
           </div>

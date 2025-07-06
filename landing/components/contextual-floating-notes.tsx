@@ -17,7 +17,7 @@ interface ContextualNote {
 }
 
 export default function ContextualFloatingNotes() {
-  const [notes] = useState<ContextualNote[]>([
+  const [notes, setNotes] = useState<ContextualNote[]>([
     {
       id: "demo-explanation",
       title: "Interactive Demo",
@@ -62,6 +62,15 @@ export default function ContextualFloatingNotes() {
   ])
 
   const [visibleNotes, setVisibleNotes] = useState<Set<string>>(new Set())
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean
+    noteId: string | null
+    offset: { x: number; y: number }
+  }>({
+    isDragging: false,
+    noteId: null,
+    offset: { x: 0, y: 0 },
+  })
   const observerRef = useRef<IntersectionObserver | null>(null)
 
   useEffect(() => {
@@ -100,7 +109,68 @@ export default function ContextualFloatingNotes() {
     }
   }, [notes])
 
+  useEffect(() => {
+    // Add global mouse event listeners for drag functionality
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!dragState.isDragging || !dragState.noteId) return
+
+      const newX = ((e.clientX - dragState.offset.x) / window.innerWidth) * 100
+      const newY = ((e.clientY - dragState.offset.y) / window.innerHeight) * 100
+
+      // Constrain to viewport bounds
+      const constrainedX = Math.max(5, Math.min(95, newX))
+      const constrainedY = Math.max(5, Math.min(95, newY))
+
+      // Update the note position using proper state update
+      setNotes(prev => prev.map(note => 
+        note.id === dragState.noteId 
+          ? { ...note, position: { x: constrainedX, y: constrainedY } }
+          : note
+      ))
+    }
+
+    const handleGlobalMouseUp = () => {
+      setDragState({
+        isDragging: false,
+        noteId: null,
+        offset: { x: 0, y: 0 },
+      })
+    }
+
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove)
+      document.addEventListener('mouseup', handleGlobalMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [dragState])
+
+  const handleMouseDown = (e: React.MouseEvent, noteId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const note = notes.find((n) => n.id === noteId)
+    if (!note) return
+
+    // Calculate current position in pixels
+    const noteX = (note.position.x / 100) * window.innerWidth
+    const noteY = (note.position.y / 100) * window.innerHeight
+
+    setDragState({
+      isDragging: true,
+      noteId,
+      offset: {
+        x: e.clientX - noteX,
+        y: e.clientY - noteY,
+      },
+    })
+  }
+
   const dismissNote = (id: string) => {
+    if (dragState.isDragging) return // Don't dismiss while dragging
     setVisibleNotes((prev) => {
       const newSet = new Set(prev)
       newSet.delete(id)
@@ -115,13 +185,19 @@ export default function ContextualFloatingNotes() {
         .map((note) => (
           <Card
             key={note.id}
-            className={`absolute ${note.color} backdrop-blur-xl border border-white/50 shadow-2xl pointer-events-auto transition-all duration-700 hover:scale-105 animate-in fade-in slide-in-from-right-4`}
+            className={`absolute ${note.color} backdrop-blur-xl border border-white/50 shadow-2xl pointer-events-auto animate-in fade-in slide-in-from-right-4 rounded-2xl ${
+              dragState.isDragging && dragState.noteId === note.id
+                ? "cursor-grabbing scale-110 shadow-2xl z-50"
+                : "cursor-grab hover:scale-105 transition-all duration-700"
+            }`}
             style={{
               left: `${note.position.x}%`,
               top: `${note.position.y}%`,
               width: "240px",
               transform: "translate(-50%, -50%)",
+              zIndex: dragState.noteId === note.id ? 100 : 40,
             }}
+            onMouseDown={(e) => handleMouseDown(e, note.id)}
           >
             {/* Title bar */}
             <div className="flex items-center justify-between p-3 border-b border-white/40">
@@ -144,7 +220,7 @@ export default function ContextualFloatingNotes() {
 
             {/* Floating badge */}
             <div className="absolute -top-2 -left-2">
-              <Badge className="bg-white/90 text-slate-700 border-slate-200 shadow-sm">
+              <Badge className="bg-white/90 text-slate-700 border-slate-200 shadow-sm rounded-xl">
                 <note.icon className="w-3 h-3 mr-1" />
                 Insight
               </Badge>

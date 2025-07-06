@@ -37,13 +37,13 @@ export default function HowItWorksSection() {
       visual: "bg-yellow-50/80",
       content: (
         <div className="flex items-center justify-center space-x-1">
-          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-xs font-medium text-slate-700">
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-xs font-medium text-slate-700">
             ⌘
           </span>
-          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-xs font-medium text-slate-700">
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-xs font-medium text-slate-700">
             +
           </span>
-          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded shadow-sm font-mono text-xs font-medium text-slate-700">
+          <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 px-1.5 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-xs font-medium text-slate-700">
             H
           </span>
           <span className="text-slate-600 ml-2">→ Instant Access</span>
@@ -56,7 +56,7 @@ export default function HowItWorksSection() {
     <section className="py-32 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50">
+          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
             How It Works
           </Badge>
           <h2 className="font-display text-5xl md:text-6xl font-extralight text-slate-900 mb-6 leading-tight">
@@ -73,7 +73,7 @@ export default function HowItWorksSection() {
             {steps.map((step, index) => (
               <Card
                 key={index}
-                className={`cursor-pointer transition-all duration-300 ${
+                className={`cursor-pointer transition-all duration-300 rounded-2xl ${
                   activeStep === index
                     ? "bg-white shadow-xl border-slate-300"
                     : "bg-white/40 hover:bg-white/60 border-slate-200"
@@ -115,7 +115,7 @@ export default function HowItWorksSection() {
           <div className="relative">
             <div className="bg-gradient-to-br from-slate-100/50 to-blue-50/30 rounded-3xl border border-slate-200/50 h-96 flex items-center justify-center overflow-hidden">
               <Card
-                className={`${steps[activeStep].visual} backdrop-blur-xl border border-white/30 shadow-xl transition-all duration-500 transform hover:scale-105`}
+                className={`${steps[activeStep].visual} backdrop-blur-xl border border-white/30 shadow-xl transition-all duration-500 transform hover:scale-105 rounded-2xl`}
               >
                 <CardContent className="p-6 text-center">
                   <div className="font-text text-slate-700 text-lg">

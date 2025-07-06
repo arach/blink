@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { X, Keyboard, MousePointer, Layers, Zap, Eye, Settings } from "lucide-react"
@@ -109,6 +109,18 @@ export default function StrategicFloatingNotes() {
   ])
 
   const [visibleNotes, setVisibleNotes] = useState<Set<string>>(new Set())
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean
+    noteId: string | null
+    offset: { x: number; y: number }
+    hasDragged: boolean
+  }>({
+    isDragging: false,
+    noteId: null,
+    offset: { x: 0, y: 0 },
+    hasDragged: false,
+  })
+  const justDraggedRef = useRef(false)
 
   useEffect(() => {
     // Show notes with staggered delays
@@ -128,7 +140,83 @@ export default function StrategicFloatingNotes() {
     }, 16000)
   }, [])
 
+  useEffect(() => {
+    // Add global mouse event listeners for drag functionality
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!dragState.isDragging || !dragState.noteId) return
+
+      // Mark that we have dragged
+      if (!dragState.hasDragged) {
+        setDragState(prev => ({ ...prev, hasDragged: true }))
+      }
+
+      const newX = ((e.clientX - dragState.offset.x) / window.innerWidth) * 100
+      const newY = ((e.clientY - dragState.offset.y) / window.innerHeight) * 100
+
+      // Constrain to viewport bounds
+      const constrainedX = Math.max(5, Math.min(95, newX))
+      const constrainedY = Math.max(5, Math.min(95, newY))
+
+      setNotes((prev) =>
+        prev.map((note) => (note.id === dragState.noteId ? { ...note, x: constrainedX, y: constrainedY } : note)),
+      )
+    }
+
+    const handleGlobalMouseUp = () => {
+      const wasDragging = dragState.hasDragged
+      justDraggedRef.current = wasDragging
+      
+      setDragState({
+        isDragging: false,
+        noteId: null,
+        offset: { x: 0, y: 0 },
+        hasDragged: false,
+      })
+      
+      // Reset the flag after a brief delay to allow click events to be blocked
+      if (wasDragging) {
+        setTimeout(() => {
+          justDraggedRef.current = false
+        }, 50)
+      }
+    }
+
+    if (dragState.isDragging) {
+      document.addEventListener('mousemove', handleGlobalMouseMove)
+      document.addEventListener('mouseup', handleGlobalMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+    }
+  }, [dragState])
+
+  const handleMouseDown = (e: React.MouseEvent, noteId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const note = notes.find((n) => n.id === noteId)
+    if (!note) return
+
+    // Calculate current position in pixels
+    const noteX = (note.x / 100) * window.innerWidth
+    const noteY = (note.y / 100) * window.innerHeight
+
+    setDragState({
+      isDragging: true,
+      noteId,
+      offset: {
+        x: e.clientX - noteX,
+        y: e.clientY - noteY,
+      },
+      hasDragged: false,
+    })
+  }
+
+
   const toggleNote = (id: string) => {
+    if (dragState.isDragging || justDraggedRef.current) return // Don't toggle while dragging or just after drag
     setNotes((prev) => prev.map((note) => (note.id === id ? { ...note, isCollapsed: !note.isCollapsed } : note)))
   }
 
@@ -147,14 +235,20 @@ export default function StrategicFloatingNotes() {
         .map((note) => (
           <Card
             key={note.id}
-            className={`absolute ${note.color} backdrop-blur-xl border border-white/40 shadow-xl pointer-events-auto cursor-pointer transition-all duration-500 hover:shadow-2xl hover:scale-105 animate-in fade-in slide-in-from-bottom-4`}
+            className={`absolute ${note.color} backdrop-blur-xl border border-white/40 shadow-xl pointer-events-auto animate-in fade-in slide-in-from-bottom-4 rounded-2xl ${
+              dragState.isDragging && dragState.noteId === note.id
+                ? "cursor-grabbing scale-110 shadow-2xl z-50"
+                : "cursor-grab hover:scale-105 hover:shadow-2xl transition-all duration-500"
+            }`}
             style={{
               left: `${note.x}%`,
               top: `${note.y}%`,
               width: note.isCollapsed ? "180px" : "220px",
               height: note.isCollapsed ? "44px" : "auto",
               transform: "translate(-50%, -50%)",
+              zIndex: dragState.noteId === note.id ? 100 : 50,
             }}
+            onMouseDown={(e) => handleMouseDown(e, note.id)}
             onClick={() => toggleNote(note.id)}
           >
             {/* Title bar */}
@@ -189,7 +283,7 @@ export default function StrategicFloatingNotes() {
 
             {/* Floating indicator */}
             <div className="absolute -top-2 -right-2">
-              <Badge variant="outline" className="border-white/50 text-slate-600 bg-white/80 text-xs px-2 py-1">
+              <Badge variant="outline" className="border-white/50 text-slate-600 bg-white/80 text-xs px-2 py-1 rounded-xl">
                 Tip
               </Badge>
             </div>

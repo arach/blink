@@ -10,12 +10,12 @@ export default function HeroSection() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(147,51,234,0.03),transparent_50%)]" />
 
       {/* Floating background notes */}
-      <div className="absolute top-20 left-20 w-64 h-32 bg-white/60 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 rotate-3 animate-pulse opacity-40" />
-      <div className="absolute top-40 right-32 w-48 h-24 bg-blue-50/80 backdrop-blur-xl rounded-xl shadow-lg border border-blue-100/30 -rotate-2 animate-pulse opacity-30 delay-1000" />
-      <div className="absolute bottom-32 left-32 w-56 h-28 bg-purple-50/70 backdrop-blur-xl rounded-xl shadow-lg border border-purple-100/20 rotate-1 animate-pulse opacity-35 delay-500" />
+      <div className="absolute top-20 left-20 w-64 h-32 bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 rotate-3 animate-pulse opacity-40" />
+      <div className="absolute top-40 right-32 w-48 h-24 bg-blue-50/80 backdrop-blur-xl rounded-2xl shadow-lg border border-blue-100/30 -rotate-2 animate-pulse opacity-30 delay-1000" />
+      <div className="absolute bottom-32 left-32 w-56 h-28 bg-purple-50/70 backdrop-blur-xl rounded-2xl shadow-lg border border-purple-100/20 rotate-1 animate-pulse opacity-35 delay-500" />
 
       <div className="relative z-10 text-center max-w-4xl mx-auto">
-        <Badge variant="outline" className="mb-8 border-slate-200 text-slate-600 bg-white/50 backdrop-blur-sm">
+        <Badge variant="outline" className="mb-8 border-slate-200 text-slate-600 bg-white/50 backdrop-blur-sm rounded-xl">
           <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
           Now Available
         </Badge>
@@ -70,7 +70,7 @@ export default function HeroSection() {
                   item.value.map((key, keyIndex) => (
                     <span
                       key={keyIndex}
-                      className="inline-flex items-center justify-center min-w-[2rem] h-8 px-2 bg-white border border-slate-300 rounded-md shadow-sm font-mono text-sm font-medium text-slate-700"
+                      className="inline-flex items-center justify-center min-w-[2rem] h-8 px-2 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-sm font-medium text-slate-700"
                     >
                       {key}
                     </span>

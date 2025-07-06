@@ -168,7 +168,7 @@ export default function KeyboardShortcutsGuide() {
       {keys.map((key, index) => (
         <span
           key={index}
-          className={`inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 border rounded-md shadow-sm font-mono text-sm font-medium transition-all duration-200 ${
+          className={`inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 border rounded-xl shadow-sm font-mono text-sm font-medium transition-all duration-200 ${
             isActive
               ? "bg-slate-900 border-slate-700 text-white shadow-lg transform scale-105"
               : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
@@ -184,7 +184,7 @@ export default function KeyboardShortcutsGuide() {
     <section id="shortcuts" className="py-32 px-4 bg-gradient-to-b from-white to-slate-50/50">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50">
+          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
             <Keyboard className="w-3 h-3 mr-2" />
             Keyboard Shortcuts
           </Badge>
@@ -292,7 +292,7 @@ export default function KeyboardShortcutsGuide() {
         </Tabs>
 
         {/* Quick Reference Card */}
-        <Card className="mt-16 bg-slate-900 border-slate-700 text-white">
+        <Card className="mt-16 bg-slate-900 border-slate-700 text-white rounded-2xl">
           <CardHeader>
             <CardTitle className="font-display text-xl font-light text-white flex items-center">
               <Zap className="w-5 h-5 mr-3" />
@@ -361,7 +361,7 @@ export default function KeyboardShortcutsGuide() {
         <div className="mt-16 text-center">
           <h3 className="font-display text-2xl font-light text-slate-900 mb-8">Pro Tips</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-blue-50/60 backdrop-blur-xl border border-blue-100/30">
+            <Card className="bg-blue-50/60 backdrop-blur-xl border border-blue-100/30 rounded-2xl">
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                   <Keyboard className="w-6 h-6 text-blue-600" />
@@ -372,7 +372,7 @@ export default function KeyboardShortcutsGuide() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="bg-green-50/60 backdrop-blur-xl border border-green-100/30">
+            <Card className="bg-green-50/60 backdrop-blur-xl border border-green-100/30 rounded-2xl">
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                   <Zap className="w-6 h-6 text-green-600" />
@@ -383,7 +383,7 @@ export default function KeyboardShortcutsGuide() {
                 </p>
               </CardContent>
             </Card>
-            <Card className="bg-purple-50/60 backdrop-blur-xl border border-purple-100/30">
+            <Card className="bg-purple-50/60 backdrop-blur-xl border border-purple-100/30 rounded-2xl">
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                   <Command className="w-6 h-6 text-purple-600" />
