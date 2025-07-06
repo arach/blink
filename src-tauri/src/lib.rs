@@ -764,41 +764,81 @@ async fn open_system_settings() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn open_directory_dialog(_app: tauri::AppHandle) -> Result<Option<String>, String> {
-    // Use a simple cross-platform approach
-    // For now, we'll use std::process to open a native file dialog
+async fn open_directory_in_finder(directory_path: String) -> Result<(), String> {
+    log_info!("FINDER", "Opening directory in Finder: {}", directory_path);
+    
     #[cfg(target_os = "macos")]
     {
-        let output = std::process::Command::new("osascript")
-            .arg("-e")
-            .arg("POSIX path of (choose folder with prompt \"Select Notes Directory\")")
-            .output()
-            .map_err(|e| format!("Failed to open directory dialog: {}", e))?;
+        std::process::Command::new("open")
+            .arg(&directory_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory in Finder: {}", e))?;
         
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                log_info!("DIRECTORY", "Selected directory: {}", path);
-                Ok(Some(path))
-            } else {
-                log_info!("DIRECTORY", "No directory selected");
-                Ok(None)
-            }
-        } else {
-            let error = String::from_utf8_lossy(&output.stderr);
-            if error.contains("User canceled") {
-                log_info!("DIRECTORY", "User canceled directory selection");
-                Ok(None)
-            } else {
-                Err(format!("Directory dialog failed: {}", error))
-            }
-        }
+        log_info!("FINDER", "Successfully opened directory in Finder");
+        Ok(())
     }
     
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
-        // For non-macOS platforms, return an error or implement platform-specific logic
-        Err("Directory dialog not implemented for this platform".to_string())
+        std::process::Command::new("explorer")
+            .arg(&directory_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory in Explorer: {}", e))?;
+        
+        log_info!("FINDER", "Successfully opened directory in Explorer");
+        Ok(())
+    }
+    
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        // Linux and other platforms - try xdg-open
+        std::process::Command::new("xdg-open")
+            .arg(&directory_path)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+        
+        log_info!("FINDER", "Successfully opened directory with xdg-open");
+        Ok(())
+    }
+}
+
+#[tauri::command]
+async fn open_directory_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    use tokio::sync::oneshot;
+    
+    log_info!("DIRECTORY", "Opening native directory picker dialog");
+    
+    // Use channel for proper async handling
+    let (tx, rx) = oneshot::channel();
+    
+    // Use callback-based API since pick_folder is not async
+    app.dialog()
+        .file()
+        .set_title("Select Notes Directory")
+        .pick_folder(move |folder_path| {
+            let result = folder_path.map(|path| path.to_string());
+            let _ = tx.send(result); // Ignore send errors (receiver might be dropped)
+        });
+    
+    // Wait for the dialog result
+    match rx.await {
+        Ok(result) => {
+            match result {
+                Some(path) => {
+                    log_info!("DIRECTORY", "Selected directory: {}", path);
+                    Ok(Some(path))
+                },
+                None => {
+                    log_info!("DIRECTORY", "User canceled directory selection");
+                    Ok(None)
+                }
+            }
+        },
+        Err(_) => {
+            log_error!("DIRECTORY", "Dialog callback channel was closed unexpectedly");
+            Err("Dialog was closed unexpectedly".to_string())
+        }
     }
 }
 
@@ -1518,17 +1558,18 @@ fn get_notes_directory() -> Result<PathBuf, String> {
 }
 
 fn get_default_notes_directory() -> Result<PathBuf, String> {
-    // Use app data directory for production builds
+    // Always use app data directory to avoid restart loops in development
     let data_dir = if cfg!(debug_assertions) {
-        // Development: use project directory
-        let current_dir = std::env::current_dir()
-            .map_err(|e| format!("Failed to get current directory: {}", e))?;
-        current_dir.join("data")
+        // Development: use app data directory with dev suffix
+        dirs::data_dir()
+            .ok_or_else(|| "Failed to get data directory".to_string())?
+            .join("com.blink.dev")
+            .join("data")
     } else {
         // Production: use app data directory
         dirs::data_dir()
             .ok_or_else(|| "Failed to get data directory".to_string())?
-            .join("com.notesapp.dev")
+            .join("com.blink.dev")
             .join("data")
     };
     
@@ -1930,6 +1971,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin({
             use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
             
@@ -2019,6 +2061,7 @@ pub fn run() {
             set_window_always_on_top,
             toggle_all_windows_hover,
             open_system_settings,
+            open_directory_in_finder,
             open_directory_dialog,
             test_emit_new_note,
             set_window_focus,

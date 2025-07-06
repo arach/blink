@@ -59,4 +59,9 @@ export const notesApi = {
   async openDirectoryDialog(): Promise<string | null> {
     return await invoke('open_directory_dialog');
   },
+
+  // Open directory in Finder/Explorer
+  async openDirectoryInFinder(directoryPath: string): Promise<void> {
+    return await invoke('open_directory_in_finder', { directoryPath });
+  },
 };

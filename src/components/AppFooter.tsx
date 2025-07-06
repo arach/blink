@@ -48,49 +48,13 @@ export function AppFooter({ theme, themeId, config, onDirectoryLoad }: AppFooter
   const handleDirectoryClick = async () => {
     setIsLoading(true);
     try {
-      // Try to use native directory dialog first
-      const newDirectory = await notesApi.openDirectoryDialog();
-      
-      if (newDirectory && newDirectory.trim()) {
-        await notesApi.setNotesDirectory(newDirectory.trim());
-        const notes = await notesApi.reloadNotesFromDirectory();
-        
-        // Update the display
-        const simplifiedPath = newDirectory.replace(/\/Users\/[^/]+/, '~').replace(/.*\/([^/]+\/[^/]+)$/, '.../$1');
-        setCurrentDirectory(simplifiedPath);
-        
-        // Notify parent component
-        if (onDirectoryLoad) {
-          onDirectoryLoad(notes.length);
-        }
-        
-        console.log(`Successfully loaded ${notes.length} notes from ${newDirectory}`);
-      }
+      // Get the current notes directory path and open it in Finder
+      const currentPath = await notesApi.getCurrentNotesDirectory();
+      await notesApi.openDirectoryInFinder(currentPath);
+      console.log(`Opened notes directory in Finder: ${currentPath}`);
     } catch (error) {
-      console.error('Failed to load directory:', error);
-      // Fallback to prompt if native dialog fails
-      const newDirectory = prompt('Enter the path to your notes directory:', currentDirectory.replace('~', '/Users/' + (process.env.USER || 'user')));
-      
-      if (newDirectory && newDirectory.trim()) {
-        try {
-          await notesApi.setNotesDirectory(newDirectory.trim());
-          const notes = await notesApi.reloadNotesFromDirectory();
-          
-          // Update the display
-          const simplifiedPath = newDirectory.replace(/\/Users\/[^/]+/, '~').replace(/.*\/([^/]+\/[^/]+)$/, '.../$1');
-          setCurrentDirectory(simplifiedPath);
-          
-          // Notify parent component
-          if (onDirectoryLoad) {
-            onDirectoryLoad(notes.length);
-          }
-          
-          console.log(`Successfully loaded ${notes.length} notes from ${newDirectory}`);
-        } catch (fallbackError) {
-          console.error('Failed to load directory (fallback):', fallbackError);
-          alert('Failed to load directory: ' + fallbackError);
-        }
-      }
+      console.error('Failed to open directory in Finder:', error);
+      alert('Failed to open directory in Finder: ' + error);
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +108,7 @@ export function AppFooter({ theme, themeId, config, onDirectoryLoad }: AppFooter
         onMouseLeave={() => setIsHovered(false)}
         disabled={isLoading}
         className="flex items-center gap-2 text-foreground/90 hover:text-primary transition-colors cursor-pointer px-2 py-1 rounded-xl hover:bg-background/40 disabled:opacity-50"
-        title="Click to change notes directory"
+        title="Show notes directory in Finder"
       >
         {isLoading ? (
           <div className="w-4 h-4 flex-shrink-0 animate-spin">
