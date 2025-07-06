@@ -343,7 +343,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
                     </blockquote>
                   ),
                   code: ({inline, children}: {inline?: boolean, children?: React.ReactNode}) => (
-                    inline ? 
+                    inline ?
                       <code className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono">{children}</code> :
                       <code className="block">{children}</code>
                   ),

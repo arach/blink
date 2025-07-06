@@ -27,5 +27,4 @@ dist-ssr
 src-tauri/target/
 
 # Local data directory
-data/
-.claude/
+data/.claude/
