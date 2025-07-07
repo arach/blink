@@ -30,7 +30,9 @@
       "Bash(pnpm build:*)",
       "Bash(cargo check:*)",
       "Bash(find:*)",
-      "Bash(timeout 30 pnpm tauri:dev)"
+      "Bash(timeout 30 pnpm tauri:dev)",
+      "Bash(sed:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }

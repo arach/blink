@@ -102,7 +102,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     });
     
     invoke<string>('create_hybrid_drag_window', {
-      noteId,
+      note_id: noteId,
       x: screenX,
       y: screenY,
       hidden: true, // Create hidden
@@ -242,7 +242,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
           try {
             await invoke('finalize_hybrid_drag_window', {
               windowLabel: dragRef.current.realWindowLabel,
-              noteId: dragState.noteId,
+              note_id: dragState.noteId,
             });
             console.log('[DRAG] Window finalized in place');
           } catch (error) {
