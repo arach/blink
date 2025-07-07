@@ -67,6 +67,61 @@ pub async fn set_window_focus(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn force_main_window_visible(app: AppHandle) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("Main window not found")?;
+    
+    log_info!("DEBUG", "Forcing main window to be visible and properly positioned");
+    
+    // Show the window
+    window.show().map_err(|e| {
+        log_error!("DEBUG", "Failed to show window: {}", e);
+        e.to_string()
+    })?;
+    
+    // Center the window
+    window.center().map_err(|e| {
+        log_error!("DEBUG", "Failed to center window: {}", e);
+        e.to_string()
+    })?;
+    
+    // Set proper size (match tauri.conf.json defaults)
+    window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+        width: 1000,
+        height: 700,
+    })).map_err(|e| {
+        log_error!("DEBUG", "Failed to set window size: {}", e);
+        e.to_string()
+    })?;
+    
+    // Ensure it's not minimized
+    if window.is_minimized().unwrap_or(false) {
+        window.unminimize().map_err(|e| {
+            log_error!("DEBUG", "Failed to unminimize window: {}", e);
+            e.to_string()
+        })?;
+    }
+    
+    // Set focus
+    window.set_focus().map_err(|e| {
+        log_error!("DEBUG", "Failed to set focus: {}", e);
+        e.to_string()
+    })?;
+    
+    // Force opacity to be fully visible on macOS
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let ns_window = window.ns_window().map_err(|e| e.to_string())? as id;
+        unsafe {
+            let _: () = msg_send![ns_window, setAlphaValue: 1.0];
+        }
+    }
+    
+    log_info!("DEBUG", "Main window forced to visible state");
+    Ok(())
+}
+
 // ============================================================================
 // MULTI-WINDOW MANAGEMENT
 // ============================================================================

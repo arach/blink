@@ -46,9 +46,7 @@
         {
           "identifier": "main-capability",
           "description": "Capability for the main window",
-          "windows": [
-            "main"
-          ],
+          "windows": ["main"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-set-always-on-top",
@@ -80,9 +78,7 @@
         {
           "identifier": "note-window-capability",
           "description": "Capability for detached note windows",
-          "windows": [
-            "note-*"
-          ],
+          "windows": ["note-*"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-set-always-on-top",
@@ -111,9 +107,7 @@
         {
           "identifier": "drag-ghost-capability",
           "description": "Capability for drag ghost window",
-          "windows": [
-            "drag-ghost-*"
-          ],
+          "windows": ["drag-ghost-*"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-show",
@@ -131,9 +125,7 @@
         {
           "identifier": "hybrid-drag-capability",
           "description": "Capability for hybrid drag windows",
-          "windows": [
-            "hybrid-drag-*"
-          ],
+          "windows": ["hybrid-drag-*"],
           "permissions": [
             "core:window:allow-start-dragging",
             "core:window:allow-show",
@@ -155,9 +147,7 @@
         {
           "identifier": "test-window-capability",
           "description": "Capability for test window",
-          "windows": [
-            "test-window"
-          ],
+          "windows": ["test-window"],
           "permissions": [
             "core:window:allow-show",
             "core:window:allow-close",

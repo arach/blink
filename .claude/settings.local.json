@@ -32,7 +32,12 @@
       "Bash(find:*)",
       "Bash(timeout 30 pnpm tauri:dev)",
       "Bash(sed:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(chmod:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(node:*)",
+      "Bash(BLINK_DEVELOPER=claude node scripts/get-dev-port.cjs)"
     ],
     "deny": []
   }

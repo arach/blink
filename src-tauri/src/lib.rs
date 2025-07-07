@@ -1049,6 +1049,7 @@ pub fn run() {
             open_directory_dialog,
             test_emit_new_note,
             set_window_focus,
+            force_main_window_visible,
             create_detached_window,
             close_detached_window,
             get_detached_windows,
@@ -1222,18 +1223,87 @@ pub fn run() {
             
             // Try to apply initial window settings immediately 
             if let Some(window) = app.get_webview_window("main") {
+                log_info!("STARTUP", "🪟 Found main window, forcing it to be visible...");
+                
                 // Make sure window is visible
                 if let Err(e) = window.show() {
-                    eprintln!("Failed to show window: {}", e);
+                    log_error!("STARTUP", "Failed to show window: {}", e);
+                } else {
+                    log_info!("STARTUP", "✅ Window.show() called successfully");
+                }
+                
+                // Center the window
+                if let Err(e) = window.center() {
+                    log_error!("STARTUP", "Failed to center window: {}", e);
+                } else {
+                    log_info!("STARTUP", "✅ Window.center() called successfully");
+                }
+                
+                // Set proper size (match tauri.conf.json defaults)
+                if let Err(e) = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                    width: 1000,
+                    height: 700,
+                })) {
+                    log_error!("STARTUP", "Failed to set window size: {}", e);
+                } else {
+                    log_info!("STARTUP", "✅ Window.set_size() called successfully");
+                }
+                
+                // Set focus
+                if let Err(e) = window.set_focus() {
+                    log_error!("STARTUP", "Failed to set window focus: {}", e);
+                } else {
+                    log_info!("STARTUP", "✅ Window.set_focus() called successfully");
                 }
                 
                 // Set always on top synchronously
                 if let Err(e) = window.set_always_on_top(config_for_init.always_on_top) {
-                    eprintln!("Failed to set initial always on top: {}", e);
+                    log_error!("STARTUP", "Failed to set initial always on top: {}", e);
+                } else {
+                    log_info!("STARTUP", "✅ Window.set_always_on_top({}) called successfully", config_for_init.always_on_top);
                 }
                 
-                // For opacity, we still need to use the async command after window is ready
-                // We'll rely on the frontend useWindowTransparency hook to apply it
+                // Force opacity to be fully visible on macOS
+                #[cfg(target_os = "macos")]
+                {
+                    use tauri::Manager;
+                    match window.ns_window() {
+                        Ok(ns_window) => {
+                            use cocoa::base::id;
+                            use objc::{msg_send, sel, sel_impl};
+                            let ns_window = ns_window as id;
+                            unsafe {
+                                let _: () = msg_send![ns_window, setAlphaValue: 1.0];
+                            }
+                            log_info!("STARTUP", "✅ Window opacity set to 100% on macOS");
+                        },
+                        Err(e) => {
+                            log_error!("STARTUP", "Failed to get ns_window: {}", e);
+                        }
+                    }
+                }
+                
+                // Check if window is actually visible
+                match window.is_visible() {
+                    Ok(visible) => log_info!("STARTUP", "📊 Window visibility status: {}", visible),
+                    Err(e) => log_error!("STARTUP", "Failed to check window visibility: {}", e),
+                }
+                
+                // Get window position
+                match window.outer_position() {
+                    Ok(pos) => log_info!("STARTUP", "📍 Window position: ({}, {})", pos.x, pos.y),
+                    Err(e) => log_error!("STARTUP", "Failed to get window position: {}", e),
+                }
+                
+                // Get window size
+                match window.inner_size() {
+                    Ok(size) => log_info!("STARTUP", "📏 Window size: {}x{}", size.width, size.height),
+                    Err(e) => log_error!("STARTUP", "Failed to get window size: {}", e),
+                }
+                
+                log_info!("STARTUP", "🔚 Window setup complete");
+            } else {
+                log_error!("STARTUP", "❌ Could not find main window!");
             }
             
             Ok(())

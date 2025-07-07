@@ -1150,6 +1150,29 @@ function calculateMetrics(data) {
               >
                 test hover
               </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('[BLINK] [SETTINGS] Forcing main window visible...');
+                  try {
+                    await invoke('force_main_window_visible');
+                    console.log('[BLINK] [SETTINGS] Main window forced visible');
+                    setShortcutMessage('Main window forced visible and centered');
+                    setShortcutStatus('success');
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 3000);
+                  } catch (error: any) {
+                    console.error('[BLINK] [SETTINGS] Force visible failed:', error);
+                    setShortcutMessage('Force visible failed: ' + error.toString());
+                    setShortcutStatus('error');
+                  }
+                }}
+                className="px-3 py-1.5 text-xs bg-red-500/20 border border-red-500/40 hover:bg-red-500/30 rounded transition-all font-mono text-red-400"
+              >
+                force visible
+              </button>
             </div>
             
             {shortcutMessage && (
