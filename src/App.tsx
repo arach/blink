@@ -34,6 +34,7 @@ import {
   useContextMenu
 } from './hooks';
 import { applyTheme, getThemeById } from './types';
+import { getWordCount } from './lib/utils';
 
 
 function App() {
@@ -305,7 +306,7 @@ function App() {
   }
 
   // Calculate word count for current content
-  const wordCount = currentContent.split(/\s+/).filter(word => word.length > 0).length;
+  const wordCount = getWordCount(currentContent);
   
   // Show loading screen while config is loading
   if (isLoading) {

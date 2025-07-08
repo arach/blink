@@ -12,6 +12,7 @@ import { useWindowTracking } from '../../hooks/use-window-tracking';
 import { noteSyncService, useNoteSync } from '../../services/note-sync';
 import { CustomTitleBar } from '../layout/CustomTitleBar';
 import { WindowWrapper } from '../layout/WindowWrapper';
+import { extractTitleFromContent, getWordCount } from '../../lib/utils';
 
 import { Note } from '../../types';
 
@@ -41,26 +42,6 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     setContent(updatedNote.content);
   });
 
-  // Extract title from markdown content
-  const extractTitleFromContent = (content: string): string => {
-    if (!content.trim()) return 'Untitled';
-    
-    // Always use first non-empty line as title
-    const firstLine = content.split('\n').find(line => line.trim());
-    if (!firstLine) return 'Untitled';
-    
-    // Clean up the line and extract title
-    let title = firstLine.trim();
-    
-    // Remove markdown formatting if present
-    title = title.replace(/^#+\s*/, ''); // Remove markdown headers
-    title = title.replace(/^\*\*(.+)\*\*$/, '$1'); // Remove bold
-    title = title.replace(/^\*(.+)\*$/, '$1'); // Remove italic
-    title = title.replace(/^[-*+]\s+/, ''); // Remove list markers
-    
-    // Limit length and ensure we have something
-    return title.substring(0, 50).trim() || 'Untitled';
-  };
 
   useEffect(() => {
     loadNote();
@@ -268,7 +249,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   );
 
   // Calculate word count
-  const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
+  const wordCount = getWordCount(content);
 
   return (
     <WindowWrapper className="detached-note-window">
@@ -405,7 +386,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           
           {content && (
             <span className="text-xs text-muted-foreground/40 font-light" style={{ fontSize: '10px' }}>
-              {content.split(/\s+/).filter(word => word.length > 0).length} words
+              {getWordCount(content)} words
             </span>
           )}
         </div>

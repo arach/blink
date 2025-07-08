@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
 import { Note } from '../types';
+import { extractTitleFromContent } from '../lib/utils';
 
 interface UseNoteManagementReturn {
   // State
@@ -39,26 +40,6 @@ export function useNoteManagement(): UseNoteManagementReturn {
     }
   });
 
-  // Extract title from markdown content (first header)
-  const extractTitleFromContent = useCallback((content: string): string => {
-    if (!content.trim()) return 'Untitled';
-    
-    // Always use first non-empty line as title
-    const firstLine = content.split('\n').find(line => line.trim());
-    if (!firstLine) return 'Untitled';
-    
-    // Clean up the line and extract title
-    let title = firstLine.trim();
-    
-    // Remove markdown formatting if present
-    title = title.replace(/^#+\s*/, ''); // Remove markdown headers
-    title = title.replace(/^\*\*(.+)\*\*$/, '$1'); // Remove bold
-    title = title.replace(/^\*(.+)\*$/, '$1'); // Remove italic
-    title = title.replace(/^[-*+]\s+/, ''); // Remove list markers
-    
-    // Limit length and ensure we have something
-    return title.substring(0, 50).trim() || 'Untitled';
-  }, []);
 
   // Load notes from backend
   const loadNotes = useCallback(async () => {
@@ -179,7 +160,7 @@ export function useNoteManagement(): UseNoteManagementReturn {
         ));
       }
     }
-  }, [selectedNoteId, notes, extractTitleFromContent]);
+  }, [selectedNoteId, notes]);
 
   // Delete a note
   const deleteNote = useCallback(async (noteId: string) => {

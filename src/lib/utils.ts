@@ -53,3 +53,30 @@ export function markdownToPlainText(markdown: string): string {
     .replace(/\s+/g, ' ')
     .trim();
 }
+
+// Extract title from markdown content (first header or line)
+export function extractTitleFromContent(content: string): string {
+  if (!content.trim()) return 'Untitled';
+  
+  // Always use first non-empty line as title
+  const firstLine = content.split('\n').find(line => line.trim());
+  if (!firstLine) return 'Untitled';
+  
+  // Clean up the line and extract title
+  let title = firstLine.trim();
+  
+  // Remove markdown formatting if present
+  title = title.replace(/^#+\s*/, ''); // Remove markdown headers
+  title = title.replace(/^\*\*(.+)\*\*$/, '$1'); // Remove bold
+  title = title.replace(/^\*(.+)\*$/, '$1'); // Remove italic
+  title = title.replace(/^[-*+]\s+/, ''); // Remove list markers
+  
+  // Limit length and ensure we have something
+  return title.substring(0, 50).trim() || 'Untitled';
+}
+
+// Count words in text content
+export function getWordCount(content: string): number {
+  if (!content.trim()) return 0;
+  return content.split(/\s+/).filter(word => word.length > 0).length;
+}
