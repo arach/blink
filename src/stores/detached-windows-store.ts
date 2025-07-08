@@ -16,6 +16,7 @@ interface DetachedWindowsState {
   updateWindowSize: (windowLabel: string, width: number, height: number) => Promise<void>;
   isWindowOpen: (noteId: string) => boolean;
   getWindowByNoteId: (noteId: string) => DetachedWindow | undefined;
+  focusWindow: (noteId: string) => Promise<boolean>;
 }
 
 export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) => ({
@@ -46,7 +47,7 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
     const { windows, forceCloseWindow } = get();
     
     // If window already exists, force close it first to allow recreation
-    if (windows.some(w => w.note_id === noteId)) {
+    if (Array.isArray(windows) && windows.some(w => w.note_id === noteId)) {
       console.log('[DETACHED-WINDOWS] Window already exists, force closing first...');
       await forceCloseWindow(noteId);
       // Wait a bit for cleanup
@@ -168,11 +169,20 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
 
   isWindowOpen: (noteId: string): boolean => {
     const { windows } = get();
-    return windows.some(w => w.note_id === noteId);
+    return Array.isArray(windows) ? windows.some(w => w.note_id === noteId) : false;
   },
 
   getWindowByNoteId: (noteId: string): DetachedWindow | undefined => {
     const { windows } = get();
     return windows.find(w => w.note_id === noteId);
+  },
+
+  focusWindow: async (noteId: string): Promise<boolean> => {
+    try {
+      return await DetachedWindowsAPI.focusDetachedWindow(noteId);
+    } catch (error) {
+      console.error('Failed to focus detached window:', error);
+      return false;
+    }
   },
 }));

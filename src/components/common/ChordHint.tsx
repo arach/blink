@@ -14,7 +14,7 @@ export function ChordHint({ mode, visible, notes }: ChordHintProps) {
   ];
 
   const windowCommands = [
-    { key: '1-9', desc: 'Detach note' },
+    { key: '1-9', desc: 'Focus/open window' },
   ];
 
   const commands = mode === 'note' ? noteCommands : windowCommands;

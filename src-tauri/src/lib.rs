@@ -739,9 +739,13 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     let notes_menu = Submenu::new(app, "Notes", true).map_err(|e| e.to_string())?;
     let new_note_item = MenuItem::with_id(app, "new-note", "New Note", true, Some("Cmd+Ctrl+Alt+Shift+N")).map_err(|e| e.to_string())?;
     let separator5 = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let show_main_window_item = MenuItem::with_id(app, "show-main-window", "Show Main Window", true, None::<&str>).map_err(|e| e.to_string())?;
+    let separator5b = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
     
     notes_menu.append(&new_note_item).map_err(|e| e.to_string())?;
     notes_menu.append(&separator5).map_err(|e| e.to_string())?;
+    notes_menu.append(&show_main_window_item).map_err(|e| e.to_string())?;
+    notes_menu.append(&separator5b).map_err(|e| e.to_string())?;
     
     // Add all notes to the menu
     let mut notes_vec: Vec<(&String, &Note)> = notes.iter().collect();
@@ -762,6 +766,18 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
         let item = MenuItem::with_id(app, format!("open-note-{}", note_id), menu_title, true, None::<&str>).map_err(|e| e.to_string())?;
         notes_menu.append(&item).map_err(|e| e.to_string())?;
     }
+    
+    // Developer menu (for debugging and development)
+    let developer_menu = Submenu::new(app, "Developer", true).map_err(|e| e.to_string())?;
+    let reload_app_item = MenuItem::with_id(app, "reload-app", "Reload App", true, Some("Cmd+R")).map_err(|e| e.to_string())?;
+    let restart_app_item = MenuItem::with_id(app, "restart-app", "Restart App", true, Some("Cmd+Shift+R")).map_err(|e| e.to_string())?;
+    let dev_separator = PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?;
+    let force_main_visible_item = MenuItem::with_id(app, "force-main-visible", "Force Main Window Visible", true, None::<&str>).map_err(|e| e.to_string())?;
+    
+    developer_menu.append(&reload_app_item).map_err(|e| e.to_string())?;
+    developer_menu.append(&restart_app_item).map_err(|e| e.to_string())?;
+    developer_menu.append(&dev_separator).map_err(|e| e.to_string())?;
+    developer_menu.append(&force_main_visible_item).map_err(|e| e.to_string())?;
     
     // Window menu (standard macOS menu)
     let window_menu = Submenu::new(app, "Window", true).map_err(|e| e.to_string())?;
@@ -794,6 +810,7 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     menu.append(&app_menu).map_err(|e| e.to_string())?;
     menu.append(&edit_menu).map_err(|e| e.to_string())?;
     menu.append(&notes_menu).map_err(|e| e.to_string())?;
+    menu.append(&developer_menu).map_err(|e| e.to_string())?;
     menu.append(&window_menu).map_err(|e| e.to_string())?;
     
     Ok(menu)
@@ -962,6 +979,7 @@ pub fn run() {
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
                     log_info!("SHORTCUT-HANDLER", "🎯 Global shortcut handler invoked - Event: {:?}, Shortcut: {:?}", event.state, shortcut);
+                    log_debug!("SHORTCUT-HANDLER", "🔍 Raw shortcut details - mods: {:?}, key: {:?}", shortcut.mods, shortcut.key);
                     
                     // Handle Cmd+Ctrl+Alt+Shift+N (Hyperkey+N)
                     if event.state == ShortcutState::Pressed {
@@ -973,6 +991,11 @@ pub fn run() {
                         let hyperkey_h = Shortcut::new(
                             Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
                             Code::KeyH
+                        );
+                        
+                        let hyperkey_w = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                            Code::KeyW
                         );
                         
                         // Also check for a simpler shortcut (Cmd+Shift+N) for testing
@@ -1005,6 +1028,13 @@ pub fn run() {
                                     Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to toggle windows: {}", e),
                                 }
                             });
+                        } else if shortcut == &hyperkey_w {
+                            log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+W TRIGGERED! Entering window chord mode...");
+                            // Emit event to enter window chord mode
+                            match app.emit("chord-window-mode", ()) {
+                                Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted chord-window-mode event"),
+                                Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit chord-window-mode event: {}", e),
+                            }
                         } else if shortcut == &simple_shortcut {
                             log_info!("SHORTCUT-HANDLER", "🔥 CMD+SHIFT+N TRIGGERED! Creating new note...");
                             // Emit event to create new note
@@ -1013,7 +1043,43 @@ pub fn run() {
                                 Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit menu-new-note event: {}", e),
                             }
                         } else {
-                            log_debug!("SHORTCUT-HANDLER", "Shortcut didn't match any registered patterns");
+                            // Check for deploy shortcuts (Ctrl+Opt+Shift+1-9, both main row and keypad)
+                            let deploy_keys = [
+                                // Main number row
+                                (1, Code::Digit1), (2, Code::Digit2), (3, Code::Digit3),
+                                (4, Code::Digit4), (5, Code::Digit5), (6, Code::Digit6),
+                                (7, Code::Digit7), (8, Code::Digit8), (9, Code::Digit9),
+                                // Keypad numbers
+                                (1, Code::Numpad1), (2, Code::Numpad2), (3, Code::Numpad3),
+                                (4, Code::Numpad4), (5, Code::Numpad5), (6, Code::Numpad6),
+                                (7, Code::Numpad7), (8, Code::Numpad8), (9, Code::Numpad9)
+                            ];
+                            
+                            let mut handled = false;
+                            for (note_index, code) in deploy_keys.iter() {
+                                let deploy_shortcut = Shortcut::new(
+                                    Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                                    *code
+                                );
+                                
+                                log_debug!("SHORTCUT-HANDLER", "Comparing with Ctrl+Opt+Shift+{}: expected mods={:?}, key={:?}", 
+                                    note_index, deploy_shortcut.mods, deploy_shortcut.key);
+                                
+                                if shortcut == &deploy_shortcut {
+                                    log_info!("SHORTCUT-HANDLER", "🔥 CTRL+OPT+SHIFT+{} TRIGGERED! Deploying note window for note {}...", note_index, note_index);
+                                    // Emit event with the note index (0-based for array access)
+                                    match app.emit("deploy-note-window", note_index - 1) {
+                                        Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted deploy-note-window event for note {}", note_index),
+                                        Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to emit deploy-note-window event: {}", e),
+                                    }
+                                    handled = true;
+                                    break;
+                                }
+                            }
+                            
+                            if !handled {
+                                log_debug!("SHORTCUT-HANDLER", "Shortcut didn't match any registered patterns");
+                            }
                         }
                     } else {
                         log_debug!("SHORTCUT-HANDLER", "Event state was not Pressed: {:?}", event.state);
@@ -1054,6 +1120,7 @@ pub fn run() {
             reload_main_window,
             create_detached_window,
             close_detached_window,
+            focus_detached_window,
             get_detached_windows,
             update_detached_window_position,
             update_detached_window_size,
@@ -1097,6 +1164,47 @@ pub fn run() {
                     Ok(_) => log_info!("MENU", "✅ Successfully emitted menu-new-note event"),
                     Err(e) => log_error!("MENU", "❌ Failed to emit menu-new-note event: {}", e),
                 }
+            }
+            // Handle show main window menu item
+            else if menu_id.0 == "show-main-window" {
+                log_info!("MENU", "Show Main Window menu item selected");
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                    let _ = window.unminimize();
+                    log_info!("MENU", "✅ Main window shown and focused");
+                } else {
+                    log_error!("MENU", "❌ Main window not found");
+                }
+            }
+            // Handle reload app menu item
+            else if menu_id.0 == "reload-app" {
+                log_info!("MENU", "Reload App menu item selected");
+                if let Some(window) = app.get_webview_window("main") {
+                    match window.eval("window.location.reload()") {
+                        Ok(_) => log_info!("MENU", "✅ App reloaded successfully"),
+                        Err(e) => log_error!("MENU", "❌ Failed to reload app: {}", e),
+                    }
+                } else {
+                    log_error!("MENU", "❌ Main window not found for reload");
+                }
+            }
+            // Handle restart app menu item
+            else if menu_id.0 == "restart-app" {
+                log_info!("MENU", "Restart App menu item selected");
+                log_info!("MENU", "Restarting application...");
+                app.restart();
+            }
+            // Handle force main window visible menu item
+            else if menu_id.0 == "force-main-visible" {
+                log_info!("MENU", "Force Main Window Visible menu item selected");
+                let app_handle = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    match force_main_window_visible(app_handle).await {
+                        Ok(_) => log_info!("MENU", "✅ Successfully forced main window visible"),
+                        Err(e) => log_error!("MENU", "❌ Failed to force main window visible: {}", e),
+                    }
+                });
             }
             // Handle note menu items
             else if menu_id.0.starts_with("open-note-") {
@@ -1191,6 +1299,52 @@ pub fn run() {
                             },
                             Err(e) => {
                                 log_error!("STARTUP", "❌ Failed to register Hyperkey+H: {}", e);
+                            }
+                        }
+                        
+                        // Register Hyperkey+W for window chord mode
+                        let hyperkey_w = Shortcut::new(
+                            Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                            Code::KeyW
+                        );
+                        
+                        match shortcut_manager.register(hyperkey_w) {
+                            Ok(_) => {
+                                log_info!("STARTUP", "✅ Successfully registered global shortcut: Cmd+Ctrl+Alt+Shift+W (Window chord mode)");
+                            },
+                            Err(e) => {
+                                log_error!("STARTUP", "❌ Failed to register Hyperkey+W: {}", e);
+                            }
+                        }
+                        
+                        // Register Ctrl+Opt+Shift+1-9 for direct note window deployment (both main numbers and keypad)
+                        log_info!("STARTUP", "Registering Ctrl+Opt+Shift+1-9 for note deployment (main row + keypad)...");
+                        let deploy_keys = [
+                            // Main number row
+                            (1, Code::Digit1), (2, Code::Digit2), (3, Code::Digit3),
+                            (4, Code::Digit4), (5, Code::Digit5), (6, Code::Digit6),
+                            (7, Code::Digit7), (8, Code::Digit8), (9, Code::Digit9),
+                            // Keypad numbers
+                            (1, Code::Numpad1), (2, Code::Numpad2), (3, Code::Numpad3),
+                            (4, Code::Numpad4), (5, Code::Numpad5), (6, Code::Numpad6),
+                            (7, Code::Numpad7), (8, Code::Numpad8), (9, Code::Numpad9)
+                        ];
+                        
+                        for (note_index, code) in deploy_keys.iter() {
+                            let deploy_shortcut = Shortcut::new(
+                                Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                                *code
+                            );
+                            
+                            let key_type = if matches!(*code, Code::Numpad1..=Code::Numpad9) { "keypad" } else { "main" };
+                            
+                            match shortcut_manager.register(deploy_shortcut) {
+                                Ok(_) => {
+                                    log_info!("STARTUP", "✅ Successfully registered Ctrl+Opt+Shift+{} ({}) for note {} deployment", note_index, key_type, note_index);
+                                },
+                                Err(e) => {
+                                    log_error!("STARTUP", "❌ Failed to register Ctrl+Opt+Shift+{} ({}): {}", note_index, key_type, e);
+                                }
                             }
                         }
                         

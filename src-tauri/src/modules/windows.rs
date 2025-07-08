@@ -563,6 +563,35 @@ pub async fn close_hybrid_drag_window(
 // ============================================================================
 
 #[tauri::command]
+pub async fn focus_detached_window(
+    note_id: String,
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<bool, String> {
+    let windows_lock = detached_windows.lock().await;
+    
+    // Find window by note_id
+    if let Some((window_label, _)) = windows_lock.iter().find(|(_, w)| w.note_id == note_id) {
+        if let Some(window) = app.get_webview_window(window_label) {
+            // Show and focus the window
+            window.show().map_err(|e| format!("Failed to show window: {}", e))?;
+            window.set_focus().map_err(|e| format!("Failed to focus window: {}", e))?;
+            
+            // If window is minimized, restore it
+            if window.is_minimized().unwrap_or(false) {
+                window.unminimize().map_err(|e| format!("Failed to unminimize window: {}", e))?;
+            }
+            
+            log_info!("WINDOW", "Focused existing detached window for note: {}", note_id);
+            return Ok(true);
+        }
+    }
+    
+    log_info!("WINDOW", "No existing detached window found for note: {}", note_id);
+    Ok(false)
+}
+
+#[tauri::command]
 pub async fn create_detached_window(
     request: CreateDetachedWindowRequest,
     app: AppHandle,

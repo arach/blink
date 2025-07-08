@@ -59,7 +59,8 @@ function App() {
     createWindow, 
     isWindowOpen, 
     loadWindows,
-    refreshWindows 
+    refreshWindows,
+    focusWindow 
   } = useDetachedWindowsStore();
 
   // Drag-to-detach functionality
@@ -161,7 +162,7 @@ function App() {
   });
 
   // Chord shortcuts hook for advanced keyboard combinations
-  const { chordMode, showChordHint } = useChordShortcuts({
+  const { chordMode, showChordHint, startWindowMode } = useChordShortcuts({
     notes: notes.map(note => ({ id: note.id, title: note.title })),
     onSelectNote: selectNote,
     onCreateNewNote: createNewNote,
@@ -171,6 +172,38 @@ function App() {
         await createWindow(noteId, window.screen.width / 2, window.screen.height / 2);
       } catch (error) {
         console.error('Failed to create detached window via chord:', error);
+      }
+    },
+    onFocusWindow: async (noteId: string) => {
+      console.log('[CHORD] onFocusWindow called with noteId:', noteId);
+      try {
+        console.log('[CHORD] Checking if window exists for note:', noteId);
+        // First refresh windows to get latest state
+        await refreshWindows();
+        
+        // Check if window already exists in our state
+        if (isWindowOpen(noteId)) {
+          console.log('[CHORD] ✅ Window exists in state, attempting to focus');
+          const focused = await focusWindow(noteId);
+          console.log('[CHORD] Focus result:', focused);
+          if (focused) {
+            console.log('[CHORD] ✅ Successfully focused existing window');
+            return;
+          } else {
+            console.log('[CHORD] ❌ Focus failed but window exists - refreshing and trying again');
+            await refreshWindows();
+            const focused2 = await focusWindow(noteId);
+            console.log('[CHORD] Second focus attempt result:', focused2);
+            return; // Don't create a new one if it exists
+          }
+        } else {
+          // No existing window, create a new one
+          console.log('[CHORD] ❌ No existing window found, creating new one for note:', noteId);
+          const result = await createWindow(noteId, window.screen.width / 2, window.screen.height / 2);
+          console.log('[CHORD] Create window result:', result);
+        }
+      } catch (error) {
+        console.error('[CHORD] ❌ Error in onFocusWindow:', error);
       }
     },
   });
@@ -213,6 +246,15 @@ function App() {
 
   // Load config and windows on startup
   useEffect(() => {
+    console.log('[BLINK] [FRONTEND] App initialization starting...');
+    console.log('[BLINK] [FRONTEND] Tauri detection:', {
+      windowExists: typeof window !== 'undefined',
+      tauriExists: typeof window !== 'undefined' && !!window.__TAURI__,
+      tauriValue: typeof window !== 'undefined' ? window.__TAURI__ : 'window undefined',
+      href: window.location.href,
+      userAgent: navigator.userAgent.includes('Tauri')
+    });
+    
     const initializeApp = async () => {
       await loadConfig();
       loadWindows();
@@ -224,11 +266,10 @@ function App() {
   // Set up event listeners for Tauri events
   useEffect(() => {
     const setupListeners = async () => {
-      // Only setup listeners in Tauri context
-      if (typeof window === 'undefined' || !window.__TAURI__) {
-        return () => {}; // Return a no-op function instead of array
-      }
+      // Try to set up listeners regardless of __TAURI__ detection
+      console.log('[BLINK] [FRONTEND] Attempting to set up Tauri event listeners...');
       
+      console.log('[BLINK] [FRONTEND] Setting up Tauri event listeners...');
       const unlisteners: (() => void)[] = [];
       
       try {
@@ -238,6 +279,69 @@ function App() {
           createNewNote();
         });
         unlisteners.push(unlistenNewNote);
+        
+        // Listen for chord window mode event from global shortcut
+        console.log('[BLINK] [FRONTEND] Setting up chord-window-mode listener...');
+        const unlistenChordWindow = await listen('chord-window-mode', async (event) => {
+          console.log('[BLINK] [FRONTEND] 🔥🔥🔥 RECEIVED CHORD-WINDOW-MODE EVENT! 🔥🔥🔥', event);
+          console.log('[CHORD] Starting window mode from global shortcut');
+          startWindowMode();
+        });
+        unlisteners.push(unlistenChordWindow);
+        console.log('[BLINK] [FRONTEND] ✅ chord-window-mode listener set up successfully');
+        
+        // Listen for direct note deployment events from Hyper+1-9
+        console.log('[BLINK] [FRONTEND] Setting up deploy-note-window listener...');
+        const unlistenDeployWindow = await listen('deploy-note-window', async (event) => {
+          const noteIndex = event.payload as number;
+          console.log('[BLINK] [FRONTEND] 🚀 DEPLOY NOTE WINDOW! Note index:', noteIndex);
+          
+          // Retry mechanism for when notes haven't loaded yet
+          const attemptDeploy = async (retries = 3) => {
+            if (notes[noteIndex]) {
+              const targetNote = notes[noteIndex];
+              console.log('[DEPLOY] Deploying window for note:', targetNote.title, 'id:', targetNote.id);
+              
+              try {
+                // First refresh windows to get latest state
+                await refreshWindows();
+                
+                // Check if window already exists
+                if (isWindowOpen(targetNote.id)) {
+                  console.log('[DEPLOY] ✅ Window exists in state, attempting to focus');
+                  const focused = await focusWindow(targetNote.id);
+                  console.log('[DEPLOY] Focus result:', focused);
+                  if (!focused) {
+                    console.log('[DEPLOY] ⚠️ Focus failed, but window exists - this is OK');
+                  }
+                } else {
+                  console.log('[DEPLOY] ❌ No existing window in state, creating new one');
+                  const result = await createWindow(targetNote.id, window.screen.width / 2, window.screen.height / 2);
+                  console.log('[DEPLOY] Create window result:', result);
+                  
+                  // If creation failed due to existing window, try to focus instead
+                  if (!result) {
+                    console.log('[DEPLOY] ⚠️ Window creation failed, refreshing state and trying to focus...');
+                    await refreshWindows();
+                    const focused = await focusWindow(targetNote.id);
+                    console.log('[DEPLOY] Fallback focus result:', focused);
+                  }
+                }
+              } catch (error) {
+                console.error('[DEPLOY] ❌ Error deploying window:', error);
+              }
+            } else if (retries > 0) {
+              console.log('[DEPLOY] ⏳ Notes not loaded yet, retrying in 200ms... (retries left:', retries, ')');
+              setTimeout(() => attemptDeploy(retries - 1), 200);
+            } else {
+              console.log('[DEPLOY] ❌ No note at index:', noteIndex, 'available notes:', notes.length, 'after all retries');
+            }
+          };
+          
+          await attemptDeploy();
+        });
+        unlisteners.push(unlistenDeployWindow);
+        console.log('[BLINK] [FRONTEND] ✅ deploy-note-window listener set up successfully');
         
         // Listen for window closed events
         const unlistenWindowClosed = await listen('window-closed', async (event) => {
@@ -251,7 +355,7 @@ function App() {
           setTimeout(async () => {
             await refreshWindows();
             const windowsStore = useDetachedWindowsStore.getState();
-            console.log('[BLINK] Windows after refresh:', windowsStore.windows.map(w => w.note_id));
+            console.log('[BLINK] Windows after refresh:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => w.note_id) : 'no windows');
             console.log('[BLINK] Is window still open?', windowsStore.isWindowOpen(noteId));
           }, 200);
         });

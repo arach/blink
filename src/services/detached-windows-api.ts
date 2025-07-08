@@ -47,4 +47,8 @@ export class DetachedWindowsAPI {
   static async toggleMainWindowShade(): Promise<boolean> {
     return await invoke<boolean>('toggle_main_window_shade');
   }
+
+  static async focusDetachedWindow(noteId: string): Promise<boolean> {
+    return await invoke<boolean>('focus_detached_window', { noteId });
+  }
 }
