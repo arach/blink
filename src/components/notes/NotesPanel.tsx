@@ -32,7 +32,7 @@ export function NotesPanel({
   return (
     <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
       sidebarVisible ? 'w-80' : 'w-0'
-    }`}>
+    }`} data-notes-sidebar>
       <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={400}>
         <div className="h-full bg-card border-r border-border/30 flex flex-col">
           {/* Header - Standardized 76px height */}

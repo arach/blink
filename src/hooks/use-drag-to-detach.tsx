@@ -198,7 +198,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       
       // Check if cursor is outside sidebar (any direction)
       if (dragRef.current.hasMovedEnough) {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.querySelector('[data-notes-sidebar]');
         const rect = sidebar?.getBoundingClientRect();
         
         if (rect) {
@@ -210,6 +210,16 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
             e.clientY > rect.bottom;    // Below sidebar
           
           setIsOutsideSidebar(outside);
+          
+          console.log('[DRAG] Boundary check:', {
+            mouseX: e.clientX,
+            mouseY: e.clientY,
+            sidebarLeft: rect.left,
+            sidebarRight: rect.right,
+            sidebarTop: rect.top,
+            sidebarBottom: rect.bottom,
+            outside
+          });
           
           // Log only when transitioning from inside to outside
           if (outside && !dragRef.current.wasOutsideSidebar) {
@@ -236,6 +246,13 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     };
 
     const handleMouseUp = async (_e: MouseEvent) => {
+      console.log('[DRAG] Mouse up - drop detection:', {
+        isDragging: dragState.isDragging,
+        isOutsideSidebar,
+        wasOutsideSidebar: dragRef.current.wasOutsideSidebar,
+        hasRealWindow: !!dragRef.current.realWindowLabel
+      });
+      
       if (dragState.noteId && dragRef.current.realWindowLabel) {
         if (dragState.isDragging && isOutsideSidebar) {
           // Actually dragged and dropped outside sidebar - finalize the window in place
