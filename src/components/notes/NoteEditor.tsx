@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Save, Tag } from 'lucide-react';
-import { useNote, useUpdateNote, useCreateNote } from '../hooks/use-notes';
-import { useNotesStore } from '../stores/notes-store';
-import { Button } from './ui/Button';
-import { formatDate } from '../lib/utils';
+import { useNote, useUpdateNote, useCreateNote } from '../../hooks/use-notes';
+import { useNotesStore } from '../../stores/notes-store';
+import { Button } from '../ui/Button';
+import { formatDate } from '../../lib/utils';
 
 export function NoteEditor() {
   const { selectedNoteId, isCreating, setIsCreating } = useNotesStore();

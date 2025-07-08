@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Plus, Search, FileText, Trash2 } from 'lucide-react';
-import { useNotes, useDeleteNote } from '../hooks/use-notes';
-import { useNotesStore } from '../stores/notes-store';
-import { Button } from './ui/Button';
-import { formatDate, truncateText } from '../lib/utils';
-import { cn } from '../lib/utils';
+import { useNotes, useDeleteNote } from '../../hooks/use-notes';
+import { useNotesStore } from '../../stores/notes-store';
+import { Button } from '../ui/Button';
+import { formatDate, truncateText } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 
 export function Sidebar() {
   const [searchInput, setSearchInput] = useState('');

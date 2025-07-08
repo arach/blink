@@ -1,4 +1,4 @@
-import { ResizablePanel } from './ResizablePanel';
+import { ResizablePanel } from '../windows/ResizablePanel';
 
 type SettingsSection = 'general' | 'appearance' | 'shortcuts' | 'editor' | 'advanced';
 

@@ -1,6 +1,6 @@
 import { FileText, Plus } from 'lucide-react';
-import { Button } from './ui/Button';
-import { useNotesStore } from '../stores/notes-store';
+import { Button } from '../ui/Button';
+import { useNotesStore } from '../../stores/notes-store';
 
 export function EmptyState() {
   const { setIsCreating } = useNotesStore();

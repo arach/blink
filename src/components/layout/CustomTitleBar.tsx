@@ -1,5 +1,5 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
-import { DetachedWindowsAPI } from '../services/detached-windows-api';
+import { DetachedWindowsAPI } from '../../services/detached-windows-api';
 
 interface CustomTitleBarProps {
   title: string;

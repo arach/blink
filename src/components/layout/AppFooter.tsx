@@ -1,6 +1,6 @@
 import { Palette, Eye, Focus, Keyboard, Pin, Folder, FolderOpen } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { notesApi } from '../services/tauri-api';
+import { notesApi } from '../../services/tauri-api';
 
 interface Theme {
   name: string;
@@ -25,7 +25,7 @@ interface AppFooterProps {
   onDirectoryLoad?: (noteCount: number) => void;
 }
 
-export function AppFooter({ theme, themeId, config, onDirectoryLoad }: AppFooterProps) {
+export function AppFooter({ theme, themeId, config }: AppFooterProps) {
   const [currentDirectory, setCurrentDirectory] = useState<string>('~/Notes');
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
