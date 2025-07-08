@@ -1,5 +1,4 @@
 import { AppConfig } from '../../types';
-import { notesApi } from '../../services/tauri-api';
 
 interface GeneralSettingsProps {
   localConfig: AppConfig;

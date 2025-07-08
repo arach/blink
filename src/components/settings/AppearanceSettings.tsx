@@ -4,15 +4,11 @@ import { ThemeSelector } from './ThemeSelector';
 interface AppearanceSettingsProps {
   localConfig: AppConfig;
   setLocalConfig: (config: AppConfig) => void;
-  previewMode: 'editor' | 'preview';
-  setPreviewMode: (mode: 'editor' | 'preview') => void;
 }
 
 export function AppearanceSettings({
   localConfig,
   setLocalConfig,
-  previewMode,
-  setPreviewMode,
 }: AppearanceSettingsProps) {
   return (
     <div data-section="appearance" className="space-y-4">
@@ -35,16 +31,7 @@ export function AppearanceSettings({
           </svg>
           Theme
         </h3>
-        <ThemeSelector 
-          selectedTheme={localConfig.appearance?.themeId || 'midnight-ink'}
-          onThemeChange={(themeId) => setLocalConfig({
-            ...localConfig,
-            appearance: {
-              ...localConfig.appearance,
-              themeId
-            }
-          })}
-        />
+        <ThemeSelector />
       </div>
 
       {/* Font Settings */}
