@@ -303,37 +303,73 @@ function App() {
           console.log('[BLINK] [FRONTEND] 🚀🚀🚀 DEPLOY NOTE WINDOW EVENT RECEIVED! 🚀🚀🚀');
           console.log('[BLINK] [FRONTEND] Event details:', { event, noteIndex, payload: event.payload });
           
+          // Calculate grid position for this note slot (1-9)
+          const getGridPosition = (slotNumber: number) => {
+            const screenWidth = window.screen.width;
+            const screenHeight = window.screen.height;
+            const windowWidth = 600;
+            const windowHeight = 400;
+            
+            // Create 3x3 grid with some padding from edges
+            const cols = 3;
+            const rows = 3;
+            const padding = 100;
+            const usableWidth = screenWidth - 2 * padding - windowWidth;
+            const usableHeight = screenHeight - 2 * padding - windowHeight;
+            
+            const col = (slotNumber - 1) % cols;
+            const row = Math.floor((slotNumber - 1) / cols);
+            
+            const x = padding + (col * usableWidth / (cols - 1));
+            const y = padding + (row * usableHeight / (rows - 1));
+            
+            return { x: Math.round(x), y: Math.round(y), width: windowWidth, height: windowHeight };
+          };
+          
           // Retry mechanism for when notes haven't loaded yet
           const attemptDeploy = async (retries = 3) => {
             const currentNotes = notesRef.current;
             console.log('[DEPLOY] Checking notes - index:', noteIndex, 'available:', currentNotes.length);
             if (currentNotes[noteIndex]) {
               const targetNote = currentNotes[noteIndex];
+              const slotNumber = noteIndex + 1; // Convert 0-based to 1-based
+              const gridPos = getGridPosition(slotNumber);
+              
               console.log('[DEPLOY] Deploying window for note:', targetNote.title, 'id:', targetNote.id);
+              console.log('[DEPLOY] Grid position for slot', slotNumber, ':', gridPos);
               
               try {
-                // First refresh windows to get latest state
+                // First refresh windows to get latest state from backend
+                console.log('[DEPLOY] Refreshing windows state...');
                 await refreshWindows();
                 
-                // Check if window already exists
+                // Check if window already exists - if so, just focus it
                 if (isWindowOpen(targetNote.id)) {
-                  console.log('[DEPLOY] ✅ Window exists in state, attempting to focus');
+                  console.log('[DEPLOY] ✅ Window already detached, bringing to front');
                   const focused = await focusWindow(targetNote.id);
                   console.log('[DEPLOY] Focus result:', focused);
                   if (!focused) {
                     console.log('[DEPLOY] ⚠️ Focus failed, but window exists - this is OK');
                   }
                 } else {
-                  console.log('[DEPLOY] ❌ No existing window in state, creating new one');
-                  const result = await createWindow(targetNote.id, window.screen.width / 2, window.screen.height / 2);
+                  console.log('[DEPLOY] ❌ Window not detached, creating new detached window in grid slot', slotNumber);
+                  const result = await createWindow(targetNote.id, gridPos.x, gridPos.y, gridPos.width, gridPos.height);
                   console.log('[DEPLOY] Create window result:', result);
                   
-                  // If creation failed due to existing window, try to focus instead
+                  // If creation failed, it might be because the window already exists
                   if (!result) {
-                    console.log('[DEPLOY] ⚠️ Window creation failed, refreshing state and trying to focus...');
+                    console.log('[DEPLOY] ⚠️ Window creation failed, likely because it already exists');
+                    // Refresh state again and try to focus
+                    console.log('[DEPLOY] Refreshing state and trying to focus...');
                     await refreshWindows();
-                    const focused = await focusWindow(targetNote.id);
-                    console.log('[DEPLOY] Fallback focus result:', focused);
+                    // Check again after refresh
+                    if (isWindowOpen(targetNote.id)) {
+                      console.log('[DEPLOY] ✅ Window found after refresh, focusing...');
+                      const focused = await focusWindow(targetNote.id);
+                      console.log('[DEPLOY] Focus result after refresh:', focused);
+                    } else {
+                      console.log('[DEPLOY] ❌ Window still not found after refresh');
+                    }
                   }
                 }
               } catch (error) {
@@ -474,7 +510,7 @@ function App() {
           }}
         />
         
-        <div className="flex min-h-0">
+        <div className="flex min-h-0 overflow-hidden">
           <NavigationSidebar
             currentView={currentView}
             sidebarVisible={sidebarVisible}
@@ -482,9 +518,9 @@ function App() {
             onSettingsClick={handleSettingsClick}
           />
         {/* Main content area (notes or settings) */}
-        <div className="flex-1 flex flex-col bg-background min-h-0">
+        <div className="flex-1 flex flex-col bg-background min-h-0 overflow-hidden">
           {currentView === 'notes' ? (
-            <div className="flex-1 flex">
+            <div className="flex-1 flex min-h-0 overflow-hidden">
               <NotesPanel
                 sidebarVisible={sidebarVisible}
                 notes={notes}
@@ -523,7 +559,7 @@ function App() {
             </div>
           ) : (
             /* Settings view */
-            <div className="flex-1 flex">
+            <div className="flex-1 flex min-h-0 overflow-hidden">
               <SettingsNavigation
                 sidebarVisible={sidebarVisible}
                 selectedSection={selectedSettingsSection}
@@ -531,7 +567,7 @@ function App() {
               />
               
               {/* Settings content area */}
-              <div className="flex-1 flex flex-col bg-background min-h-0">
+              <div className="flex-1 flex flex-col bg-background min-h-0 overflow-hidden">
                 <SettingsPanel selectedSection={selectedSettingsSection} />
               </div>
             </div>
