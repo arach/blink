@@ -569,10 +569,17 @@ pub async fn focus_detached_window(
     detached_windows: State<'_, DetachedWindowsState>,
 ) -> Result<bool, String> {
     let windows_lock = detached_windows.lock().await;
+    println!("[FOCUS_DETACHED_WINDOW] Looking for note: {}", note_id);
     
-    // Find window by note_id
-    if let Some((window_label, _)) = windows_lock.iter().find(|(_, w)| w.note_id == note_id) {
+    // Find window by note_id (only in note-* windows, not hybrid-drag)
+    if let Some((window_label, window_data)) = windows_lock.iter().find(|(label, w)| {
+        label.starts_with("note-") && w.note_id == note_id
+    }) {
+        println!("[FOCUS_DETACHED_WINDOW] Found window in state: {} -> {}", window_label, note_id);
+        
         if let Some(window) = app.get_webview_window(window_label) {
+            println!("[FOCUS_DETACHED_WINDOW] ✅ Tauri window found, attempting to focus...");
+            
             // Show and focus the window
             window.show().map_err(|e| format!("Failed to show window: {}", e))?;
             window.set_focus().map_err(|e| format!("Failed to focus window: {}", e))?;
@@ -582,11 +589,18 @@ pub async fn focus_detached_window(
                 window.unminimize().map_err(|e| format!("Failed to unminimize window: {}", e))?;
             }
             
+            println!("[FOCUS_DETACHED_WINDOW] ✅ Successfully focused window for note: {}", note_id);
             log_info!("WINDOW", "Focused existing detached window for note: {}", note_id);
             return Ok(true);
+        } else {
+            println!("[FOCUS_DETACHED_WINDOW] ❌ Window found in state but Tauri window doesn't exist: {}", window_label);
+            println!("[FOCUS_DETACHED_WINDOW] ❌ Window may have been closed but not cleaned up from state");
         }
+    } else {
+        println!("[FOCUS_DETACHED_WINDOW] ❌ No note window found in state for note: {}", note_id);
     }
     
+    println!("[FOCUS_DETACHED_WINDOW] ❌ Failed to focus window for note: {}", note_id);
     log_info!("WINDOW", "No existing detached window found for note: {}", note_id);
     Ok(false)
 }

@@ -25,21 +25,23 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
   error: null,
 
   loadWindows: async () => {
+    console.log('[DETACHED-WINDOWS-STORE] 🚀 loadWindows() called - starting window load...');
     set({ loading: true, error: null });
     try {
       // Only load from Tauri in desktop context
       if (typeof window !== 'undefined' && window.__TAURI__) {
-        console.log('[DETACHED-WINDOWS-STORE] Loading windows...');
+        console.log('[DETACHED-WINDOWS-STORE] ✅ Tauri context detected, loading windows...');
         const windows = await DetachedWindowsAPI.getDetachedWindows();
-        console.log('[DETACHED-WINDOWS-STORE] Loaded windows:', windows);
+        console.log('[DETACHED-WINDOWS-STORE] ✅ Successfully loaded', windows.length, 'windows on startup:', windows);
         set({ windows, loading: false });
+        console.log('[DETACHED-WINDOWS-STORE] ✅ Windows set in store, loading complete');
       } else {
         // Browser mode - no detached windows
         console.log('[BLINK] [WINDOWS] 🌐 No detached windows in browser mode');
         set({ windows: [], loading: false });
       }
     } catch (error) {
-      console.error('Failed to load detached windows:', error);
+      console.error('[DETACHED-WINDOWS-STORE] ❌ Failed to load detached windows on startup:', error);
       set({ error: error as string, loading: false });
     }
   },

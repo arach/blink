@@ -14,6 +14,7 @@ use regex::Regex;
 // Module declarations
 mod types;
 mod modules;
+mod services;
 
 // Re-export from modules
 pub use modules::{

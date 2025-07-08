@@ -261,7 +261,8 @@ function App() {
     
     const initializeApp = async () => {
       await loadConfig();
-      loadWindows();
+      await loadWindows();
+      console.log('[BLINK] [FRONTEND] ✅ App initialization complete');
     };
     
     initializeApp();
