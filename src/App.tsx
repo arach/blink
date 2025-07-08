@@ -1,5 +1,4 @@
 import { listen } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
 import { useState, useEffect, useRef } from 'react';
 import { 
   DetachedNoteWindow, 
@@ -40,7 +39,6 @@ import {
 } from './hooks';
 import { applyTheme, getThemeById } from './types';
 import { getWordCount } from './lib/utils';
-import { Note } from './types';
 
 
 function App() {
@@ -329,13 +327,23 @@ function App() {
           // Retry mechanism for when notes haven't loaded yet
           const attemptDeploy = async (retries = 3) => {
             const currentNotes = notesRef.current;
+            const windowsStore = useDetachedWindowsStore.getState();
+            
+            console.log('[DEPLOY] === DEPLOYMENT STATE DEBUG ===');
             console.log('[DEPLOY] Checking notes - index:', noteIndex, 'available:', currentNotes.length);
+            console.log('[DEPLOY] Available notes:', currentNotes.map(n => ({ id: n.id, title: n.title })));
+            console.log('[DEPLOY] Current windows in frontend state:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => ({ 
+              note_id: w.note_id, 
+              window_label: w.window_label,
+              position: w.position 
+            })) : windowsStore.windows);
+            
             if (currentNotes[noteIndex]) {
               const targetNote = currentNotes[noteIndex];
               const slotNumber = noteIndex + 1; // Convert 0-based to 1-based
               const gridPos = getGridPosition(slotNumber);
               
-              console.log('[DEPLOY] Deploying window for note:', targetNote.title, 'id:', targetNote.id);
+              console.log('[DEPLOY] Target note:', { id: targetNote.id, title: targetNote.title });
               console.log('[DEPLOY] Grid position for slot', slotNumber, ':', gridPos);
               
               try {
@@ -343,8 +351,19 @@ function App() {
                 console.log('[DEPLOY] Refreshing windows state...');
                 await refreshWindows();
                 
+                // Log state after refresh
+                const refreshedWindowsStore = useDetachedWindowsStore.getState();
+                console.log('[DEPLOY] Windows after refresh:', Array.isArray(refreshedWindowsStore.windows) ? refreshedWindowsStore.windows.map(w => ({ 
+                  note_id: w.note_id, 
+                  window_label: w.window_label,
+                  position: w.position 
+                })) : refreshedWindowsStore.windows);
+                
                 // Check if window already exists - if so, just focus it
-                if (isWindowOpen(targetNote.id)) {
+                const windowExists = isWindowOpen(targetNote.id);
+                console.log('[DEPLOY] Window exists check:', windowExists);
+                
+                if (windowExists) {
                   console.log('[DEPLOY] ✅ Window already detached, bringing to front');
                   const focused = await focusWindow(targetNote.id);
                   console.log('[DEPLOY] Focus result:', focused);
@@ -362,13 +381,26 @@ function App() {
                     // Refresh state again and try to focus
                     console.log('[DEPLOY] Refreshing state and trying to focus...');
                     await refreshWindows();
+                    
+                    // Log state after second refresh
+                    const secondRefreshWindowsStore = useDetachedWindowsStore.getState();
+                    console.log('[DEPLOY] Windows after second refresh:', Array.isArray(secondRefreshWindowsStore.windows) ? secondRefreshWindowsStore.windows.map(w => ({ 
+                      note_id: w.note_id, 
+                      window_label: w.window_label,
+                      position: w.position 
+                    })) : secondRefreshWindowsStore.windows);
+                    
                     // Check again after refresh
-                    if (isWindowOpen(targetNote.id)) {
+                    const windowExistsAfterRefresh = isWindowOpen(targetNote.id);
+                    console.log('[DEPLOY] Window exists after second refresh:', windowExistsAfterRefresh);
+                    
+                    if (windowExistsAfterRefresh) {
                       console.log('[DEPLOY] ✅ Window found after refresh, focusing...');
                       const focused = await focusWindow(targetNote.id);
                       console.log('[DEPLOY] Focus result after refresh:', focused);
                     } else {
                       console.log('[DEPLOY] ❌ Window still not found after refresh');
+                      console.log('[DEPLOY] ❌ This indicates a backend/frontend sync issue');
                     }
                   }
                 }

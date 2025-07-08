@@ -622,11 +622,25 @@ pub async fn create_detached_window(
     // Check if window already exists for this note
     let mut windows_lock = detached_windows.lock().await;
     println!("[CREATE_DETACHED_WINDOW] Current windows count: {}", windows_lock.len());
-    if windows_lock.values().any(|w| w.note_id == request.note_id) {
-        println!("[CREATE_DETACHED_WINDOW] ERROR: Window already exists for note: {}", request.note_id);
+    println!("[CREATE_DETACHED_WINDOW] === BACKEND WINDOWS STATE ===");
+    for (window_label, window) in windows_lock.iter() {
+        println!("[CREATE_DETACHED_WINDOW] Backend window: {} -> note_id: {}, position: ({}, {})", 
+            window_label, window.note_id, window.position.0, window.position.1);
+    }
+    println!("[CREATE_DETACHED_WINDOW] === END BACKEND WINDOWS STATE ===");
+    
+    // Only check for actual note windows (not hybrid-drag windows)
+    let existing_note_window = windows_lock
+        .iter()
+        .find(|(window_label, window)| {
+            window_label.starts_with("note-") && window.note_id == request.note_id
+        });
+    
+    if existing_note_window.is_some() {
+        println!("[CREATE_DETACHED_WINDOW] ERROR: Note window already exists for note: {}", request.note_id);
         return Err("Window already exists for this note".to_string());
     }
-    println!("[CREATE_DETACHED_WINDOW] No existing window for this note ✓");
+    println!("[CREATE_DETACHED_WINDOW] No existing note window for this note ✓");
 
     let window_label = format!("note-{}", request.note_id);
     println!("[CREATE_DETACHED_WINDOW] Window label: {}", window_label);

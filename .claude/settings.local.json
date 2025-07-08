@@ -46,7 +46,9 @@
       "Bash(osascript:*)",
       "Bash(timeout:*)",
       "Bash(ls:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm tauri build:*)",
+      "Bash(jobs)"
     ],
     "deny": []
   }
