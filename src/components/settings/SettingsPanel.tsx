@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useConfigStore } from '../stores/config-store';
+import { useConfigStore } from '../../stores/config-store';
 import { invoke } from '@tauri-apps/api/core';
 import { ThemeSelector } from './ThemeSelector';
-import { notesApi } from '../services/tauri-api';
+import { notesApi } from '../../services/tauri-api';
 
 interface SettingsPanelProps {
   selectedSection: 'general' | 'appearance' | 'shortcuts' | 'editor' | 'advanced';

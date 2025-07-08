@@ -70,13 +70,10 @@ export function useNoteManagement(): UseNoteManagementReturn {
 
   // Load notes from backend
   const loadNotes = useCallback(async () => {
-    console.log('[BLINK] Loading notes...');
     setLoading(true);
     try {
       // Try to load notes from Tauri - if this fails, we'll fall back to demo data
-      console.log('[BLINK] Attempting to load notes from Tauri backend...');
       const loadedNotes = await invoke<Note[]>('get_notes');
-      console.log('[BLINK] Successfully loaded notes from file system:', loadedNotes.length);
       setNotes(loadedNotes);
       
       // If we have notes but no selected note, select the first one

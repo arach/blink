@@ -45,7 +45,8 @@
       "Bash(timeout 5s pnpm run dev:logs tauri)",
       "Bash(osascript:*)",
       "Bash(timeout:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

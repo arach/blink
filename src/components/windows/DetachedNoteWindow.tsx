@@ -4,14 +4,14 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { useDetachedWindowsStore } from '../stores/detached-windows-store';
-import { useConfigStore } from '../stores/config-store';
-import { useSaveStatus } from '../hooks/use-save-status';
-import { useWindowShade } from '../hooks/use-window-shade';
-import { useWindowTracking } from '../hooks/use-window-tracking';
-import { noteSyncService, useNoteSync } from '../services/note-sync';
-import { CustomTitleBar } from './CustomTitleBar';
-import { WindowWrapper } from './WindowWrapper';
+import { useDetachedWindowsStore } from '../../stores/detached-windows-store';
+import { useConfigStore } from '../../stores/config-store';
+import { useSaveStatus } from '../../hooks/use-save-status';
+import { useWindowShade } from '../../hooks/use-window-shade';
+import { useWindowTracking } from '../../hooks/use-window-tracking';
+import { noteSyncService, useNoteSync } from '../../services/note-sync';
+import { CustomTitleBar } from '../layout/CustomTitleBar';
+import { WindowWrapper } from '../layout/WindowWrapper';
 
 interface Note {
   id: string;

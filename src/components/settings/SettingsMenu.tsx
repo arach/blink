@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useConfigStore } from '../stores/config-store';
+import { useConfigStore } from '../../stores/config-store';
 
 interface SettingsMenuProps {
   isOpen: boolean;

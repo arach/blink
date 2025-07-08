@@ -1,40 +1,43 @@
 import { listen } from '@tauri-apps/api/event';
 import { useState, useEffect } from 'react';
-import { DetachedNoteWindow } from './components/DetachedNoteWindow';
-import { DragGhost } from './components/DragGhost';
-import { SettingsPanel } from './components/SettingsPanel';
-import { CustomTitleBar } from './components/CustomTitleBar';
-import { WindowWrapper } from './components/WindowWrapper';
-import { NavigationSidebar } from './components/NavigationSidebar';
-import { NotesPanel } from './components/NotesPanel';
-import { SettingsNavigation } from './components/SettingsNavigation';
-import { EditorArea } from './components/EditorArea';
-import { AppFooter } from './components/AppFooter';
-import { useDetachedWindowsStore } from './stores/detached-windows-store';
-import { useConfigStore } from './stores/config-store';
-import { useSaveStatus } from './hooks/use-save-status';
-import { useWindowTransparency } from './hooks/use-window-transparency';
-import { useTypewriterMode } from './hooks/use-typewriter-mode';
-import { useDragToDetach } from './hooks/use-drag-to-detach';
-import { useWindowShade } from './hooks/use-window-shade';
-import { useNoteManagement } from './hooks/use-note-management';
-import { useCommandPalette } from './hooks/use-command-palette';
-import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
-import { useContextMenu } from './hooks/use-context-menu';
-import { themes, applyTheme, getThemeById } from './types/theme';
+import { 
+  DetachedNoteWindow, 
+  DragGhost 
+} from './components/windows';
+import { 
+  SettingsPanel, 
+  SettingsNavigation 
+} from './components/settings';
+import { 
+  CustomTitleBar, 
+  WindowWrapper, 
+  NavigationSidebar, 
+  AppFooter 
+} from './components/layout';
+import { 
+  NotesPanel, 
+  EditorArea 
+} from './components/notes';
+import { 
+  useDetachedWindowsStore, 
+  useConfigStore 
+} from './stores';
+import { 
+  useSaveStatus,
+  useWindowTransparency,
+  useTypewriterMode,
+  useDragToDetach,
+  useWindowShade,
+  useNoteManagement,
+  useCommandPalette,
+  useKeyboardShortcuts,
+  useContextMenu
+} from './hooks';
+import { themes, applyTheme, getThemeById } from './types';
 
 
 function App() {
   const { config, updateConfig, loadConfig, isLoading } = useConfigStore();
-  
-  // Log config state every render
-  console.log('[BLINK] [APP] 🔄 App render - config state:', {
-    config: config ? 'present' : 'null',
-    isLoading,
-    hasAppearance: config?.appearance ? 'yes' : 'no',
-    configKeys: config ? Object.keys(config) : 'none'
-  });
-  
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false); // Start in edit mode
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
@@ -176,53 +179,23 @@ function App() {
 
   // Apply theme on startup and when config changes
   useEffect(() => {
-    console.log('[BLINK] [APP] 🎨 Theme effect triggered. Config state:', {
-      config: config ? 'present' : 'null',
-      hasAppearance: config?.appearance ? 'yes' : 'no',
-      themeId: config?.appearance?.themeId || 'none'
-    });
-    
     const themeId = config?.appearance?.themeId || 'midnight-ink';
     const theme = getThemeById(themeId);
-    console.log('[BLINK] [APP] 🎨 ThemeId:', themeId, 'Theme found:', !!theme);
     
-    // Force apply the theme regardless
     if (theme) {
-      console.log('[BLINK] [APP] 🎨 Applying theme:', theme.name);
       applyTheme(theme);
     } else {
-      console.error('[BLINK] [APP] ❌ Theme not found:', themeId, 'Available themes:', Object.values(themes).map(t => t.id));
+      console.error('[BLINK] Theme not found:', themeId);
     }
-  }, [config]); // Trigger when config changes
+  }, [config]);
 
   // Note: Default theme application moved to config effect to avoid race conditions
 
-  // Load windows and check permissions on startup
+  // Load config and windows on startup
   useEffect(() => {
     const initializeApp = async () => {
-      console.log('[BLINK] [APP] 🚀 Initializing app...');
-      console.log('[BLINK] [APP] 📋 Config state before loadConfig:', {
-        config: config ? 'present' : 'null',
-        isLoading,
-        hasAppearance: config?.appearance ? 'yes' : 'no'
-      });
-      
-      // Load config first
-      console.log('[BLINK] [APP] 🔄 Calling loadConfig...');
       await loadConfig();
-      
-      console.log('[BLINK] [APP] 📋 Config state after loadConfig:', {
-        config: config ? 'present' : 'null',
-        isLoading,
-        hasAppearance: config?.appearance ? 'yes' : 'no'
-      });
-      
-      // Load detached windows
       loadWindows();
-      
-      console.log('[BLINK] [APP] ✅ App initialization complete');
-      
-      // Permissions resolved - no longer needed
     };
     
     initializeApp();
@@ -230,12 +203,9 @@ function App() {
 
   // Set up event listeners for Tauri events
   useEffect(() => {
-    console.log('[BLINK] [FRONTEND] Setting up event listeners');
-    
     const setupListeners = async () => {
       // Only setup listeners in Tauri context
       if (typeof window === 'undefined' || !window.__TAURI__) {
-        console.log('[BLINK] [FRONTEND] 🌐 Running in browser mode - skipping Tauri listeners');
         return () => {}; // Return a no-op function instead of array
       }
       
@@ -299,7 +269,6 @@ function App() {
     });
 
     return () => {
-      console.log('[BLINK] [FRONTEND] Cleaning up event listeners');
       if (cleanup) {
         cleanup();
       }

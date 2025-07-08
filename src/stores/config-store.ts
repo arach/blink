@@ -17,46 +17,33 @@ interface ConfigStore {
   updateTheme: (theme: 'dark' | 'light' | 'system') => Promise<void>;
 }
 
-export const useConfigStore = create<ConfigStore>((set, get) => {
-  console.log('[BLINK] [CONFIG] 🏗️  Config store initialized with default config:', defaultConfig);
-  
-  return {
-    config: defaultConfig,
-    isLoading: false,
-    error: null,
+export const useConfigStore = create<ConfigStore>((set, get) => ({
+  config: defaultConfig,
+  isLoading: false,
+  error: null,
 
   loadConfig: async () => {
-    console.log('[BLINK] [CONFIG] 🔄 loadConfig called');
     set({ isLoading: true, error: null });
     try {
-      // Try to load config from Tauri - if this fails, we'll use defaults
-      console.log('[BLINK] [CONFIG] 🖥️  Attempting to load config from Tauri backend...');
       const rawConfig = await configApi.getConfig();
-      console.log('[BLINK] [CONFIG] 📥 Raw config loaded from backend:', rawConfig);
       
-      // Ensure we always have a valid config
       if (!rawConfig) {
-        console.warn('[BLINK] [CONFIG] ⚠️  Received null/undefined config from backend, using defaults');
+        console.warn('[BLINK] Received null config from backend, using defaults');
         set({ config: defaultConfig, isLoading: false });
         return;
       }
       
       const config = migrateConfig(rawConfig);
-      console.log('[BLINK] [CONFIG] 🔄 Migrated config:', config);
       
-      // Extra safety check
       if (!config || !config.appearance) {
-        console.warn('[BLINK] [CONFIG] ⚠️  Migration resulted in invalid config, using defaults');
+        console.warn('[BLINK] Invalid config structure, using defaults');
         set({ config: defaultConfig, isLoading: false });
         return;
       }
       
-      console.log('[BLINK] [CONFIG] ✅ Setting valid config in store');
       set({ config, isLoading: false });
     } catch (error) {
-      console.warn('[BLINK] [CONFIG] ❌ Failed to load config from Tauri, using defaults:', error);
-      // Browser mode or Tauri failed - use defaults
-      console.log('[BLINK] [CONFIG] 🌐 Using default config (browser mode or Tauri unavailable)');
+      console.warn('[BLINK] Failed to load config, using defaults:', error);
       set({ 
         config: defaultConfig,
         isLoading: false,
@@ -94,13 +81,10 @@ export const useConfigStore = create<ConfigStore>((set, get) => {
   },
 
   updateConfig: async (configUpdate: Partial<AppConfig>) => {
-    console.log('[BLINK] [CONFIG] 🔄 updateConfig called with:', configUpdate);
     const { config } = get();
-    console.log('[BLINK] [CONFIG] 📋 Current config in store:', config);
     
-    // Ensure we have a valid config before merging
     if (!config) {
-      console.error('[BLINK] [CONFIG] ❌ Current config is null! Using defaults');
+      console.error('[BLINK] Current config is null! Using defaults');
       const newConfig = { ...defaultConfig, ...configUpdate };
       set({ config: newConfig });
       return;
@@ -124,35 +108,27 @@ export const useConfigStore = create<ConfigStore>((set, get) => {
       }
     };
     
-    console.log('[BLINK] [CONFIG] 📤 Sending merged config to backend:', updatedConfig);
-    
     try {
       const newConfig = await configApi.updateConfig(updatedConfig);
-      console.log('[BLINK] [CONFIG] 📥 Received response from backend:', newConfig);
       
-      // Critical: Handle null response from backend
       if (!newConfig) {
-        console.error('[BLINK] [CONFIG] ❌ Backend returned null! Keeping current config');
-        set({ 
-          error: 'Backend returned null config - using current config'
-        });
+        console.error('[BLINK] Backend returned null config');
+        set({ error: 'Backend returned null config' });
         return;
       }
       
-      // Validate the response has required fields
       if (!newConfig.appearance) {
-        console.error('[BLINK] [CONFIG] ❌ Backend returned config without appearance! Using defaults');
+        console.error('[BLINK] Backend returned invalid config structure');
         set({ 
           config: { ...defaultConfig, ...newConfig },
-          error: 'Backend returned invalid config - merged with defaults'
+          error: 'Invalid config structure received'
         });
         return;
       }
       
-      console.log('[BLINK] [CONFIG] ✅ Setting valid config from backend response');
       set({ config: newConfig });
     } catch (error) {
-      console.error('[BLINK] [CONFIG] ❌ Error updating config:', error);
+      console.error('[BLINK] Error updating config:', error);
       set({ 
         error: error instanceof Error ? error.message : 'Failed to update config'
       });
@@ -185,4 +161,4 @@ export const useConfigStore = create<ConfigStore>((set, get) => {
     const { updateAppearance } = get();
     await updateAppearance({ theme });
   },
-}});
+}));

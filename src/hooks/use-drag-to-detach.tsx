@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { createRoot } from 'react-dom/client';
-import { DragCancelEffect } from '../components/DragCancelEffect';
+import { DragCancelEffect } from '../components/windows';
 
 interface DragState {
   isDragging: boolean;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { applyTheme, getAllThemes, getThemeById } from '../types/theme';
-import { useConfigStore } from '../stores/config-store';
+import { applyTheme, getAllThemes, getThemeById } from '../../types/theme';
+import { useConfigStore } from '../../stores/config-store';
 import { Palette } from 'lucide-react';
 
 interface ThemeSelectorProps {
