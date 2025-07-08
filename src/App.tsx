@@ -19,6 +19,9 @@ import {
   EditorArea 
 } from './components/notes';
 import { 
+  ChordHint 
+} from './components/common';
+import { 
   useDetachedWindowsStore, 
   useConfigStore 
 } from './stores';
@@ -31,7 +34,8 @@ import {
   useNoteManagement,
   useCommandPalette,
   useKeyboardShortcuts,
-  useContextMenu
+  useContextMenu,
+  useChordShortcuts
 } from './hooks';
 import { applyTheme, getThemeById } from './types';
 import { getWordCount } from './lib/utils';
@@ -154,6 +158,21 @@ function App() {
     isCommandPaletteOpen: showCommandPalette,
     notes: notes,
     onSelectNote: selectNote,
+  });
+
+  // Chord shortcuts hook for advanced keyboard combinations
+  const { chordMode, showChordHint } = useChordShortcuts({
+    notes: notes.map(note => ({ id: note.id, title: note.title })),
+    onSelectNote: selectNote,
+    onCreateNewNote: createNewNote,
+    onToggleCommandPalette: openCommandPalette,
+    onCreateDetachedWindow: async (noteId: string) => {
+      try {
+        await createWindow(noteId, window.screen.width / 2, window.screen.height / 2);
+      } catch (error) {
+        console.error('Failed to create detached window via chord:', error);
+      }
+    },
   });
   
   // Debug logging
@@ -413,6 +432,13 @@ function App() {
           config={config} 
         />
       </div>
+
+      {/* Chord shortcuts hint overlay */}
+      <ChordHint 
+        mode={chordMode}
+        visible={showChordHint}
+        notes={notes.map(note => ({ id: note.id, title: note.title }))}
+      />
     </WindowWrapper>
   );
 }
