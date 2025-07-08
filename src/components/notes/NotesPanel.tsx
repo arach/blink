@@ -1,12 +1,6 @@
-import { ResizablePanel } from './ResizablePanel';
-import { markdownToPlainText, truncateText } from '../lib/utils';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  updatedAt?: string;
-}
+import { ResizablePanel } from '../windows/ResizablePanel';
+import { markdownToPlainText, truncateText } from '../../lib/utils';
+import { Note } from '../../types';
 
 interface NotesPanelProps {
   sidebarVisible: boolean;
@@ -169,7 +163,7 @@ export function NotesPanel({
                             ? 'text-primary/50' 
                             : 'text-muted-foreground/40 group-hover:text-muted-foreground/60'
                         }`}>
-                          {note.updatedAt ? new Date(note.updatedAt).toLocaleDateString('en-US', { 
+                          {note.updated_at ? new Date(note.updated_at).toLocaleDateString('en-US', { 
                             month: 'numeric', 
                             day: 'numeric' 
                           }) : ''}

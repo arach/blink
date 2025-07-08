@@ -33,7 +33,7 @@ import {
   useKeyboardShortcuts,
   useContextMenu
 } from './hooks';
-import { themes, applyTheme, getThemeById } from './types';
+import { applyTheme, getThemeById } from './types';
 
 
 function App() {
@@ -337,7 +337,7 @@ function App() {
           isShaded={isShaded}
           stats={{
             wordCount: selectedNote ? wordCount : undefined,
-            lastSaved: selectedNote?.updatedAt ? new Date(selectedNote.updatedAt).toLocaleString() : undefined
+            lastSaved: selectedNote?.updated_at ? new Date(selectedNote.updated_at).toLocaleString() : undefined
           }}
         />
         

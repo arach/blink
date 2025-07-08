@@ -1,15 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { useDetachedWindowsStore } from '../stores/detached-windows-store';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-}
+import { Note } from '../types';
 
 interface Command {
   id: string;

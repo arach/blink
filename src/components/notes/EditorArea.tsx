@@ -2,12 +2,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  updatedAt?: string;
-}
+import { Note } from '../../types';
 
 interface SaveStatus {
   isSaving: boolean;

@@ -1,15 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-}
+import { Note } from '../types';
 
 interface UseNoteManagementReturn {
   // State
@@ -85,9 +77,23 @@ export function useNoteManagement(): UseNoteManagementReturn {
     } catch (error) {
       console.warn('[BLINK] Failed to load notes from Tauri, falling back to demo data:', error);
       // Demo data for browser context or when Tauri fails
-      const demoNotes = [
-        { id: 'demo-1', title: 'Welcome to Blink', content: '# Welcome to Blink\n\nThis is a demo note running in browser mode.' },
-        { id: 'demo-2', title: 'Demo Note 2', content: '# Demo Note\n\nYou can see the interface, but Tauri features require the desktop app.' }
+      const demoNotes: Note[] = [
+        { 
+          id: 'demo-1', 
+          title: 'Welcome to Blink', 
+          content: '# Welcome to Blink\n\nThis is a demo note running in browser mode.',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: []
+        },
+        { 
+          id: 'demo-2', 
+          title: 'Demo Note 2', 
+          content: '# Demo Note\n\nYou can see the interface, but Tauri features require the desktop app.',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: []
+        }
       ];
       setNotes(demoNotes);
       if (!selectedNoteId) {
