@@ -1,5 +1,6 @@
 import { listen } from '@tauri-apps/api/event';
-import { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { useState, useEffect, useRef } from 'react';
 import { 
   DetachedNoteWindow, 
   DragGhost 
@@ -39,6 +40,7 @@ import {
 } from './hooks';
 import { applyTheme, getThemeById } from './types';
 import { getWordCount } from './lib/utils';
+import { Note } from './types';
 
 
 function App() {
@@ -101,6 +103,10 @@ function App() {
     deleteNote,
     setCurrentContent,
   } = useNoteManagement();
+
+  // Keep a stable reference to current notes for event listeners
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
 
   // Permissions resolved - no longer needed
 
@@ -294,12 +300,15 @@ function App() {
         console.log('[BLINK] [FRONTEND] Setting up deploy-note-window listener...');
         const unlistenDeployWindow = await listen('deploy-note-window', async (event) => {
           const noteIndex = event.payload as number;
-          console.log('[BLINK] [FRONTEND] 🚀 DEPLOY NOTE WINDOW! Note index:', noteIndex);
+          console.log('[BLINK] [FRONTEND] 🚀🚀🚀 DEPLOY NOTE WINDOW EVENT RECEIVED! 🚀🚀🚀');
+          console.log('[BLINK] [FRONTEND] Event details:', { event, noteIndex, payload: event.payload });
           
           // Retry mechanism for when notes haven't loaded yet
           const attemptDeploy = async (retries = 3) => {
-            if (notes[noteIndex]) {
-              const targetNote = notes[noteIndex];
+            const currentNotes = notesRef.current;
+            console.log('[DEPLOY] Checking notes - index:', noteIndex, 'available:', currentNotes.length);
+            if (currentNotes[noteIndex]) {
+              const targetNote = currentNotes[noteIndex];
               console.log('[DEPLOY] Deploying window for note:', targetNote.title, 'id:', targetNote.id);
               
               try {
@@ -334,7 +343,7 @@ function App() {
               console.log('[DEPLOY] ⏳ Notes not loaded yet, retrying in 200ms... (retries left:', retries, ')');
               setTimeout(() => attemptDeploy(retries - 1), 200);
             } else {
-              console.log('[DEPLOY] ❌ No note at index:', noteIndex, 'available notes:', notes.length, 'after all retries');
+              console.log('[DEPLOY] ❌ No note at index:', noteIndex, 'available notes:', currentNotes.length, 'after all retries');
             }
           };
           
@@ -397,7 +406,7 @@ function App() {
         cleanup();
       }
     };
-  }, [createNewNote, refreshWindows]);
+  }, [createNewNote, refreshWindows]); // Remove notes dependency - using ref instead
 
 
   // Animation handlers

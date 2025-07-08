@@ -1336,7 +1336,11 @@ pub fn run() {
                                 *code
                             );
                             
-                            let key_type = if matches!(*code, Code::Numpad1..=Code::Numpad9) { "keypad" } else { "main" };
+                            let key_type = match *code {
+                                Code::Numpad1 | Code::Numpad2 | Code::Numpad3 | Code::Numpad4 | Code::Numpad5 |
+                                Code::Numpad6 | Code::Numpad7 | Code::Numpad8 | Code::Numpad9 => "keypad",
+                                _ => "main"
+                            };
                             
                             match shortcut_manager.register(deploy_shortcut) {
                                 Ok(_) => {
