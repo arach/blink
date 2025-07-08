@@ -1173,6 +1173,29 @@ function calculateMetrics(data) {
               >
                 force visible
               </button>
+              
+              <button
+                onClick={async () => {
+                  console.log('[BLINK] [SETTINGS] Checking webview state...');
+                  try {
+                    const state = await invoke('debug_webview_state');
+                    console.log('[BLINK] [SETTINGS] Webview state:', state);
+                    setShortcutMessage('Webview state logged to console');
+                    setShortcutStatus('success');
+                    setTimeout(() => {
+                      setShortcutStatus('idle');
+                      setShortcutMessage('');
+                    }, 3000);
+                  } catch (error: any) {
+                    console.error('[BLINK] [SETTINGS] Webview state check failed:', error);
+                    setShortcutMessage('State check failed: ' + error.toString());
+                    setShortcutStatus('error');
+                  }
+                }}
+                className="px-3 py-1.5 text-xs bg-purple-500/20 border border-purple-500/40 hover:bg-purple-500/30 rounded transition-all font-mono text-purple-400"
+              >
+                debug webview
+              </button>
             </div>
             
             {shortcutMessage && (

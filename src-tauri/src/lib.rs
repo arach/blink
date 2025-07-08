@@ -1050,6 +1050,8 @@ pub fn run() {
             test_emit_new_note,
             set_window_focus,
             force_main_window_visible,
+            debug_webview_state,
+            reload_main_window,
             create_detached_window,
             close_detached_window,
             get_detached_windows,

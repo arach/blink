@@ -163,12 +163,12 @@ pub async fn get_config(config: State<'_, ConfigState>) -> Result<AppConfig, Str
 pub async fn update_config(
     new_config: AppConfig,
     config: State<'_, ConfigState>,
-) -> Result<(), String> {
+) -> Result<AppConfig, String> {
     let mut config_lock = config.lock().await;
     *config_lock = new_config.clone();
     save_config_to_disk(&new_config).await?;
     log_info!("CONFIG", "Configuration updated");
-    Ok(())
+    Ok(new_config) // Return the updated config instead of ()
 }
 
 #[tauri::command]

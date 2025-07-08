@@ -244,21 +244,64 @@ cmd_status() {
 
 cmd_logs() {
     local requested_process="$1"
+    local follow_flag="$2"
     local process_name
     
+    # Handle --follow flag
+    if [ "$requested_process" = "--follow" ]; then
+        follow_flag="--follow"
+        requested_process=""
+    elif [ "$follow_flag" = "--follow" ] || [ "$requested_process" = "-f" ]; then
+        follow_flag="--follow"
+    fi
+    
+    # Show both logs side by side if no specific process requested
     if [ -z "$requested_process" ]; then
-        # Default to tauri logs
-        process_name="${DEV_PROCESS_PREFIX}.tauri.${DEVELOPER}"
-    elif [ "$requested_process" = "vite" ]; then
+        echo_color $BLUE "📜 Showing both Vite and Tauri logs (Ctrl+C to exit):"
+        echo ""
+        
+        local vite_log="${PIDS_DIR}/${DEV_PROCESS_PREFIX}.vite.${DEVELOPER}.log"
+        local tauri_log="${PIDS_DIR}/${DEV_PROCESS_PREFIX}.tauri.${DEVELOPER}.log"
+        
+        if [ "$follow_flag" = "--follow" ]; then
+            # Use multitail if available, otherwise fall back to tail -f
+            if command -v multitail >/dev/null 2>&1; then
+                multitail -s 2 -sn 1,3 \
+                    -t "🔧 Vite (${DEV_PROCESS_PREFIX}.vite.${DEVELOPER})" "$vite_log" \
+                    -t "🦀 Tauri (${DEV_PROCESS_PREFIX}.tauri.${DEVELOPER})" "$tauri_log"
+            else
+                echo_color $YELLOW "💡 Install multitail for better dual log viewing: brew install multitail"
+                echo_color $BLUE "📜 Following Tauri logs (most important for debugging):"
+                tail -f "$tauri_log" 2>/dev/null || echo "No Tauri logs yet"
+            fi
+        else
+            echo_color $CYAN "🔧 === VITE LOGS ==="
+            tail -n 20 "$vite_log" 2>/dev/null || echo "No Vite logs yet"
+            echo ""
+            echo_color $CYAN "🦀 === TAURI LOGS ==="
+            tail -n 20 "$tauri_log" 2>/dev/null || echo "No Tauri logs yet"
+        fi
+        return
+    fi
+    
+    # Single process logs
+    if [ "$requested_process" = "vite" ]; then
         process_name="${DEV_PROCESS_PREFIX}.vite.${DEVELOPER}"
     elif [ "$requested_process" = "tauri" ]; then
         process_name="${DEV_PROCESS_PREFIX}.tauri.${DEVELOPER}"
     else
-        # Use the exact process name provided
         process_name="$requested_process"
     fi
     
-    show_logs "$process_name"
+    echo_color $BLUE "📜 Showing logs for $process_name:"
+    echo ""
+    
+    if [ "$follow_flag" = "--follow" ]; then
+        echo_color $BLUE "Following logs (Ctrl+C to exit)..."
+        tail -f "${PIDS_DIR}/${process_name}.log" 2>/dev/null || echo "No logs yet"
+    else
+        show_logs "$process_name"
+    fi
 }
 
 cmd_restart() {
@@ -266,6 +309,46 @@ cmd_restart() {
     cmd_stop
     sleep 2
     cmd_start
+}
+
+cmd_restart_logs() {
+    echo_color $PURPLE "🔄 Restarting Blink development environment..."
+    cmd_stop
+    sleep 2
+    cmd_start
+    echo_color $BLUE "📜 Following both logs (Ctrl+C to exit)..."
+    sleep 1
+    cmd_logs "" "--follow"
+}
+
+cmd_restart_frontend() {
+    echo_color $CYAN "🔄 Restarting frontend only (faster)..."
+    
+    # Stop only Vite, keep Tauri running
+    stop_named_process "${DEV_PROCESS_PREFIX}.vite.${DEVELOPER}"
+    sleep 1
+    
+    # Regenerate Tauri config in case port changed
+    if [ -f "$SCRIPT_DIR/generate-tauri-config.cjs" ]; then
+        node "$SCRIPT_DIR/generate-tauri-config.cjs" || echo "Warning: Could not update Tauri config"
+    fi
+    
+    # Start Vite only
+    start_named_process "${DEV_PROCESS_PREFIX}.vite.${DEVELOPER}" "pnpm run dev" "$PROJECT_DIR"
+    
+    # Wait for Vite to be ready
+    echo_color $YELLOW "⏳ Waiting for Vite to be ready on port $DEV_PORT..."
+    local count=0
+    while ! curl -s "http://localhost:$DEV_PORT" >/dev/null 2>&1; do
+        sleep 0.5
+        count=$((count + 1))
+        if [ $count -ge 20 ]; then
+            echo_color $RED "❌ Vite failed to start properly"
+            return 1
+        fi
+    done
+    
+    echo_color $GREEN "✅ Frontend restarted (Tauri kept running)"
 }
 
 # Main command dispatcher
@@ -279,11 +362,17 @@ case "${1:-start}" in
     "restart")
         cmd_restart
         ;;
+    "restart-logs")
+        cmd_restart_logs
+        ;;
+    "restart-frontend")
+        cmd_restart_frontend
+        ;;
     "status")
         cmd_status
         ;;
     "logs")
-        cmd_logs "$2"
+        cmd_logs "$2" "$3"
         ;;
     "help"|"-h"|"--help")
         echo_color $PURPLE "Blink Named Process Manager"

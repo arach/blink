@@ -34,10 +34,15 @@ export function AppFooter({ theme, themeId, config, onDirectoryLoad }: AppFooter
     // Load current notes directory on mount
     const loadCurrentDirectory = async () => {
       try {
-        const directory = await notesApi.getCurrentNotesDirectory();
-        // Show a simplified path for display
-        const simplifiedPath = directory.replace(/\/Users\/[^/]+/, '~').replace(/.*\/([^/]+\/[^/]+)$/, '.../$1');
-        setCurrentDirectory(simplifiedPath);
+        // Only run in Tauri context
+        if (typeof window !== 'undefined' && window.__TAURI__) {
+          const directory = await notesApi.getCurrentNotesDirectory();
+          // Show a simplified path for display
+          const simplifiedPath = directory.replace(/\/Users\/[^/]+/, '~').replace(/.*\/([^/]+\/[^/]+)$/, '.../$1');
+          setCurrentDirectory(simplifiedPath);
+        } else {
+          setCurrentDirectory('~/notes (demo)');
+        }
       } catch (error) {
         console.error('Failed to load current directory:', error);
       }
@@ -46,6 +51,11 @@ export function AppFooter({ theme, themeId, config, onDirectoryLoad }: AppFooter
   }, []);
 
   const handleDirectoryClick = async () => {
+    // Only run in Tauri context
+    if (typeof window === 'undefined' || !window.__TAURI__) {
+      return;
+    }
+    
     setIsLoading(true);
     try {
       // Get the current notes directory path and open it in Finder

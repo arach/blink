@@ -25,26 +25,32 @@ export function CustomTitleBar({
   isShaded = false,
   stats
 }: CustomTitleBarProps) {
-  const appWindow = getCurrentWebviewWindow();
+  // Check if we're running in Tauri context
+  const isTauri = typeof window !== 'undefined' && window.__TAURI__;
+  const appWindow = isTauri ? getCurrentWebviewWindow() : null;
 
   const handleClose = async () => {
     if (onClose) {
       await onClose();
-    } else {
+    } else if (appWindow) {
       await appWindow.close();
     }
   };
 
   const handleMinimize = async () => {
-    await appWindow.minimize();
+    if (appWindow) {
+      await appWindow.minimize();
+    }
   };
 
   const handleMaximize = async () => {
-    const isMaximized = await appWindow.isMaximized();
-    if (isMaximized) {
-      await appWindow.unmaximize();
-    } else {
-      await appWindow.maximize();
+    if (appWindow) {
+      const isMaximized = await appWindow.isMaximized();
+      if (isMaximized) {
+        await appWindow.unmaximize();
+      } else {
+        await appWindow.maximize();
+      }
     }
   };
 

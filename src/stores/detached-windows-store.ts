@@ -26,8 +26,15 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
   loadWindows: async () => {
     set({ loading: true, error: null });
     try {
-      const windows = await DetachedWindowsAPI.getDetachedWindows();
-      set({ windows, loading: false });
+      // Only load from Tauri in desktop context
+      if (typeof window !== 'undefined' && window.__TAURI__) {
+        const windows = await DetachedWindowsAPI.getDetachedWindows();
+        set({ windows, loading: false });
+      } else {
+        // Browser mode - no detached windows
+        console.log('[BLINK] [WINDOWS] 🌐 No detached windows in browser mode');
+        set({ windows: [], loading: false });
+      }
     } catch (error) {
       console.error('Failed to load detached windows:', error);
       set({ error: error as string, loading: false });

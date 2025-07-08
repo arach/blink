@@ -37,7 +37,15 @@
       "Bash(cat:*)",
       "Bash(curl:*)",
       "Bash(node:*)",
-      "Bash(BLINK_DEVELOPER=claude node scripts/get-dev-port.cjs)"
+      "Bash(BLINK_DEVELOPER=claude node scripts/get-dev-port.cjs)",
+      "Bash(./scripts/debug-window-position.sh:*)",
+      "Bash(killall:*)",
+      "Bash(timeout 10s pnpm run dev:logs tauri)",
+      "Bash(kill:*)",
+      "Bash(timeout 5s pnpm run dev:logs tauri)",
+      "Bash(osascript:*)",
+      "Bash(timeout:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

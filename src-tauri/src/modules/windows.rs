@@ -122,6 +122,63 @@ pub async fn force_main_window_visible(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn debug_webview_state(app: AppHandle) -> Result<String, String> {
+    let window = app.get_webview_window("main").ok_or("Main window not found")?;
+    
+    let mut debug_info = String::new();
+    
+    // Check basic window properties
+    match window.is_visible() {
+        Ok(visible) => debug_info.push_str(&format!("Visible: {}\n", visible)),
+        Err(e) => debug_info.push_str(&format!("Visible check failed: {}\n", e)),
+    }
+    
+    match window.is_minimized() {
+        Ok(minimized) => debug_info.push_str(&format!("Minimized: {}\n", minimized)),
+        Err(e) => debug_info.push_str(&format!("Minimized check failed: {}\n", e)),
+    }
+    
+    match window.outer_position() {
+        Ok(pos) => debug_info.push_str(&format!("Position: ({}, {})\n", pos.x, pos.y)),
+        Err(e) => debug_info.push_str(&format!("Position check failed: {}\n", e)),
+    }
+    
+    match window.inner_size() {
+        Ok(size) => debug_info.push_str(&format!("Size: {}x{}\n", size.width, size.height)),
+        Err(e) => debug_info.push_str(&format!("Size check failed: {}\n", e)),
+    }
+    
+    // Try to evaluate JavaScript to check if webview is responsive
+    match window.eval("window.location.href") {
+        Ok(_) => debug_info.push_str("JavaScript evaluation: OK\n"),
+        Err(e) => debug_info.push_str(&format!("JavaScript evaluation failed: {}\n", e)),
+    }
+    
+    log_info!("DEBUG", "Webview state: {}", debug_info);
+    Ok(debug_info)
+}
+
+#[tauri::command]
+pub async fn reload_main_window(app: AppHandle) -> Result<(), String> {
+    let window = app.get_webview_window("main").ok_or("Main window not found")?;
+    
+    log_info!("DEBUG", "Reloading main window webview...");
+    
+    // Force window to reload its content
+    window.eval("window.location.reload()").map_err(|e| {
+        log_error!("DEBUG", "Failed to reload window: {}", e);
+        e.to_string()
+    })?;
+    
+    // Also try showing and focusing after reload
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    
+    log_info!("DEBUG", "Window reload completed");
+    Ok(())
+}
+
 // ============================================================================
 // MULTI-WINDOW MANAGEMENT
 // ============================================================================

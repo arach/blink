@@ -111,14 +111,14 @@ export function useCommandPalette({
       {
         id: 'toggle-focus',
         title: 'Toggle Focus Mode',
-        description: config.appearance?.focusMode ? 'Exit focus mode' : 'Enter distraction-free writing',
+        description: config?.appearance?.focusMode ? 'Exit focus mode' : 'Enter distraction-free writing',
         action: () => {
           setShowCommandPalette(false);
           const newConfig = {
             ...config,
             appearance: {
-              ...config.appearance,
-              focusMode: !config.appearance?.focusMode
+              ...config?.appearance,
+              focusMode: !config?.appearance?.focusMode
             }
           };
           updateConfig(newConfig);

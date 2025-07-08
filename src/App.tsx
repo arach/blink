@@ -25,7 +25,16 @@ import { themes, applyTheme, getThemeById } from './types/theme';
 
 
 function App() {
-  const { config, updateConfig, loadConfig } = useConfigStore();
+  const { config, updateConfig, loadConfig, isLoading } = useConfigStore();
+  
+  // Log config state every render
+  console.log('[BLINK] [APP] 🔄 App render - config state:', {
+    config: config ? 'present' : 'null',
+    isLoading,
+    hasAppearance: config?.appearance ? 'yes' : 'no',
+    configKeys: config ? Object.keys(config) : 'none'
+  });
+  
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false); // Start in edit mode
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
@@ -132,8 +141,8 @@ function App() {
       const newConfig = {
         ...config,
         appearance: {
-          ...config.appearance,
-          focusMode: !config.appearance?.focusMode
+          ...config?.appearance,
+          focusMode: !config?.appearance?.focusMode
         }
       };
       updateConfig(newConfig);
@@ -167,45 +176,51 @@ function App() {
 
   // Apply theme on startup and when config changes
   useEffect(() => {
-    const themeId = config.appearance?.themeId || 'midnight-ink';
+    console.log('[BLINK] [APP] 🎨 Theme effect triggered. Config state:', {
+      config: config ? 'present' : 'null',
+      hasAppearance: config?.appearance ? 'yes' : 'no',
+      themeId: config?.appearance?.themeId || 'none'
+    });
+    
+    const themeId = config?.appearance?.themeId || 'midnight-ink';
     const theme = getThemeById(themeId);
-    // console.log('[APP] Theme effect triggered. Config:', config);
-    // console.log('[APP] ThemeId:', themeId, 'Theme found:', !!theme);
+    console.log('[BLINK] [APP] 🎨 ThemeId:', themeId, 'Theme found:', !!theme);
     
     // Force apply the theme regardless
     if (theme) {
-      // console.log('[APP] Applying theme:', theme.name);
+      console.log('[BLINK] [APP] 🎨 Applying theme:', theme.name);
       applyTheme(theme);
     } else {
-      console.error('[APP] Theme not found:', themeId, 'Available themes:', Object.values(themes).map(t => t.id));
+      console.error('[BLINK] [APP] ❌ Theme not found:', themeId, 'Available themes:', Object.values(themes).map(t => t.id));
     }
   }, [config]); // Trigger when config changes
 
-  // Also apply default theme on mount to ensure it loads
-  useEffect(() => {
-    // console.log('[DEBUG] Themes object:', themes);
-    // console.log('[DEBUG] Available theme IDs:', Object.values(themes).map(t => t.id));
-    const defaultTheme = getThemeById('midnight-ink');
-    if (defaultTheme) {
-      // console.log('[APP] Applying default theme on mount:', defaultTheme.name);
-      applyTheme(defaultTheme);
-    } else {
-      console.error('[DEBUG] midnight-ink theme not found in themes object');
-    }
-  }, []); // Only run once on mount
+  // Note: Default theme application moved to config effect to avoid race conditions
 
   // Load windows and check permissions on startup
   useEffect(() => {
     const initializeApp = async () => {
-      // console.log('[BLINK] [FRONTEND] Initializing app...');
+      console.log('[BLINK] [APP] 🚀 Initializing app...');
+      console.log('[BLINK] [APP] 📋 Config state before loadConfig:', {
+        config: config ? 'present' : 'null',
+        isLoading,
+        hasAppearance: config?.appearance ? 'yes' : 'no'
+      });
       
       // Load config first
+      console.log('[BLINK] [APP] 🔄 Calling loadConfig...');
       await loadConfig();
+      
+      console.log('[BLINK] [APP] 📋 Config state after loadConfig:', {
+        config: config ? 'present' : 'null',
+        isLoading,
+        hasAppearance: config?.appearance ? 'yes' : 'no'
+      });
       
       // Load detached windows
       loadWindows();
       
-      // console.log('[BLINK] [FRONTEND] App initialization complete');
+      console.log('[BLINK] [APP] ✅ App initialization complete');
       
       // Permissions resolved - no longer needed
     };
@@ -218,6 +233,12 @@ function App() {
     console.log('[BLINK] [FRONTEND] Setting up event listeners');
     
     const setupListeners = async () => {
+      // Only setup listeners in Tauri context
+      if (typeof window === 'undefined' || !window.__TAURI__) {
+        console.log('[BLINK] [FRONTEND] 🌐 Running in browser mode - skipping Tauri listeners');
+        return () => {}; // Return a no-op function instead of array
+      }
+      
       const unlisteners: (() => void)[] = [];
       
       try {
@@ -317,16 +338,25 @@ function App() {
   // Calculate word count for current content
   const wordCount = currentContent.split(/\s+/).filter(word => word.length > 0).length;
   
-  const themeId = config.appearance?.themeId || 'midnight-ink';
+  // Show loading screen while config is loading
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-background">
+        <div className="text-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  const themeId = config?.appearance?.themeId || 'midnight-ink';
   const theme = getThemeById(themeId);
   
   return (
     <WindowWrapper
       className={`main-window transition-all duration-300 ${
         isDragging ? 'bg-blue-500/5' : ''
-      } ${config.appearance?.focusMode ? 'focus-mode' : ''}`}
+      } ${config?.appearance?.focusMode ? 'focus-mode' : ''}`}
       style={
-        config.appearance?.appFontFamily
+        config?.appearance?.appFontFamily
           ? ({ ['--font-ui']: config.appearance.appFontFamily } as any)
           : undefined
       }
@@ -358,7 +388,7 @@ function App() {
                 notes={notes}
                 selectedNoteId={selectedNoteId}
                 loading={loading}
-                showNotePreviews={config.appearance?.showNotePreviews}
+                showNotePreviews={config?.appearance?.showNotePreviews}
                 onCreateNewNote={createNewNote}
                 onSelectNote={selectNote}
                 onDeleteNote={deleteNote}
@@ -375,12 +405,12 @@ function App() {
                 wordCount={wordCount}
                 textareaRef={textareaRef}
                 editorConfig={{
-                  fontSize: config.appearance?.fontSize,
-                  editorFontFamily: config.appearance?.editorFontFamily,
-                  contentFontSize: config.appearance?.contentFontSize,
-                  previewFontFamily: config.appearance?.previewFontFamily,
-                  lineHeight: config.appearance?.lineHeight,
-                  syntaxHighlighting: config.appearance?.syntaxHighlighting
+                  fontSize: config?.appearance?.fontSize,
+                  editorFontFamily: config?.appearance?.editorFontFamily,
+                  contentFontSize: config?.appearance?.contentFontSize,
+                  previewFontFamily: config?.appearance?.previewFontFamily,
+                  lineHeight: config?.appearance?.lineHeight,
+                  syntaxHighlighting: config?.appearance?.syntaxHighlighting
                 }}
                 onContentChange={(content) => {
                   setCurrentContent(content);

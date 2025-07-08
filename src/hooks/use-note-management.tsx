@@ -73,8 +73,10 @@ export function useNoteManagement(): UseNoteManagementReturn {
     console.log('[BLINK] Loading notes...');
     setLoading(true);
     try {
+      // Try to load notes from Tauri - if this fails, we'll fall back to demo data
+      console.log('[BLINK] Attempting to load notes from Tauri backend...');
       const loadedNotes = await invoke<Note[]>('get_notes');
-      console.log('[BLINK] Loaded notes:', loadedNotes.length);
+      console.log('[BLINK] Successfully loaded notes from file system:', loadedNotes.length);
       setNotes(loadedNotes);
       
       // If we have notes but no selected note, select the first one
@@ -84,7 +86,17 @@ export function useNoteManagement(): UseNoteManagementReturn {
         setCurrentContent(firstNote.content);
       }
     } catch (error) {
-      console.error('[BLINK] Failed to load notes:', error);
+      console.warn('[BLINK] Failed to load notes from Tauri, falling back to demo data:', error);
+      // Demo data for browser context or when Tauri fails
+      const demoNotes = [
+        { id: 'demo-1', title: 'Welcome to Blink', content: '# Welcome to Blink\n\nThis is a demo note running in browser mode.' },
+        { id: 'demo-2', title: 'Demo Note 2', content: '# Demo Note\n\nYou can see the interface, but Tauri features require the desktop app.' }
+      ];
+      setNotes(demoNotes);
+      if (!selectedNoteId) {
+        setSelectedNoteId('demo-1');
+        setCurrentContent(demoNotes[0].content);
+      }
     } finally {
       setLoading(false);
     }
