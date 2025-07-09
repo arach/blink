@@ -69,4 +69,12 @@ export class DetachedWindowsAPI {
   static async focusDetachedWindow(noteId: string): Promise<boolean> {
     return await invoke<boolean>('focus_detached_window', { noteId });
   }
+
+  static async restoreDetachedWindows(): Promise<string[]> {
+    return await invoke<string[]>('restore_detached_windows');
+  }
+
+  static async clearAllDetachedWindows(): Promise<number> {
+    return await invoke<number>('clear_all_detached_windows');
+  }
 }

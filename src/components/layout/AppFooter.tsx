@@ -74,7 +74,7 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
       <div className="flex items-center gap-3">
         {/* Theme swatch and name */}
         <span className="flex items-center gap-1">
-          <Palette className="w-4 h-4 text-primary/80 flex-shrink-0" />
+          <Palette className="w-4 h-4 text-primary/80 flex-shrink-0" strokeWidth={1.5} />
           <span 
             className="w-3 h-3 rounded-full border border-border/40 mr-1 flex-shrink-0" 
             style={{ backgroundColor: theme ? theme.colors?.accent || '#3b82f6' : '#3b82f6' }} 
@@ -85,7 +85,7 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
         {/* Opacity */}
         {typeof config.appearance?.windowOpacity === 'number' && (
           <span className="flex items-center gap-1">
-            <Eye className="w-4 h-4 flex-shrink-0" />
+            <Eye className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
             {Math.round(config.appearance.windowOpacity * 100)}%
           </span>
         )}
@@ -93,21 +93,21 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
         {/* Focus mode */}
         {config.appearance?.focusMode && (
           <span className="flex items-center gap-1 text-primary">
-            <Focus className="w-4 h-4 flex-shrink-0" /> Focus
+            <Focus className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} /> Focus
           </span>
         )}
         
         {/* Typewriter mode */}
         {config.appearance?.typewriterMode && (
           <span className="flex items-center gap-1 text-primary">
-            <Keyboard className="w-4 h-4 flex-shrink-0" /> Typewriter
+            <Keyboard className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} /> Typewriter
           </span>
         )}
         
         {/* Always on top */}
         {config.alwaysOnTop && (
           <span className="flex items-center gap-1 text-primary">
-            <Pin className="w-4 h-4 flex-shrink-0" /> Pinned
+            <Pin className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} /> Pinned
           </span>
         )}
       </div>
@@ -125,9 +125,9 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
             <div className="w-full h-full border-2 border-muted-foreground/30 border-t-primary rounded-full"></div>
           </div>
         ) : isHovered ? (
-          <FolderOpen className="w-4 h-4 flex-shrink-0" />
+          <FolderOpen className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
         ) : (
-          <Folder className="w-4 h-4 flex-shrink-0" />
+          <Folder className="w-4 h-4 flex-shrink-0" strokeWidth={1.5} />
         )}
         <span className="truncate max-w-[200px]">{currentDirectory}</span>
       </button>

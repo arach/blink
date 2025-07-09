@@ -34,6 +34,7 @@ export interface AppConfig {
     lineHeight: number;
     accentColor: string;
     backgroundPattern?: 'none' | 'paper' | 'canvas' | 'grid' | 'dots';
+    notePaperStyle?: 'none' | 'dotted-grid' | 'lines' | 'ruled';
     syntaxHighlighting?: boolean;
     focusMode?: boolean;
     typewriterMode?: boolean;
@@ -74,6 +75,7 @@ export const defaultConfig: AppConfig = {
     lineHeight: 1.6,
     accentColor: '#3b82f6',
     backgroundPattern: 'none',
+    notePaperStyle: 'none',
     syntaxHighlighting: true,
     focusMode: false,
     typewriterMode: false,

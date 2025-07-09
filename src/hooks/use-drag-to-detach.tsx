@@ -79,6 +79,15 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     setIsOutsideSidebar(false);
     setRealWindowCreated(false);
     dragRef.current.hasMovedEnough = false;
+    
+    // Clean up any existing hybrid drag window for this note first
+    if (dragRef.current.realWindowLabel) {
+      console.log('[DRAG] Cleaning up existing hybrid window before creating new one');
+      invoke('close_hybrid_drag_window', {
+        windowLabel: dragRef.current.realWindowLabel,
+      }).catch(() => {}); // Ignore errors
+    }
+    
     dragRef.current.realWindowLabel = null;
     dragRef.current.lastMousePosition = { x: e.screenX, y: e.screenY };
     dragRef.current.wasOutsideSidebar = false;
@@ -211,15 +220,18 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
           
           setIsOutsideSidebar(outside);
           
-          console.log('[DRAG] Boundary check:', {
-            mouseX: e.clientX,
-            mouseY: e.clientY,
-            sidebarLeft: rect.left,
-            sidebarRight: rect.right,
-            sidebarTop: rect.top,
-            sidebarBottom: rect.bottom,
-            outside
-          });
+          // Reduce excessive logging - only log boundary changes, not every mouse move
+          if (outside !== dragRef.current.wasOutsideSidebar) {
+            console.log('[DRAG] Boundary change:', {
+              mouseX: e.clientX,
+              mouseY: e.clientY,
+              sidebarLeft: rect.left,
+              sidebarRight: rect.right,
+              sidebarTop: rect.top,
+              sidebarBottom: rect.bottom,
+              outside
+            });
+          }
           
           // Log only when transitioning from inside to outside
           if (outside && !dragRef.current.wasOutsideSidebar) {
@@ -300,7 +312,13 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       });
       setIsOutsideSidebar(false);
       setRealWindowCreated(false);
-      dragRef.current.realWindowLabel = null;
+      
+      // Always clean up the hybrid window reference
+      if (dragRef.current.realWindowLabel) {
+        console.log('[DRAG] Cleaning up hybrid window reference after drag end');
+        dragRef.current.realWindowLabel = null;
+      }
+      
       dragRef.current.wasOutsideSidebar = false;
     };
 
@@ -310,6 +328,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       if (e.key === 'Escape' && dragState.noteId) {
         // Cancel drag and close any pre-created window
         if (dragRef.current.realWindowLabel) {
+          console.log('[DRAG] Escape pressed - cleaning up hybrid window');
           invoke('close_hybrid_drag_window', {
             windowLabel: dragRef.current.realWindowLabel,
           }).catch(() => {});

@@ -24,6 +24,8 @@ pub use modules::{
     windows::*,
 };
 
+use modules::logging::init_file_logging;
+
 // Re-export from types
 pub use types::{
     note::*,
@@ -944,6 +946,16 @@ async fn save_window_size(note_id: String, width: f64, height: f64) -> Result<()
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize file logging
+    match init_file_logging() {
+        Ok(log_path) => {
+            log_info!("STARTUP", "File logging initialized at: {}", log_path.display());
+        },
+        Err(e) => {
+            eprintln!("Failed to initialize file logging: {}", e);
+        }
+    }
+    
     let notes_state = match tauri::async_runtime::block_on(load_notes_from_disk()) {
         Ok(notes) => NotesState::new(notes),
         Err(e) => {
@@ -1137,7 +1149,16 @@ pub fn run() {
             reregister_global_shortcuts,
             test_window_creation,
             toggle_window_shade,
-            toggle_main_window_shade
+            toggle_main_window_shade,
+            restore_detached_windows,
+            clear_all_detached_windows,
+            debug_all_windows_state,
+            force_all_windows_opaque,
+            gather_all_windows_to_main_screen,
+            recreate_missing_windows,
+            test_detached_window_creation,
+            get_log_file_path,
+            get_recent_logs
         ])
         .on_menu_event(|app, event| {
             let menu_id = event.id();

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { listen } from '@tauri-apps/api/event';
 import { useDetachedWindowsStore } from '../../stores/detached-windows-store';
 import { useConfigStore } from '../../stores/config-store';
 import { useSaveStatus } from '../../hooks/use-save-status';
@@ -188,6 +189,32 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     };
   }, [noteId, closeWindow, appWindow]);
 
+  // Listen for config updates to sync across windows
+  useEffect(() => {
+    const setupConfigListener = async () => {
+      console.log('[DETACHED-WINDOW] Setting up config update listener...');
+      
+      const unlisten = await listen('config-updated', (event) => {
+        console.log('[DETACHED-WINDOW] Config updated event received:', event.payload);
+        // Force reload the config in this window
+        loadConfig();
+      });
+      
+      return unlisten;
+    };
+    
+    let cleanup: (() => void) | undefined;
+    setupConfigListener().then(fn => {
+      cleanup = fn;
+    });
+    
+    return () => {
+      if (cleanup) {
+        cleanup();
+      }
+    };
+  }, [loadConfig]);
+
   if (loading) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-background text-foreground">
@@ -249,6 +276,20 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   // Calculate word count
   const wordCount = getWordCount(content);
 
+  // Get paper style class
+  const getPaperStyleClass = (style?: string) => {
+    switch (style) {
+      case 'dotted-grid':
+        return 'note-paper-dotted-grid';
+      case 'lines':
+        return 'note-paper-lines';
+      case 'ruled':
+        return 'note-paper-ruled';
+      default:
+        return '';
+    }
+  };
+
   return (
     <WindowWrapper className="detached-note-window">
       <CustomTitleBar 
@@ -270,7 +311,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           config.appearance?.backgroundPattern && config.appearance?.backgroundPattern !== 'none' 
             ? `bg-pattern-${config.appearance?.backgroundPattern}` 
             : ''
-        }`}>
+        } ${getPaperStyleClass(config.appearance?.notePaperStyle)}`}>
           {/* Editor */}
           <textarea 
             className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
@@ -293,7 +334,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
             <MarkdownRenderer
               content={content}
               syntaxHighlighting={config.appearance?.syntaxHighlighting}
-              className="w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text"
+              className={`w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text ${getPaperStyleClass(config.appearance?.notePaperStyle)}`}
               onDoubleClick={() => setIsPreviewMode(false)}
               title="Double-click to edit"
               style={{ 

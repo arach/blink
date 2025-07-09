@@ -19,6 +19,7 @@ interface EditorAreaProps {
     previewFontFamily?: string;
     lineHeight?: number;
     syntaxHighlighting?: boolean;
+    notePaperStyle?: 'none' | 'dotted-grid' | 'lines' | 'ruled';
   };
   onContentChange: (content: string) => void;
   onPreviewToggle: () => void;
@@ -35,12 +36,24 @@ export function EditorArea({
   onContentChange,
   onPreviewToggle
 }: EditorAreaProps) {
+  const getPaperStyleClass = (style?: string) => {
+    switch (style) {
+      case 'dotted-grid':
+        return 'note-paper-dotted-grid';
+      case 'lines':
+        return 'note-paper-lines';
+      case 'ruled':
+        return 'note-paper-ruled';
+      default:
+        return '';
+    }
+  };
   return (
     <div className="flex-1 flex flex-col bg-background">
       {selectedNote ? (
         <>
           {/* Editor area */}
-          <div className="flex-1 relative">
+          <div className={`flex-1 relative ${getPaperStyleClass(editorConfig.notePaperStyle)}`}>
             <textarea
               ref={textareaRef}
               value={currentContent}
@@ -59,7 +72,7 @@ export function EditorArea({
               <MarkdownRenderer
                 content={currentContent}
                 syntaxHighlighting={editorConfig.syntaxHighlighting}
-                className="absolute inset-0 w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text bg-background z-10"
+                className={`absolute inset-0 w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text bg-background z-10 ${getPaperStyleClass(editorConfig.notePaperStyle)}`}
                 onDoubleClick={onPreviewToggle}
                 title="Double-click to edit"
                 style={{ 

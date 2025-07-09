@@ -1379,6 +1379,56 @@ function calculateMetrics(data) {
             </span>
           </label>
         </div>
+        
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <path d="M9 9h.01"/>
+              <path d="M15 9h.01"/>
+              <path d="M9 15h.01"/>
+              <path d="M15 15h.01"/>
+            </svg>
+            Paper Style
+          </h3>
+          <div className="space-y-3">
+            <div className="text-xs text-muted-foreground/70 mb-4">
+              Choose a background style to enhance your writing experience
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: 'none', label: 'Plain', description: 'Clean background' },
+                { key: 'dotted-grid', label: 'Dots', description: 'Subtle dot grid' },
+                { key: 'lines', label: 'Lines', description: 'Notebook lines' },
+                { key: 'ruled', label: 'Ruled', description: 'College ruled' }
+              ].map((style) => (
+                <button
+                  key={style.key}
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      notePaperStyle: style.key as any
+                    }
+                  })}
+                  className={`p-3 rounded-xl border-2 transition-all text-left ${
+                    (localConfig.appearance?.notePaperStyle || 'none') === style.key
+                      ? 'border-primary/50 bg-primary/5'
+                      : 'border-border/20 bg-background/20 hover:border-border/40'
+                  }`}
+                >
+                  <div className="text-xs font-medium text-foreground/90 mb-1">
+                    {style.label}
+                  </div>
+                  <div className="text-xs text-muted-foreground/60">
+                    {style.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

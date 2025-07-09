@@ -119,7 +119,7 @@ impl WindowService {
             size: window_state.size,
             always_on_top: window_state.always_on_top,
             opacity: window_state.opacity,
-            is_shaded: Some(false),
+            is_shaded: false,
             original_height: Some(window_state.size.1),
         };
         

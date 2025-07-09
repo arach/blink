@@ -8,6 +8,7 @@ import {
   SettingsPanel, 
   SettingsNavigation 
 } from './components/settings';
+import { DevToolbar } from './components/dev/DevToolbar';
 import { 
   CustomTitleBar, 
   WindowWrapper, 
@@ -263,6 +264,18 @@ function App() {
       await loadConfig();
       await loadWindows();
       console.log('[BLINK] [FRONTEND] ✅ App initialization complete');
+      
+      // DEBUG: Add a global function to test restore
+      (window as any).testRestoreWindows = async () => {
+        try {
+          console.log('Calling restore_detached_windows...');
+          const { invoke } = await import('@tauri-apps/api/core');
+          const restored = await invoke<string[]>('restore_detached_windows');
+          console.log('Restored windows:', restored);
+        } catch (error) {
+          console.error('Failed to restore windows:', error);
+        }
+      };
     };
     
     initializeApp();
@@ -360,50 +373,26 @@ function App() {
                   position: w.position 
                 })) : refreshedWindowsStore.windows);
                 
-                // Check if window already exists - if so, just focus it
+                // Simple algorithm: Try to focus detached window, if that fails create new one
                 const windowExists = isWindowOpen(targetNote.id);
-                console.log('[DEPLOY] Window exists check:', windowExists);
+                console.log('[DEPLOY] Window exists in state:', windowExists);
                 
                 if (windowExists) {
-                  console.log('[DEPLOY] ✅ Window already detached, bringing to front');
+                  console.log('[DEPLOY] Attempting to focus existing detached window...');
                   const focused = await focusWindow(targetNote.id);
                   console.log('[DEPLOY] Focus result:', focused);
-                  if (!focused) {
-                    console.log('[DEPLOY] ⚠️ Focus failed, but window exists - this is OK');
+                  
+                  if (focused) {
+                    console.log('[DEPLOY] ✅ Successfully focused existing window');
+                  } else {
+                    console.log('[DEPLOY] ❌ Focus failed - window may not actually exist, creating new one');
+                    const result = await createWindow(targetNote.id, gridPos.x, gridPos.y, gridPos.width, gridPos.height);
+                    console.log('[DEPLOY] Created new window:', result ? '✅ Success' : '❌ Failed');
                   }
                 } else {
-                  console.log('[DEPLOY] ❌ Window not detached, creating new detached window in grid slot', slotNumber);
+                  console.log('[DEPLOY] No detached window found, creating new one at grid position', slotNumber);
                   const result = await createWindow(targetNote.id, gridPos.x, gridPos.y, gridPos.width, gridPos.height);
-                  console.log('[DEPLOY] Create window result:', result);
-                  
-                  // If creation failed, it might be because the window already exists
-                  if (!result) {
-                    console.log('[DEPLOY] ⚠️ Window creation failed, likely because it already exists');
-                    // Refresh state again and try to focus
-                    console.log('[DEPLOY] Refreshing state and trying to focus...');
-                    await refreshWindows();
-                    
-                    // Log state after second refresh
-                    const secondRefreshWindowsStore = useDetachedWindowsStore.getState();
-                    console.log('[DEPLOY] Windows after second refresh:', Array.isArray(secondRefreshWindowsStore.windows) ? secondRefreshWindowsStore.windows.map(w => ({ 
-                      note_id: w.note_id, 
-                      window_label: w.window_label,
-                      position: w.position 
-                    })) : secondRefreshWindowsStore.windows);
-                    
-                    // Check again after refresh
-                    const windowExistsAfterRefresh = isWindowOpen(targetNote.id);
-                    console.log('[DEPLOY] Window exists after second refresh:', windowExistsAfterRefresh);
-                    
-                    if (windowExistsAfterRefresh) {
-                      console.log('[DEPLOY] ✅ Window found after refresh, focusing...');
-                      const focused = await focusWindow(targetNote.id);
-                      console.log('[DEPLOY] Focus result after refresh:', focused);
-                    } else {
-                      console.log('[DEPLOY] ❌ Window still not found after refresh');
-                      console.log('[DEPLOY] ❌ This indicates a backend/frontend sync issue');
-                    }
-                  }
+                  console.log('[DEPLOY] Created new window:', result ? '✅ Success' : '❌ Failed');
                 }
               } catch (error) {
                 console.error('[DEPLOY] ❌ Error deploying window:', error);
@@ -581,7 +570,8 @@ function App() {
                   contentFontSize: config?.appearance?.contentFontSize,
                   previewFontFamily: config?.appearance?.previewFontFamily,
                   lineHeight: config?.appearance?.lineHeight,
-                  syntaxHighlighting: config?.appearance?.syntaxHighlighting
+                  syntaxHighlighting: config?.appearance?.syntaxHighlighting,
+                  notePaperStyle: config?.appearance?.notePaperStyle
                 }}
                 onContentChange={(content) => {
                   setCurrentContent(content);
@@ -621,6 +611,9 @@ function App() {
         visible={showChordHint}
         notes={notes.map(note => ({ id: note.id, title: note.title }))}
       />
+      
+      {/* Dev toolbar - only show in development */}
+      {process.env.NODE_ENV === 'development' && !isDetachedWindow && <DevToolbar />}
     </WindowWrapper>
   );
 }

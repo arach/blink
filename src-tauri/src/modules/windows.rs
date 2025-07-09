@@ -160,6 +160,428 @@ pub async fn debug_webview_state(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn debug_all_windows_state(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut debug_info = String::new();
+    
+    // Get all webview windows from Tauri
+    let webview_windows = app.webview_windows();
+    debug_info.push_str(&format!("=== ALL WINDOWS DEBUG INFO ===\n"));
+    debug_info.push_str(&format!("Total Tauri windows: {}\n\n", webview_windows.len()));
+    
+    // Check each webview window
+    for (label, window) in webview_windows.iter() {
+        debug_info.push_str(&format!("--- Window: {} ---\n", label));
+        
+        // Basic properties
+        match window.is_visible() {
+            Ok(visible) => debug_info.push_str(&format!("  Visible: {}\n", visible)),
+            Err(e) => debug_info.push_str(&format!("  Visible check failed: {}\n", e)),
+        }
+        
+        match window.is_minimized() {
+            Ok(minimized) => debug_info.push_str(&format!("  Minimized: {}\n", minimized)),
+            Err(e) => debug_info.push_str(&format!("  Minimized check failed: {}\n", e)),
+        }
+        
+        match window.outer_position() {
+            Ok(pos) => debug_info.push_str(&format!("  Position: ({}, {})\n", pos.x, pos.y)),
+            Err(e) => debug_info.push_str(&format!("  Position check failed: {}\n", e)),
+        }
+        
+        match window.inner_size() {
+            Ok(size) => debug_info.push_str(&format!("  Size: {}x{}\n", size.width, size.height)),
+            Err(e) => debug_info.push_str(&format!("  Size check failed: {}\n", e)),
+        }
+        
+        // Check for platform-specific opacity (macOS)
+        #[cfg(target_os = "macos")]
+        {
+            match window.ns_window() {
+                Ok(ns_window) => {
+                    let ns_window = ns_window as id;
+                    let alpha_value: f64 = unsafe { msg_send![ns_window, alphaValue] };
+                    debug_info.push_str(&format!("  macOS Alpha Value: {}\n", alpha_value));
+                },
+                Err(e) => debug_info.push_str(&format!("  macOS Alpha check failed: {}\n", e)),
+            }
+        }
+        
+        // Try to evaluate JavaScript to check if webview is responsive
+        match window.eval("window.location.href") {
+            Ok(_) => debug_info.push_str("  JavaScript evaluation: OK\n"),
+            Err(e) => debug_info.push_str(&format!("  JavaScript evaluation failed: {}\n", e)),
+        }
+        
+        debug_info.push_str("\n");
+    }
+    
+    // Check detached windows state
+    let detached_windows_lock = detached_windows.lock().await;
+    debug_info.push_str(&format!("=== DETACHED WINDOWS STATE ===\n"));
+    debug_info.push_str(&format!("Total detached windows in state: {}\n\n", detached_windows_lock.len()));
+    
+    for (label, window_data) in detached_windows_lock.iter() {
+        debug_info.push_str(&format!("--- Detached Window: {} ---\n", label));
+        debug_info.push_str(&format!("  Note ID: {}\n", window_data.note_id));
+        debug_info.push_str(&format!("  Position: ({}, {})\n", window_data.position.0, window_data.position.1));
+        debug_info.push_str(&format!("  Size: {}x{}\n", window_data.size.0, window_data.size.1));
+        debug_info.push_str(&format!("  Always on top: {}\n", window_data.always_on_top));
+        debug_info.push_str(&format!("  Stored opacity: {}\n", window_data.opacity));
+        debug_info.push_str(&format!("  Is shaded: {:?}\n", window_data.is_shaded));
+        
+        // Check if this window actually exists in Tauri
+        let exists_in_tauri = webview_windows.contains_key(label);
+        debug_info.push_str(&format!("  Exists in Tauri: {}\n", exists_in_tauri));
+        
+        debug_info.push_str("\n");
+    }
+    
+    log_info!("DEBUG", "All windows state: {}", debug_info);
+    Ok(debug_info)
+}
+
+#[tauri::command]
+pub async fn force_all_windows_opaque(app: AppHandle) -> Result<String, String> {
+    let mut result = String::new();
+    let webview_windows = app.webview_windows();
+    
+    result.push_str(&format!("=== FORCING ALL WINDOWS TO BE OPAQUE ===\n"));
+    result.push_str(&format!("Found {} windows to process\n\n", webview_windows.len()));
+    
+    for (label, window) in webview_windows.iter() {
+        result.push_str(&format!("Processing window: {}\n", label));
+        
+        // Show the window if it's hidden
+        match window.show() {
+            Ok(_) => result.push_str("  ✓ Window shown\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to show window: {}\n", e)),
+        }
+        
+        // Force full opacity on macOS
+        #[cfg(target_os = "macos")]
+        {
+            match window.ns_window() {
+                Ok(ns_window) => {
+                    let ns_window = ns_window as id;
+                    unsafe {
+                        let _: () = msg_send![ns_window, setAlphaValue: 1.0f64];
+                    }
+                    result.push_str("  ✓ macOS opacity set to 1.0\n");
+                },
+                Err(e) => result.push_str(&format!("  ✗ Failed to set macOS opacity: {}\n", e)),
+            }
+        }
+        
+        // Try to focus the window
+        match window.set_focus() {
+            Ok(_) => result.push_str("  ✓ Window focused\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to focus window: {}\n", e)),
+        }
+        
+        // Center the window to make it easier to find
+        match window.center() {
+            Ok(_) => result.push_str("  ✓ Window centered\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to center window: {}\n", e)),
+        }
+        
+        result.push_str("\n");
+    }
+    
+    result.push_str("=== OPACITY FORCING COMPLETE ===\n");
+    log_info!("DEBUG", "Force opaque result: {}", result);
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn gather_all_windows_to_main_screen(app: AppHandle) -> Result<String, String> {
+    let mut result = String::new();
+    let webview_windows = app.webview_windows();
+    
+    result.push_str(&format!("=== GATHERING ALL WINDOWS TO MAIN SCREEN ===\n"));
+    result.push_str(&format!("Found {} windows to process\n\n", webview_windows.len()));
+    
+    for (label, window) in webview_windows.iter() {
+        if label == "main" {
+            continue; // Skip main window
+        }
+        
+        result.push_str(&format!("Processing window: {}\n", label));
+        
+        // Get current position
+        match window.outer_position() {
+            Ok(current_pos) => {
+                result.push_str(&format!("  Current position: ({}, {})\n", current_pos.x, current_pos.y));
+            },
+            Err(e) => {
+                result.push_str(&format!("  Could not get current position: {}\n", e));
+            }
+        }
+        
+        // Show the window first
+        match window.show() {
+            Ok(_) => result.push_str("  ✓ Window shown\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to show window: {}\n", e)),
+        }
+        
+        // Move to center of main screen (safe coordinates)
+        let safe_x = 100; // 100px from left edge
+        let safe_y = 100; // 100px from top edge
+        
+        match window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { 
+            x: safe_x, 
+            y: safe_y 
+        })) {
+            Ok(_) => result.push_str(&format!("  ✓ Moved to safe position: ({}, {})\n", safe_x, safe_y)),
+            Err(e) => result.push_str(&format!("  ✗ Failed to move window: {}\n", e)),
+        }
+        
+        // Set reasonable size
+        match window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+            width: 600,
+            height: 400,
+        })) {
+            Ok(_) => result.push_str("  ✓ Set to reasonable size (600x400)\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to set size: {}\n", e)),
+        }
+        
+        // Force full opacity
+        #[cfg(target_os = "macos")]
+        {
+            match window.ns_window() {
+                Ok(ns_window) => {
+                    let ns_window = ns_window as id;
+                    unsafe {
+                        let _: () = msg_send![ns_window, setAlphaValue: 1.0f64];
+                    }
+                    result.push_str("  ✓ Set to full opacity\n");
+                },
+                Err(e) => result.push_str(&format!("  ✗ Failed to set opacity: {}\n", e)),
+            }
+        }
+        
+        // Focus the window
+        match window.set_focus() {
+            Ok(_) => result.push_str("  ✓ Window focused\n"),
+            Err(e) => result.push_str(&format!("  ✗ Failed to focus window: {}\n", e)),
+        }
+        
+        result.push_str("\n");
+    }
+    
+    result.push_str("=== GATHERING COMPLETE ===\n");
+    log_info!("DEBUG", "Gather windows result: {}", result);
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn recreate_missing_windows(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut result = String::new();
+    let webview_windows = app.webview_windows();
+    
+    result.push_str(&format!("=== RECREATING MISSING WINDOWS ===\n"));
+    
+    let detached_windows_lock = detached_windows.lock().await;
+    let windows_to_recreate: Vec<_> = detached_windows_lock.iter()
+        .filter(|(label, _)| !label.starts_with("hybrid-drag-")) // Skip hybrid drag windows
+        .filter(|(label, _)| !webview_windows.contains_key(*label)) // Only missing windows
+        .map(|(label, window_data)| (label.clone(), window_data.clone()))
+        .collect();
+    
+    result.push_str(&format!("Found {} missing windows to recreate\n\n", windows_to_recreate.len()));
+    
+    for (label, window_data) in windows_to_recreate {
+        result.push_str(&format!("Recreating window: {}\n", label));
+        result.push_str(&format!("  Note ID: {}\n", window_data.note_id));
+        result.push_str(&format!("  Stored position: ({}, {})\n", window_data.position.0, window_data.position.1));
+        
+        // Create the window URL
+        let window_url = format!("/?note={}", window_data.note_id);
+        
+        // Create the webview window
+        match WebviewWindowBuilder::new(
+            &app,
+            &label,
+            WebviewUrl::App(window_url.into()),
+        )
+        .title(&format!("Note - {}", window_data.note_id))
+        .inner_size(window_data.size.0, window_data.size.1)
+        .position(100.0, 100.0) // Use safe position instead of stored position
+        .visible(true)
+        .resizable(true)
+        .decorations(false)
+        .transparent(true)
+        .shadow(true)
+        .min_inner_size(400.0, 300.0)
+        .build() {
+            Ok(window) => {
+                result.push_str("  ✓ Window created successfully\n");
+                
+                // Show and focus the window
+                if let Err(e) = window.show() {
+                    result.push_str(&format!("  ⚠ Failed to show window: {}\n", e));
+                }
+                
+                if let Err(e) = window.set_focus() {
+                    result.push_str(&format!("  ⚠ Failed to focus window: {}\n", e));
+                }
+                
+                // Set full opacity
+                #[cfg(target_os = "macos")]
+                {
+                    match window.ns_window() {
+                        Ok(ns_window) => {
+                            let ns_window = ns_window as id;
+                            unsafe {
+                                let _: () = msg_send![ns_window, setAlphaValue: 1.0f64];
+                            }
+                            result.push_str("  ✓ Set to full opacity\n");
+                        },
+                        Err(e) => result.push_str(&format!("  ⚠ Failed to set opacity: {}\n", e)),
+                    }
+                }
+                
+                result.push_str("  ✓ Window recreated and configured\n");
+            },
+            Err(e) => {
+                result.push_str(&format!("  ✗ Failed to create window: {}\n", e));
+            }
+        }
+        
+        result.push_str("\n");
+    }
+    
+    // Clean up hybrid drag windows from state
+    let hybrid_windows: Vec<_> = detached_windows_lock.keys()
+        .filter(|label| label.starts_with("hybrid-drag-"))
+        .cloned()
+        .collect();
+    
+    drop(detached_windows_lock); // Release lock before modification
+    
+    if !hybrid_windows.is_empty() {
+        result.push_str(&format!("Cleaning up {} hybrid drag windows from state\n", hybrid_windows.len()));
+        let mut detached_windows_lock = detached_windows.lock().await;
+        for label in hybrid_windows {
+            detached_windows_lock.remove(&label);
+            result.push_str(&format!("  ✓ Removed hybrid window: {}\n", label));
+        }
+    }
+    
+    result.push_str("=== RECREATION COMPLETE ===\n");
+    log_info!("DEBUG", "Recreate windows result: {}", result);
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn test_detached_window_creation(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut result = String::new();
+    
+    result.push_str("=== TESTING DETACHED WINDOW CREATION ===\n");
+    
+    // Create a test note ID
+    let test_note_id = "test-note-12345".to_string();
+    let window_label = format!("note-{}", test_note_id);
+    
+    result.push_str(&format!("Creating test detached window for note: {}\n", test_note_id));
+    result.push_str(&format!("Window label: {}\n", window_label));
+    
+    // Check if window already exists
+    let webview_windows = app.webview_windows();
+    if webview_windows.contains_key(&window_label) {
+        result.push_str("⚠ Test window already exists, closing it first...\n");
+        if let Some(window) = webview_windows.get(&window_label) {
+            window.close().map_err(|e| format!("Failed to close existing window: {}", e))?;
+        }
+    }
+    
+    // Create the window URL
+    let window_url = format!("/?note={}", test_note_id);
+    
+    // Create the webview window
+    match WebviewWindowBuilder::new(
+        &app,
+        &window_label,
+        WebviewUrl::App(window_url.into()),
+    )
+    .title(&format!("Test Note Window - {}", test_note_id))
+    .inner_size(600.0, 400.0)
+    .position(200.0, 200.0) // Safe, visible position
+    .visible(true)
+    .resizable(true)
+    .decorations(false)
+    .transparent(true)
+    .shadow(true)
+    .min_inner_size(400.0, 300.0)
+    .build() {
+        Ok(window) => {
+            result.push_str("✓ Test detached window created successfully\n");
+            
+            // Show and focus the window
+            if let Err(e) = window.show() {
+                result.push_str(&format!("⚠ Failed to show window: {}\n", e));
+            } else {
+                result.push_str("✓ Window shown\n");
+            }
+            
+            if let Err(e) = window.set_focus() {
+                result.push_str(&format!("⚠ Failed to focus window: {}\n", e));
+            } else {
+                result.push_str("✓ Window focused\n");
+            }
+            
+            // Set full opacity
+            #[cfg(target_os = "macos")]
+            {
+                match window.ns_window() {
+                    Ok(ns_window) => {
+                        let ns_window = ns_window as id;
+                        unsafe {
+                            let _: () = msg_send![ns_window, setAlphaValue: 1.0f64];
+                        }
+                        result.push_str("✓ Set to full opacity\n");
+                    },
+                    Err(e) => result.push_str(&format!("⚠ Failed to set opacity: {}\n", e)),
+                }
+            }
+            
+            // Add to detached windows state
+            let test_window = DetachedWindow {
+                note_id: test_note_id.clone(),
+                window_label: window_label.clone(),
+                position: (200.0, 200.0),
+                size: (600.0, 400.0),
+                always_on_top: false,
+                opacity: 1.0,
+                is_shaded: false,
+                original_height: None,
+            };
+            
+            let mut detached_windows_lock = detached_windows.lock().await;
+            detached_windows_lock.insert(window_label.clone(), test_window);
+            result.push_str("✓ Added to detached windows state\n");
+            
+            result.push_str("✓ Test detached window fully configured and visible\n");
+        },
+        Err(e) => {
+            result.push_str(&format!("✗ Failed to create test detached window: {}\n", e));
+        }
+    }
+    
+    result.push_str("=== TEST COMPLETE ===\n");
+    log_info!("DEBUG", "Test detached window result: {}", result);
+    Ok(result)
+}
+
+#[tauri::command]
 pub async fn reload_main_window(app: AppHandle) -> Result<(), String> {
     let window = app.get_webview_window("main").ok_or("Main window not found")?;
     
@@ -563,6 +985,94 @@ pub async fn close_hybrid_drag_window(
 // ============================================================================
 
 #[tauri::command]
+pub async fn restore_detached_windows(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+    notes: State<'_, NotesState>,
+) -> Result<Vec<String>, String> {
+    let mut windows_lock = detached_windows.lock().await;
+    let mut restored_windows = Vec::new();
+    let mut windows_to_remove = Vec::new();
+    
+    println!("[RESTORE_WINDOWS] Checking {} windows in state", windows_lock.len());
+    
+    for (window_label, window_data) in windows_lock.iter() {
+        if let Some(window) = app.get_webview_window(window_label) {
+            // Window exists, check if it's visible
+            match window.is_visible() {
+                Ok(visible) => {
+                    if !visible {
+                        println!("[RESTORE_WINDOWS] Showing hidden window: {}", window_label);
+                        window.show().map_err(|e| e.to_string())?;
+                        window.set_focus().map_err(|e| e.to_string())?;
+                        restored_windows.push(window_label.clone());
+                    } else {
+                        println!("[RESTORE_WINDOWS] Window already visible: {}", window_label);
+                    }
+                },
+                Err(e) => {
+                    println!("[RESTORE_WINDOWS] Failed to check visibility for {}: {}", window_label, e);
+                }
+            }
+        } else {
+            // Window doesn't exist, recreate it
+            println!("[RESTORE_WINDOWS] Recreating missing window: {}", window_label);
+            let request = CreateDetachedWindowRequest {
+                note_id: window_data.note_id.clone(),
+                x: Some(window_data.position.0),
+                y: Some(window_data.position.1),
+                width: Some(window_data.size.0),
+                height: Some(window_data.size.1),
+            };
+            
+            // Don't recreate windows in restore - just remove them from state
+            println!("[RESTORE_WINDOWS] Removing missing window from state: {}", window_label);
+            windows_to_remove.push(window_label.clone());
+        }
+    }
+    
+    // Remove windows that couldn't be restored
+    for window_label in windows_to_remove {
+        windows_lock.remove(&window_label);
+    }
+    
+    if !restored_windows.is_empty() {
+        save_detached_windows_to_disk(&windows_lock).await?;
+    }
+    
+    println!("[RESTORE_WINDOWS] Restored {} windows", restored_windows.len());
+    Ok(restored_windows)
+}
+
+#[tauri::command]
+pub async fn clear_all_detached_windows(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<i32, String> {
+    let mut windows_lock = detached_windows.lock().await;
+    let window_count = windows_lock.len() as i32;
+    
+    println!("[CLEAR_WINDOWS] Clearing {} detached windows", window_count);
+    
+    // Close all actual Tauri windows
+    for (window_label, _) in windows_lock.iter() {
+        if let Some(window) = app.get_webview_window(window_label) {
+            println!("[CLEAR_WINDOWS] Closing window: {}", window_label);
+            let _ = window.close();
+        }
+    }
+    
+    // Clear all from state
+    windows_lock.clear();
+    
+    // Save empty state to disk
+    save_detached_windows_to_disk(&windows_lock).await?;
+    
+    println!("[CLEAR_WINDOWS] All {} detached windows cleared", window_count);
+    Ok(window_count)
+}
+
+#[tauri::command]
 pub async fn focus_detached_window(
     note_id: String,
     app: AppHandle,
@@ -735,6 +1245,20 @@ pub async fn create_detached_window(
         format!("Failed to show window: {}", e)
     })?;
     println!("[CREATE_DETACHED_WINDOW] Window shown ✓");
+    
+    // Set focus to ensure it's brought to front
+    webview_window.set_focus().map_err(|e| {
+        println!("[CREATE_DETACHED_WINDOW] WARNING: Failed to set focus: {:?}", e);
+        e.to_string()
+    }).unwrap_or_else(|e| {
+        println!("[CREATE_DETACHED_WINDOW] Focus warning: {}", e);
+    });
+    
+    // Verify window is actually visible
+    match webview_window.is_visible() {
+        Ok(visible) => println!("[CREATE_DETACHED_WINDOW] Window visibility check: {}", visible),
+        Err(e) => println!("[CREATE_DETACHED_WINDOW] ERROR: Failed to check visibility: {:?}", e),
+    }
 
     let detached_window = DetachedWindow {
         note_id: request.note_id.clone(),

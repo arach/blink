@@ -22,6 +22,22 @@ export function useChordShortcuts({
   const [chordMode, setChordMode] = useState<ChordMode>('none');
   const [showChordHint, setShowChordHint] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Use refs to access latest values in stable callback
+  const notesRef = useRef(notes);
+  const onSelectNoteRef = useRef(onSelectNote);
+  const onCreateNewNoteRef = useRef(onCreateNewNote);
+  const onToggleCommandPaletteRef = useRef(onToggleCommandPalette);
+  const onCreateDetachedWindowRef = useRef(onCreateDetachedWindow);
+  const onFocusWindowRef = useRef(onFocusWindow);
+  
+  // Update refs when props change
+  notesRef.current = notes;
+  onSelectNoteRef.current = onSelectNote;
+  onCreateNewNoteRef.current = onCreateNewNote;
+  onToggleCommandPaletteRef.current = onToggleCommandPalette;
+  onCreateDetachedWindowRef.current = onCreateDetachedWindow;
+  onFocusWindowRef.current = onFocusWindow;
 
   // Clear chord mode after timeout
   const clearChordMode = useCallback(() => {
@@ -173,18 +189,24 @@ export function useChordShortcuts({
     }
   }, [chordMode, notes, onSelectNote, onCreateNewNote, onToggleCommandPalette, onCreateDetachedWindow, onFocusWindow, startChordMode, clearChordMode]);
 
-  // Set up event listeners
+  // Set up event listeners - only log on mount/unmount, not constantly
   useEffect(() => {
-    console.log('[CHORD] Setting up event listener');
+    // Only log once on mount
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[CHORD] Setting up event listener (mount)');
+    }
     document.addEventListener('keydown', handleKeyDown);
     return () => {
-      console.log('[CHORD] Removing event listener');
+      // Only log once on unmount
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[CHORD] Removing event listener (unmount)');
+      }
       document.removeEventListener('keydown', handleKeyDown);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [handleKeyDown]);
+  }, [handleKeyDown]); // Keep the dependency but reduce logging
 
   // Cleanup on unmount
   useEffect(() => {

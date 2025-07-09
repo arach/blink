@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppConfig, defaultConfig, migrateConfig } from '../types/config';
 import { configApi } from '../services/config-api';
+import { emit } from '@tauri-apps/api/event';
 
 interface ConfigStore {
   config: AppConfig;
@@ -127,6 +128,14 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       }
       
       set({ config: newConfig });
+      
+      // Emit config-updated event to notify all windows
+      try {
+        await emit('config-updated', newConfig);
+        console.log('[CONFIG] Config updated event emitted successfully');
+      } catch (error) {
+        console.error('[CONFIG] Failed to emit config-updated event:', error);
+      }
     } catch (error) {
       console.error('[BLINK] Error updating config:', error);
       set({ 
