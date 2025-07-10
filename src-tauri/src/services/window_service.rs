@@ -93,7 +93,7 @@ impl WindowService {
         let window_label = format!("note-{}", note_id);
         let webview_url = format!("/?note={}", note_id);
         
-        let window = tauri::WebviewWindowBuilder::new(
+        let _window = tauri::WebviewWindowBuilder::new(
             &self.app_handle,
             &window_label,
             tauri::WebviewUrl::App(webview_url.parse().unwrap()),

@@ -19,7 +19,7 @@ export function DevToolbar() {
   };
 
   return (
-    <div className="fixed bottom-2 right-2 z-50">
+    <div className={`fixed bottom-2 right-2 z-50 ${!isOpen ? 'pointer-events-none' : ''}`}>
       {/* Toolbar panel */}
       <div className={`bg-black/80 text-white p-4 rounded-xl border border-gray-600 backdrop-blur-sm transition-all duration-300 ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
@@ -71,6 +71,30 @@ export function DevToolbar() {
           className="w-full px-2 py-1 bg-violet-600/80 hover:bg-violet-600 text-xs rounded-sm font-mono transition-all border border-violet-400/30"
         >
           Test Detached Window
+        </button>
+        
+        <button
+          onClick={() => runCommand('Force Close Test Window', async () => {
+            const result = await invoke<string>('force_close_test_window');
+            console.log('Force close result:', result);
+            console.log('=== FORCE CLOSE RESULT ===\n' + result);
+            await refreshWindows();
+          })}
+          className="w-full px-2 py-1 bg-red-600/80 hover:bg-red-600 text-xs rounded-sm font-mono transition-all border border-red-400/30"
+        >
+          Force Close Test Window
+        </button>
+        
+        <button
+          onClick={() => runCommand('Cleanup Stale Hybrid Windows', async () => {
+            const result = await invoke<string>('cleanup_stale_hybrid_windows');
+            console.log('Cleanup result:', result);
+            console.log('=== CLEANUP RESULT ===\n' + result);
+            await refreshWindows();
+          })}
+          className="w-full px-2 py-1 bg-orange-600/80 hover:bg-orange-600 text-xs rounded-sm font-mono transition-all border border-orange-400/30"
+        >
+          Cleanup Stale Hybrids
         </button>
         
         <button
@@ -165,6 +189,17 @@ export function DevToolbar() {
         >
           Show Recent Logs
         </button>
+        
+        <button
+          onClick={() => runCommand('Window State Truth', async () => {
+            const truth = await invoke<string>('get_window_state_truth');
+            console.log('=== WINDOW STATE TRUTH ===');
+            console.log(truth);
+          })}
+          className="w-full px-2 py-1 bg-fuchsia-600/80 hover:bg-fuchsia-600 text-xs rounded-sm font-mono transition-all border border-fuchsia-400/30"
+        >
+          Window State Truth
+        </button>
         </div>
       </div>
       
@@ -175,7 +210,7 @@ export function DevToolbar() {
           setIsOpen(!isOpen);
           setTimeout(() => setIsSpinning(false), 150);
         }}
-        className={`absolute bottom-0 right-0 w-12 h-12 bg-black/60 hover:bg-black/80 text-white text-xs rounded-full font-mono transition-all duration-300 flex items-center justify-center ${
+        className={`absolute bottom-0 right-0 w-12 h-12 bg-black/60 hover:bg-black/80 text-white text-xs rounded-full font-mono transition-all duration-300 flex items-center justify-center pointer-events-auto ${
           isSpinning ? (isOpen ? 'animate-[spin_0.15s_ease-in-out_1_reverse]' : 'animate-[spin_0.15s_ease-in-out_1]') : ''
         }`}
       >

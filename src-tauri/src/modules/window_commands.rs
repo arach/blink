@@ -97,7 +97,7 @@ pub async fn get_grid_assignment_v2(
 pub async fn deploy_note_to_grid_v2(
     grid_position: u8,
     window_service: State<'_, WindowServiceState>,
-    app: AppHandle,
+    _app: AppHandle,
 ) -> Result<Option<String>, String> {
     log_info!("WINDOW_COMMANDS", "Deploying note to grid position (v2): {}", grid_position);
     

@@ -118,8 +118,31 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     }).then(windowLabel => {
       dragRef.current.realWindowLabel = windowLabel;
       console.log('[DRAG] Hidden window pre-created on mousedown:', windowLabel);
-    }).catch(error => {
+    }).catch(async (error) => {
       console.error('[DRAG] Failed to pre-create window:', error);
+      
+      // If window already exists, try to close it first and retry
+      if (error.toString().includes('already exists')) {
+        const existingLabel = `hybrid-drag-${noteId}`;
+        console.log('[DRAG] Window already exists, closing it first:', existingLabel);
+        
+        try {
+          await invoke('close_hybrid_drag_window', { windowLabel: existingLabel });
+          console.log('[DRAG] Closed existing window, retrying creation...');
+          
+          // Retry creation
+          const windowLabel = await invoke<string>('create_hybrid_drag_window', {
+            noteId: noteId,
+            x: screenX,
+            y: screenY,
+            hidden: true,
+          });
+          dragRef.current.realWindowLabel = windowLabel;
+          console.log('[DRAG] Successfully created window on retry:', windowLabel);
+        } catch (retryError) {
+          console.error('[DRAG] Failed to create window even after cleanup:', retryError);
+        }
+      }
     });
   }, []);
 

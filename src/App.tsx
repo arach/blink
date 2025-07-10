@@ -437,6 +437,40 @@ function App() {
         });
         unlisteners.push(unlistenWindowCreated);
         
+        // Listen for window destroyed events (from OS/user closing window)
+        const unlistenWindowDestroyed = await listen('window-destroyed', async (event) => {
+          console.log('[BLINK] Window destroyed event received for note:', event.payload);
+          const noteId = event.payload as string;
+          
+          // Clean up backend state
+          try {
+            await invoke('cleanup_destroyed_window', { noteId });
+            console.log('[BLINK] Backend state cleaned up for destroyed window');
+          } catch (error) {
+            console.error('[BLINK] Failed to cleanup backend state:', error);
+          }
+          
+          // Force immediate refresh of windows list
+          await refreshWindows();
+          
+          // Additional cleanup check after a delay
+          setTimeout(async () => {
+            await refreshWindows();
+            const windowsStore = useDetachedWindowsStore.getState();
+            console.log('[BLINK] Windows after destroy cleanup:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => w.note_id) : 'no windows');
+          }, 500);
+        });
+        unlisteners.push(unlistenWindowDestroyed);
+        
+        // Listen for hybrid window destroyed events
+        const unlistenHybridDestroyed = await listen('hybrid-window-destroyed', async (event) => {
+          console.log('[BLINK] Hybrid window destroyed event received:', event.payload);
+          
+          // Refresh to clean up any stale hybrid window state
+          await refreshWindows();
+        });
+        unlisteners.push(unlistenHybridDestroyed);
+        
         console.log('[BLINK] [FRONTEND] ✅ All listeners setup complete');
         
         return () => {

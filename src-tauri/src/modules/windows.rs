@@ -479,6 +479,74 @@ pub async fn recreate_missing_windows(
 }
 
 #[tauri::command]
+pub async fn cleanup_stale_hybrid_windows(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut result = String::new();
+    result.push_str("=== CLEANING UP STALE HYBRID WINDOWS ===\n");
+    
+    let mut windows_lock = detached_windows.lock().await;
+    let hybrid_labels: Vec<String> = windows_lock.keys()
+        .filter(|k| k.starts_with("hybrid-drag-"))
+        .cloned()
+        .collect();
+    
+    result.push_str(&format!("Found {} hybrid windows to clean up\n", hybrid_labels.len()));
+    
+    for window_label in hybrid_labels {
+        // Close the Tauri window
+        if let Some(window) = app.get_webview_window(&window_label) {
+            window.close().map_err(|e| format!("Failed to close window: {}", e))?;
+            result.push_str(&format!("✓ Closed Tauri window: {}\n", window_label));
+        }
+        
+        // Remove from backend state
+        windows_lock.remove(&window_label);
+        result.push_str(&format!("✓ Removed from backend state: {}\n", window_label));
+    }
+    
+    // Save state
+    save_detached_windows_to_disk(&windows_lock).await?;
+    result.push_str("✓ Saved state to disk\n");
+    
+    result.push_str("=== CLEANUP COMPLETE ===\n");
+    Ok(result)
+}
+
+#[tauri::command]
+pub async fn force_close_test_window(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut result = String::new();
+    result.push_str("=== FORCE CLOSING TEST WINDOW ===\n");
+    
+    let window_label = "note-test-note-12345";
+    
+    // Close the Tauri window
+    if let Some(window) = app.get_webview_window(window_label) {
+        window.close().map_err(|e| format!("Failed to close window: {}", e))?;
+        result.push_str("✓ Closed Tauri window\n");
+    } else {
+        result.push_str("✗ No Tauri window found\n");
+    }
+    
+    // Clean up backend state
+    let mut windows_lock = detached_windows.lock().await;
+    if windows_lock.remove(window_label).is_some() {
+        result.push_str("✓ Removed from backend state\n");
+        save_detached_windows_to_disk(&windows_lock).await?;
+        result.push_str("✓ Saved state to disk\n");
+    } else {
+        result.push_str("✗ Not found in backend state\n");
+    }
+    
+    result.push_str("=== COMPLETE ===\n");
+    Ok(result)
+}
+
+#[tauri::command]
 pub async fn test_detached_window_creation(
     app: AppHandle,
     detached_windows: State<'_, DetachedWindowsState>,
@@ -501,6 +569,15 @@ pub async fn test_detached_window_creation(
         if let Some(window) = webview_windows.get(&window_label) {
             window.close().map_err(|e| format!("Failed to close existing window: {}", e))?;
         }
+        
+        // Also clean up backend state
+        let mut detached_windows_lock = detached_windows.lock().await;
+        detached_windows_lock.remove(&window_label);
+        drop(detached_windows_lock);
+        
+        // Wait a bit for the window to fully close
+        tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+        result.push_str("✓ Cleaned up existing window\n");
     }
     
     // Create the window URL
@@ -579,6 +656,142 @@ pub async fn test_detached_window_creation(
     result.push_str("=== TEST COMPLETE ===\n");
     log_info!("DEBUG", "Test detached window result: {}", result);
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn get_window_state_truth(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<String, String> {
+    let mut truth = String::new();
+    
+    truth.push_str("=== WINDOW STATE TRUTH ===\n\n");
+    
+    // 1. Get all Tauri windows
+    let tauri_windows = app.webview_windows();
+    truth.push_str(&format!("TAURI WINDOWS ({})\n", tauri_windows.len()));
+    truth.push_str("─────────────────────\n");
+    
+    for (label, window) in tauri_windows.iter() {
+        truth.push_str(&format!("Label: {}\n", label));
+        
+        // Get window properties
+        match window.is_visible() {
+            Ok(v) => truth.push_str(&format!("  Visible: {}\n", v)),
+            Err(e) => truth.push_str(&format!("  Visible: ERROR - {}\n", e)),
+        }
+        
+        match window.outer_position() {
+            Ok(p) => truth.push_str(&format!("  Position: ({}, {})\n", p.x, p.y)),
+            Err(e) => truth.push_str(&format!("  Position: ERROR - {}\n", e)),
+        }
+        
+        match window.inner_size() {
+            Ok(s) => truth.push_str(&format!("  Size: {}x{}\n", s.width, s.height)),
+            Err(e) => truth.push_str(&format!("  Size: ERROR - {}\n", e)),
+        }
+        
+        match window.is_minimized() {
+            Ok(m) => truth.push_str(&format!("  Minimized: {}\n", m)),
+            Err(_) => {},
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            match window.ns_window() {
+                Ok(ns_window) => {
+                    let ns_window = ns_window as id;
+                    let alpha: f64 = unsafe { msg_send![ns_window, alphaValue] };
+                    truth.push_str(&format!("  Alpha: {}\n", alpha));
+                },
+                Err(_) => {},
+            }
+        }
+        
+        truth.push_str("\n");
+    }
+    
+    // 2. Get backend state
+    let backend_windows = detached_windows.lock().await;
+    truth.push_str(&format!("BACKEND STATE ({})\n", backend_windows.len()));
+    truth.push_str("─────────────────────\n");
+    
+    for (label, window_data) in backend_windows.iter() {
+        truth.push_str(&format!("Label: {}\n", label));
+        truth.push_str(&format!("  Note ID: {}\n", window_data.note_id));
+        truth.push_str(&format!("  Type: {}\n", 
+            if label.starts_with("hybrid-drag-") { "HYBRID" } 
+            else if label.starts_with("note-") { "DETACHED" }
+            else { "UNKNOWN" }
+        ));
+        truth.push_str(&format!("  Stored Position: ({}, {})\n", window_data.position.0, window_data.position.1));
+        truth.push_str(&format!("  Stored Size: {}x{}\n", window_data.size.0, window_data.size.1));
+        truth.push_str(&format!("  Stored Opacity: {}\n", window_data.opacity));
+        
+        // Check if it exists in Tauri
+        let exists_in_tauri = tauri_windows.contains_key(label);
+        truth.push_str(&format!("  EXISTS IN TAURI: {}\n", 
+            if exists_in_tauri { "✓ YES" } else { "✗ NO (ORPHANED)" }
+        ));
+        
+        truth.push_str("\n");
+    }
+    
+    // 3. Find discrepancies
+    truth.push_str("DISCREPANCIES\n");
+    truth.push_str("─────────────────────\n");
+    
+    // Windows in Tauri but not in backend
+    let mut tauri_only = Vec::new();
+    for label in tauri_windows.keys() {
+        if !backend_windows.contains_key(label) && (label.starts_with("note-") || label.starts_with("hybrid-drag-")) {
+            tauri_only.push(label);
+        }
+    }
+    
+    if !tauri_only.is_empty() {
+        truth.push_str("Windows in Tauri but NOT in backend:\n");
+        for label in tauri_only {
+            truth.push_str(&format!("  - {} (UNTRACKED)\n", label));
+        }
+        truth.push_str("\n");
+    }
+    
+    // Windows in backend but not in Tauri
+    let mut backend_only = Vec::new();
+    for label in backend_windows.keys() {
+        if !tauri_windows.contains_key(label) {
+            backend_only.push(label);
+        }
+    }
+    
+    if !backend_only.is_empty() {
+        truth.push_str("Windows in backend but NOT in Tauri:\n");
+        for label in backend_only {
+            truth.push_str(&format!("  - {} (ORPHANED STATE)\n", label));
+        }
+        truth.push_str("\n");
+    }
+    
+    // Hybrid windows that should be cleaned
+    let mut stale_hybrids = Vec::new();
+    for label in backend_windows.keys() {
+        if label.starts_with("hybrid-drag-") {
+            stale_hybrids.push(label);
+        }
+    }
+    
+    if !stale_hybrids.is_empty() {
+        truth.push_str("Stale hybrid windows in backend:\n");
+        for label in stale_hybrids {
+            truth.push_str(&format!("  - {} (SHOULD BE CLEANED)\n", label));
+        }
+    }
+    
+    truth.push_str("\n=== END WINDOW STATE TRUTH ===\n");
+    
+    log_info!("STATE_TRUTH", "Generated window state truth report");
+    Ok(truth)
 }
 
 #[tauri::command]
@@ -807,7 +1020,7 @@ pub async fn create_hybrid_drag_window(
     let window_label = format!("hybrid-drag-{}", note_id);
     
     // Create a window that follows the mouse
-    let _drag_window = WebviewWindowBuilder::new(
+    let drag_window = WebviewWindowBuilder::new(
         &app,
         &window_label,
         WebviewUrl::App(format!("index.html?note={}", note_id).into()),
@@ -827,6 +1040,26 @@ pub async fn create_hybrid_drag_window(
     
     log_info!("DRAG", "Created hybrid drag window '{}' for note '{}' at ({}, {}), hidden={:?}", 
         window_label, note_id, x, y, hidden);
+    
+    // Set up lifecycle tracking for hybrid windows
+    let window_label_for_events = window_label.clone();
+    let app_for_events = app.clone();
+    
+    drag_window.on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::Destroyed => {
+                log_info!("WINDOW_LIFECYCLE", "Hybrid window {} destroyed", window_label_for_events);
+                let label = window_label_for_events.clone();
+                let app = app_for_events.clone();
+                
+                // Emit event to frontend
+                app.emit("hybrid-window-destroyed", &label).unwrap_or_else(|e| {
+                    log_error!("WINDOW_LIFECYCLE", "Failed to emit hybrid-window-destroyed event: {}", e);
+                });
+            },
+            _ => {}
+        }
+    });
     
     // If showing immediately, ensure it's visible and on top
     if !hidden.unwrap_or(false) {
@@ -988,7 +1221,7 @@ pub async fn close_hybrid_drag_window(
 pub async fn restore_detached_windows(
     app: AppHandle,
     detached_windows: State<'_, DetachedWindowsState>,
-    notes: State<'_, NotesState>,
+    _notes: State<'_, NotesState>,
 ) -> Result<Vec<String>, String> {
     let mut windows_lock = detached_windows.lock().await;
     let mut restored_windows = Vec::new();
@@ -1017,7 +1250,7 @@ pub async fn restore_detached_windows(
         } else {
             // Window doesn't exist, recreate it
             println!("[RESTORE_WINDOWS] Recreating missing window: {}", window_label);
-            let request = CreateDetachedWindowRequest {
+            let _request = CreateDetachedWindowRequest {
                 note_id: window_data.note_id.clone(),
                 x: Some(window_data.position.0),
                 y: Some(window_data.position.1),
@@ -1082,7 +1315,7 @@ pub async fn focus_detached_window(
     println!("[FOCUS_DETACHED_WINDOW] Looking for note: {}", note_id);
     
     // Find window by note_id (only in note-* windows, not hybrid-drag)
-    if let Some((window_label, window_data)) = windows_lock.iter().find(|(label, w)| {
+    if let Some((window_label, _window_data)) = windows_lock.iter().find(|(label, w)| {
         label.starts_with("note-") && w.note_id == note_id
     }) {
         println!("[FOCUS_DETACHED_WINDOW] Found window in state: {} -> {}", window_label, note_id);
@@ -1292,12 +1525,59 @@ pub async fn create_detached_window(
     })?;
     println!("[CREATE_DETACHED_WINDOW] App menu updated ✓");
     
+    // Set up window event listeners for lifecycle tracking
+    let window_label_for_events = window_label.clone();
+    let app_handle_for_events = app.clone();
+    let note_id_for_events = request.note_id.clone();
+    
+    webview_window.on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::Destroyed => {
+                log_info!("WINDOW_LIFECYCLE", "Window {} destroyed via OS", window_label_for_events);
+                let note_id = note_id_for_events.clone();
+                let app = app_handle_for_events.clone();
+                
+                // Simply emit the event - let the frontend handle state cleanup
+                // This avoids the lifetime issue with accessing state in the closure
+                app.emit("window-destroyed", &note_id).unwrap_or_else(|e| {
+                    log_error!("WINDOW_LIFECYCLE", "Failed to emit window-destroyed event: {}", e);
+                });
+                
+                log_info!("WINDOW_LIFECYCLE", "Emitted window-destroyed event for note {}", note_id);
+            },
+            tauri::WindowEvent::CloseRequested { api: _, .. } => {
+                log_info!("WINDOW_LIFECYCLE", "Window {} close requested", window_label_for_events);
+                // Allow the close - the Destroyed event will handle cleanup
+            },
+            _ => {}
+        }
+    });
+    
+    println!("[CREATE_DETACHED_WINDOW] Window lifecycle listeners attached ✓");
+    
     // Note: Window position/size tracking is now handled by the frontend useWindowTracking hook
     // with proper debouncing to avoid excessive file I/O operations
     println!("[CREATE_DETACHED_WINDOW] Window tracking delegated to frontend (debounced) ✓");
 
     println!("[CREATE_DETACHED_WINDOW] Window creation completed successfully! Returning: {:?}", detached_window);
     Ok(detached_window)
+}
+
+#[tauri::command]
+pub async fn cleanup_destroyed_window(
+    note_id: String,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<(), String> {
+    let mut windows_lock = detached_windows.lock().await;
+    
+    // Find and remove window by note_id
+    let window_label = format!("note-{}", note_id);
+    if windows_lock.remove(&window_label).is_some() {
+        log_info!("WINDOW_LIFECYCLE", "Cleaned up destroyed window state for note {}", note_id);
+        save_detached_windows_to_disk(&windows_lock).await?;
+    }
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -1506,9 +1786,9 @@ async fn save_spatial_data(note_id: &str, window_data: &DetachedWindow) -> Resul
 
 /// Update the app menu to include detached windows
 async fn update_app_menu(
-    app: AppHandle,
-    detached_windows: State<'_, DetachedWindowsState>,
-    notes: State<'_, NotesState>,
+    _app: AppHandle,
+    _detached_windows: State<'_, DetachedWindowsState>,
+    _notes: State<'_, NotesState>,
 ) -> Result<(), String> {
     // For now, just return Ok - menu functionality would be implemented here
     // This is a placeholder to satisfy the function calls

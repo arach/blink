@@ -634,22 +634,7 @@ async fn save_detached_windows_to_disk(windows: &HashMap<String, DetachedWindow>
     Ok(())
 }
 
-async fn load_detached_windows_from_disk() -> Result<HashMap<String, DetachedWindow>, String> {
-    let notes_dir = get_notes_directory()?;
-    let windows_file = notes_dir.join("detached_windows.json");
-    
-    if !windows_file.exists() {
-        return Ok(HashMap::new());
-    }
-    
-    let windows_json = fs::read_to_string(windows_file)
-        .map_err(|e| format!("Failed to read windows from disk: {}", e))?;
-    
-    let windows: HashMap<String, DetachedWindow> = serde_json::from_str(&windows_json)
-        .map_err(|e| format!("Failed to parse windows JSON: {}", e))?;
-    
-    Ok(windows)
-}
+// Function removed - using the one from modules::storage instead
 
 // Spatial positioning functions
 async fn load_spatial_data(note_id: &str) -> Option<DetachedWindow> {
@@ -1158,7 +1143,11 @@ pub fn run() {
             recreate_missing_windows,
             test_detached_window_creation,
             get_log_file_path,
-            get_recent_logs
+            get_recent_logs,
+            get_window_state_truth,
+            cleanup_destroyed_window,
+            force_close_test_window,
+            cleanup_stale_hybrid_windows
         ])
         .on_menu_event(|app, event| {
             let menu_id = event.id();
@@ -1448,7 +1437,6 @@ pub fn run() {
                 // Force opacity to be fully visible on macOS
                 #[cfg(target_os = "macos")]
                 {
-                    use tauri::Manager;
                     match window.ns_window() {
                         Ok(ns_window) => {
                             use cocoa::base::id;

@@ -20,7 +20,7 @@ interface DetachedNoteWindowProps {
 }
 
 export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
-  const { config } = useConfigStore();
+  const { config, loadConfig } = useConfigStore();
   const [note, setNote] = useState<Note | null>(null);
   const [content, setContent] = useState('');
   const [isPreviewMode, setIsPreviewMode] = useState(false);

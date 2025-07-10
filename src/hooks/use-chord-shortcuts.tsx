@@ -189,24 +189,30 @@ export function useChordShortcuts({
     }
   }, [chordMode, notes, onSelectNote, onCreateNewNote, onToggleCommandPalette, onCreateDetachedWindow, onFocusWindow, startChordMode, clearChordMode]);
 
-  // Set up event listeners - only log on mount/unmount, not constantly
+  // Store the handler in a ref to avoid recreating it
+  const handleKeyDownRef = useRef(handleKeyDown);
+  handleKeyDownRef.current = handleKeyDown;
+
+  // Set up event listeners - only once
   useEffect(() => {
+    const handler = (e: KeyboardEvent) => handleKeyDownRef.current(e);
+    
     // Only log once on mount
     if (process.env.NODE_ENV === 'development') {
       console.log('[CHORD] Setting up event listener (mount)');
     }
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handler);
     return () => {
       // Only log once on unmount
       if (process.env.NODE_ENV === 'development') {
         console.log('[CHORD] Removing event listener (unmount)');
       }
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handler);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [handleKeyDown]); // Keep the dependency but reduce logging
+  }, []); // Empty dependency array - only run once
 
   // Cleanup on unmount
   useEffect(() => {
