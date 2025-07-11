@@ -60,21 +60,24 @@ export function EditorArea({
             </h2>
             
             {/* Mode toggle */}
-            <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl">
-              {/* Sliding pill background */}
+            <div className="relative flex items-center gap-1 bg-background/40 border border-border/30 rounded-xl">
+              {/* Sliding pill background - positioned absolutely but same z-level as buttons */}
               <div 
-                className="absolute h-full bg-primary/20 rounded-xl transition-transform duration-200 ease-out"
+                className="absolute bg-primary/20 rounded-xl shadow-sm transition-all duration-200 ease-out pointer-events-none"
                 style={{
-                  width: 'calc(50% - 2px)',
-                  transform: isPreviewMode ? 'translateX(calc(100% + 4px))' : 'translateX(0)'
+                  width: isPreviewMode ? '56%' : '44%',
+                  height: 'calc(100% + 4px)',
+                  top: '-2px',
+                  transform: isPreviewMode ? 'translateX(calc(100% - 14px))' : 'translateX(0)'
                 }}
               />
+              
               <button
-                onClick={onPreviewToggle}
-                className={`relative px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-colors duration-200 text-xs font-medium z-10 ${
+                onClick={() => onPreviewToggle()}
+                className={`relative px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
                   !isPreviewMode 
                     ? 'text-primary' 
-                    : 'text-muted-foreground/60 hover:text-foreground'
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
                 }`}
                 title="Edit mode (⌘⇧P)"
               >
@@ -82,14 +85,14 @@ export function EditorArea({
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
-                <span>Edit</span>
+                Edit
               </button>
               <button
-                onClick={onPreviewToggle}
-                className={`relative px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-colors duration-200 text-xs font-medium z-10 ${
+                onClick={() => onPreviewToggle()}
+                className={`relative px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
                   isPreviewMode 
                     ? 'text-primary' 
-                    : 'text-muted-foreground/60 hover:text-foreground'
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
                 }`}
                 title="Preview mode (⌘⇧P)"
               >
@@ -97,7 +100,7 @@ export function EditorArea({
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
-                <span>Preview</span>
+                Preview
               </button>
             </div>
           </div>
