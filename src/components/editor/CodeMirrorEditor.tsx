@@ -3,13 +3,14 @@ import { EditorView, keymap, ViewUpdate, placeholder } from '@codemirror/view';
 import { EditorState, Extension, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
-import { vim } from '@replit/codemirror-vim';
+import { vim, getCM } from '@replit/codemirror-vim';
 import { oneDark } from '@codemirror/theme-one-dark';
 
 interface CodeMirrorEditorProps {
   value: string;
   onChange: (value: string) => void;
   onSave?: () => void;
+  onVimStatusChange?: (status: { mode: string; subMode?: string }) => void;
   placeholder?: string;
   vimMode?: boolean;
   fontSize?: number;
@@ -25,6 +26,7 @@ export function CodeMirrorEditor({
   value,
   onChange,
   onSave,
+  onVimStatusChange,
   placeholder: placeholderText = 'Start typing...',
   vimMode = false,
   fontSize = 15,
@@ -58,6 +60,7 @@ export function CodeMirrorEditor({
       },
       '.cm-editor': {
         height: '100%',
+        outline: 'none',
       },
       '.cm-editor.cm-focused': {
         outline: 'none',
@@ -91,6 +94,9 @@ export function CodeMirrorEditor({
       '.cm-cursor': {
         borderLeftColor: 'var(--primary)',
         borderLeftWidth: '2px',
+      },
+      '.cm-cursor-primary': {
+        visibility: 'visible',
       },
       // Search highlights
       '.cm-searchMatch': {
@@ -151,6 +157,26 @@ export function CodeMirrorEditor({
           class: 'cm-vim-mode'
         })
       );
+      
+      // Track vim mode changes
+      if (onVimStatusChange) {
+        extensions.push(
+          EditorView.updateListener.of((update: ViewUpdate) => {
+            if (update.view.hasFocus) {
+              const cm = getCM(update.view);
+              if (cm) {
+                const vimState = cm.state.vim;
+                if (vimState) {
+                  const mode = vimState.insertMode ? 'INSERT' : 
+                               vimState.visualMode ? 'VISUAL' : 
+                               'NORMAL';
+                  onVimStatusChange({ mode, subMode: vimState.status });
+                }
+              }
+            }
+          })
+        );
+      }
     }
 
     // Add typewriter mode class

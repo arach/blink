@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Note } from '../../types';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { extractTitleFromContent } from '../../lib/utils';
@@ -40,6 +41,7 @@ export function EditorArea({
   onPreviewToggle
 }: EditorAreaProps) {
   const { config } = useConfigStore();
+  const [vimStatus, setVimStatus] = useState<{ mode: string; subMode?: string }>({ mode: 'NORMAL' });
   const getPaperStyleClass = (style?: string) => {
     switch (style) {
       case 'dotted-grid':
@@ -114,6 +116,7 @@ export function EditorArea({
               <CodeMirrorEditor
                 value={currentContent}
                 onChange={onContentChange}
+                onVimStatusChange={setVimStatus}
                 placeholder="Your thoughts, unfiltered..."
                 vimMode={config?.appearance?.vimMode || false}
                 fontSize={editorConfig.fontSize || 15}
@@ -176,14 +179,23 @@ export function EditorArea({
                 
                 {/* Vim mode indicator */}
                 {config?.appearance?.vimMode && !isPreviewMode && (
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-md">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary/70">
-                      <rect x="5" y="4" width="14" height="16" rx="1"/>
-                      <path d="M9 8h6"/>
-                      <path d="M9 12h6"/>
-                      <path d="M9 16h4"/>
-                    </svg>
-                    <span className="text-xs text-primary/70 font-mono uppercase">Vim</span>
+                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${
+                    vimStatus.mode === 'INSERT' ? 'bg-green-500/10' : 
+                    vimStatus.mode === 'VISUAL' ? 'bg-purple-500/10' : 
+                    'bg-primary/10'
+                  }`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${
+                      vimStatus.mode === 'INSERT' ? 'bg-green-500' : 
+                      vimStatus.mode === 'VISUAL' ? 'bg-purple-500' : 
+                      'bg-primary'
+                    }`} />
+                    <span className={`text-xs font-mono ${
+                      vimStatus.mode === 'INSERT' ? 'text-green-500/70' : 
+                      vimStatus.mode === 'VISUAL' ? 'text-purple-500/70' : 
+                      'text-primary/70'
+                    }`}>
+                      {vimStatus.mode}
+                    </span>
                   </div>
                 )}
               </div>
