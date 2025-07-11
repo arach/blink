@@ -63,9 +63,9 @@ export function EditorArea({
             <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl p-1">
               {/* Sliding background */}
               <div 
-                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-primary/20 rounded-lg transition-transform duration-200 ease-out"
+                className="absolute inset-1 w-[calc(50%-4px)] bg-primary/20 rounded-lg transition-transform duration-200 ease-out"
                 style={{
-                  transform: isPreviewMode ? 'translateX(calc(100% + 8px))' : 'translateX(0)'
+                  transform: isPreviewMode ? 'translateX(calc(100% + 4px))' : 'translateX(0)'
                 }}
               />
               <button
