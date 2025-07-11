@@ -1,5 +1,6 @@
 import { Note } from '../../types';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
+import { extractTitleFromContent } from '../../lib/utils';
 
 interface SaveStatus {
   isSaving: boolean;
@@ -52,6 +53,47 @@ export function EditorArea({
     <div className="flex-1 flex flex-col bg-background">
       {selectedNote ? (
         <>
+          {/* Note header with title and preview toggle */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border/10">
+            <h2 className="text-lg font-medium text-foreground/90 truncate flex-1">
+              {extractTitleFromContent(currentContent) || 'Untitled'}
+            </h2>
+            
+            {/* Mode toggle */}
+            <div className="flex items-center bg-background/40 border border-border/30 rounded-xl">
+              <button
+                onClick={() => onPreviewToggle()}
+                className={`px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                  !isPreviewMode 
+                    ? 'bg-primary/20 text-primary shadow-sm' 
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                }`}
+                title="Edit mode (⌘⇧P)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit
+              </button>
+              <button
+                onClick={() => onPreviewToggle()}
+                className={`px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                  isPreviewMode 
+                    ? 'bg-primary/20 text-primary shadow-sm' 
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                }`}
+                title="Preview mode (⌘⇧P)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Preview
+              </button>
+            </div>
+          </div>
+          
           {/* Editor area */}
           <div className={`flex-1 relative ${getPaperStyleClass(editorConfig.notePaperStyle)}`}>
             <textarea
@@ -108,19 +150,7 @@ export function EditorArea({
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onPreviewToggle}
-                  className={`px-3 py-1.5 text-xs rounded-2xl transition-all duration-200 font-medium ${
-                    isPreviewMode 
-                      ? 'bg-primary/90 text-primary-foreground shadow-sm' 
-                      : 'bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background/90 border border-border/30'
-                  }`}
-                  title="Toggle preview (⌘⇧P)"
-                >
-                  {isPreviewMode ? 'Edit' : 'Preview'}
-                </button>
-              </div>
+              {/* Preview toggle moved to header */}
             </div>
           )}
         </>
