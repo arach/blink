@@ -444,8 +444,6 @@ function App() {
           
           // Single refresh only
           await useDetachedWindowsStore.getState().refreshWindows();
-            console.log('[BLINK] Windows after destroy cleanup:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => w.note_id) : 'no windows');
-          }, 500);
         });
         unlisteners.push(unlistenWindowDestroyed);
         
