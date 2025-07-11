@@ -60,13 +60,20 @@ export function EditorArea({
             </h2>
             
             {/* Mode toggle */}
-            <div className="flex items-center bg-background/40 border border-border/30 rounded-xl">
+            <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl p-1">
+              {/* Sliding background */}
+              <div 
+                className="absolute top-1 bottom-1 w-[calc(50%-4px)] bg-primary/20 rounded-lg transition-transform duration-200 ease-out"
+                style={{
+                  transform: isPreviewMode ? 'translateX(calc(100% + 8px))' : 'translateX(0)'
+                }}
+              />
               <button
                 onClick={onPreviewToggle}
-                className={`px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                className={`relative z-10 px-2.5 py-1 flex items-center gap-1.5 rounded-lg transition-colors duration-200 text-xs font-medium ${
                   !isPreviewMode 
-                    ? 'bg-primary/20 text-primary shadow-sm' 
-                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    ? 'text-primary' 
+                    : 'text-muted-foreground/60 hover:text-foreground'
                 }`}
                 title="Edit mode (⌘⇧P)"
               >
@@ -78,10 +85,10 @@ export function EditorArea({
               </button>
               <button
                 onClick={onPreviewToggle}
-                className={`px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                className={`relative z-10 px-2.5 py-1 flex items-center gap-1.5 rounded-lg transition-colors duration-200 text-xs font-medium ${
                   isPreviewMode 
-                    ? 'bg-primary/20 text-primary shadow-sm' 
-                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    ? 'text-primary' 
+                    : 'text-muted-foreground/60 hover:text-foreground'
                 }`}
                 title="Preview mode (⌘⇧P)"
               >
