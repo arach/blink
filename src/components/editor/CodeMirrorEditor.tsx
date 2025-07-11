@@ -75,33 +75,6 @@ export function CodeMirrorEditor({
       '.cm-gutters': {
         display: 'none',
       },
-      // Vim mode status
-      '.cm-vim-panel': {
-        position: 'absolute',
-        bottom: '0',
-        left: '0',
-        right: '0',
-        backgroundColor: 'hsl(var(--background) / 0.95)',
-        borderTop: '1px solid hsl(var(--border) / 0.3)',
-        padding: '4px 20px',
-        fontSize: '11px',
-        fontFamily: 'ui-monospace, monospace',
-        color: 'hsl(var(--muted-foreground))',
-        backdropFilter: 'blur(8px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        height: '24px',
-      },
-      '.cm-vim-panel input': {
-        background: 'transparent',
-        border: 'none',
-        outline: 'none',
-        color: 'inherit',
-        fontFamily: 'inherit',
-        fontSize: 'inherit',
-        flex: 1,
-      },
       // Typewriter mode
       '.cm-content.typewriter-mode': {
         paddingTop: '50vh',
