@@ -48,7 +48,8 @@
       "Bash(ls:*)",
       "Bash(npx tsc:*)",
       "Bash(pnpm tauri build:*)",
-      "Bash(jobs)"
+      "Bash(jobs)",
+      "Bash(cargo build:*)"
     ],
     "deny": []
   }

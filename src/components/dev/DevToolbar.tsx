@@ -6,26 +6,52 @@ import { useDetachedWindowsStore } from '../../stores/detached-windows-store';
 export function DevToolbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [position, setPosition] = useState({ bottom: 8, right: 8 });
+  const [isDragging, setIsDragging] = useState(false);
   const { refreshWindows } = useDetachedWindowsStore();
 
-  const runCommand = async (command: string, fn: () => Promise<void>) => {
-    try {
-      console.log(`[DEV] Running ${command}...`);
-      await fn();
-      console.log(`[DEV] ${command} completed`);
-    } catch (error) {
-      console.error(`[DEV] ${command} failed:`, error);
+  const handleDrag = (e: React.MouseEvent) => {
+    if (!isOpen) {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startBottom = position.bottom;
+      const startRight = position.right;
+      
+      const handleMove = (moveEvent: MouseEvent) => {
+        const deltaX = startX - moveEvent.clientX;
+        const deltaY = moveEvent.clientY - startY;
+        
+        setPosition({
+          bottom: Math.max(8, Math.min(window.innerHeight - 60, startBottom - deltaY)),
+          right: Math.max(8, Math.min(window.innerWidth - 60, startRight + deltaX))
+        });
+      };
+      
+      const handleUp = () => {
+        setIsDragging(false);
+        document.removeEventListener('mousemove', handleMove);
+        document.removeEventListener('mouseup', handleUp);
+      };
+      
+      setIsDragging(true);
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('mouseup', handleUp);
     }
   };
 
   return (
-    <div className={`fixed bottom-2 right-2 z-50 ${!isOpen ? 'pointer-events-none' : ''}`}>
+    <div 
+      className={`fixed z-50 ${!isOpen ? 'pointer-events-none' : ''}`}
+      style={{ bottom: `${position.bottom}px`, right: `${position.right}px` }}
+    >
       {/* Toolbar panel */}
-      <div className={`bg-black/80 text-white p-4 rounded-xl border border-gray-600 backdrop-blur-sm transition-all duration-300 ${
+      <div className={`bg-black/50 text-white p-3 rounded-lg border border-gray-700/30 backdrop-blur-sm transition-all duration-300 ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-mono text-white">Dev Toolbar</h3>
+      } w-[180px]`}>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-[11px] font-light text-gray-300 tracking-wide">Dev</h3>
           <button
             onClick={() => setIsOpen(false)}
             className="text-gray-400 hover:text-white text-xs"
@@ -34,185 +60,179 @@ export function DevToolbar() {
           </button>
         </div>
       
-      <div className="space-y-2">
-        <button
-          onClick={() => runCommand('Restore Windows', async () => {
-            const restored = await DetachedWindowsAPI.restoreDetachedWindows();
-            console.log('Restored:', restored);
-          })}
-          className="w-full px-2 py-1 bg-green-600/80 hover:bg-green-600 text-xs rounded-sm font-mono transition-all border border-green-400/30"
-        >
-          Restore Windows
-        </button>
-        
-        <button
-          onClick={() => runCommand('Refresh Windows', async () => {
-            await refreshWindows();
-          })}
-          className="w-full px-2 py-1 bg-blue-600/80 hover:bg-blue-600 text-xs rounded-sm font-mono transition-all border border-blue-400/30"
-        >
-          Refresh Windows
-        </button>
-        
-        <button
-          onClick={() => runCommand('Test Window Creation', async () => {
-            await invoke('test_window_creation');
-          })}
-          className="w-full px-2 py-1 bg-purple-600/80 hover:bg-purple-600 text-xs rounded-sm font-mono transition-all border border-purple-400/30"
-        >
-          Test Window Creation
-        </button>
-        
-        <button
-          onClick={() => runCommand('Test Detached Window', async () => {
-            const result = await invoke<string>('test_detached_window_creation');
-            console.log('Test detached window result:', result);
-          })}
-          className="w-full px-2 py-1 bg-violet-600/80 hover:bg-violet-600 text-xs rounded-sm font-mono transition-all border border-violet-400/30"
-        >
-          Test Detached Window
-        </button>
-        
-        <button
-          onClick={() => runCommand('Force Close Test Window', async () => {
-            const result = await invoke<string>('force_close_test_window');
-            console.log('Force close result:', result);
-            console.log('=== FORCE CLOSE RESULT ===\n' + result);
-            await refreshWindows();
-          })}
-          className="w-full px-2 py-1 bg-red-600/80 hover:bg-red-600 text-xs rounded-sm font-mono transition-all border border-red-400/30"
-        >
-          Force Close Test Window
-        </button>
-        
-        <button
-          onClick={() => runCommand('Cleanup Stale Hybrid Windows', async () => {
-            const result = await invoke<string>('cleanup_stale_hybrid_windows');
-            console.log('Cleanup result:', result);
-            console.log('=== CLEANUP RESULT ===\n' + result);
-            await refreshWindows();
-          })}
-          className="w-full px-2 py-1 bg-orange-600/80 hover:bg-orange-600 text-xs rounded-sm font-mono transition-all border border-orange-400/30"
-        >
-          Cleanup Stale Hybrids
-        </button>
-        
-        <button
-          onClick={() => runCommand('Debug Window State', async () => {
-            const state = await invoke<string>('debug_webview_state');
-            console.log('Window state:', state);
-          })}
-          className="w-full px-2 py-1 bg-yellow-600/80 hover:bg-yellow-600 text-xs rounded-sm font-mono transition-all border border-yellow-400/30"
-        >
-          Debug Window State
-        </button>
-        
-        <button
-          onClick={() => runCommand('Debug ALL Windows', async () => {
-            const state = await invoke<string>('debug_all_windows_state');
-            console.log('All windows state:', state);
-          })}
-          className="w-full px-2 py-1 bg-cyan-600/80 hover:bg-cyan-600 text-xs rounded-sm font-mono transition-all border border-cyan-400/30"
-        >
-          Debug ALL Windows
-        </button>
-        
-        <button
-          onClick={() => runCommand('Force All Opaque', async () => {
-            const result = await invoke<string>('force_all_windows_opaque');
-            console.log('Force opaque result:', result);
-          })}
-          className="w-full px-2 py-1 bg-pink-600/80 hover:bg-pink-600 text-xs rounded-sm font-mono transition-all border border-pink-400/30"
-        >
-          Force All Opaque
-        </button>
-        
-        <button
-          onClick={() => runCommand('Gather Windows to Current Space', async () => {
-            const result = await invoke<string>('gather_all_windows_to_main_screen');
-            console.log('Gather windows result:', result);
-          })}
-          className="w-full px-2 py-1 bg-indigo-600/80 hover:bg-indigo-600 text-xs rounded-sm font-mono transition-all border border-indigo-400/30"
-        >
-          Gather to Current Space
-        </button>
-        
-        <button
-          onClick={() => runCommand('Recreate Missing Windows', async () => {
-            const result = await invoke<string>('recreate_missing_windows');
-            console.log('Recreate missing windows result:', result);
-          })}
-          className="w-full px-2 py-1 bg-emerald-600/80 hover:bg-emerald-600 text-xs rounded-sm font-mono transition-all border border-emerald-400/30"
-        >
-          Recreate Missing Windows
-        </button>
-        
-        <button
-          onClick={() => runCommand('Force Main Visible', async () => {
-            await invoke('force_main_window_visible');
-          })}
-          className="w-full px-2 py-1 bg-orange-600/80 hover:bg-orange-600 text-xs rounded-sm font-mono transition-all border border-orange-400/30"
-        >
-          Force Main Visible
-        </button>
-        
-        <button
-          onClick={() => runCommand('Clear All Windows', async () => {
-            if (confirm('Clear all detached windows? This will close all windows and clear state.')) {
-              const count = await DetachedWindowsAPI.clearAllDetachedWindows();
-              console.log(`Cleared ${count} windows`);
-              await refreshWindows();
-            }
-          })}
-          className="w-full px-2 py-1 bg-red-600/80 hover:bg-red-600 text-xs rounded-sm font-mono transition-all border border-red-400/30"
-        >
-          Clear All Windows
-        </button>
-        
-        <button
-          onClick={() => runCommand('Show Log File Path', async () => {
-            const logPath = await invoke<string>('get_log_file_path');
-            console.log('Log file location:', logPath);
-            alert(`Log file location:\n${logPath}`);
-          })}
-          className="w-full px-2 py-1 bg-amber-600/80 hover:bg-amber-600 text-xs rounded-sm font-mono transition-all border border-amber-400/30"
-        >
-          Show Log File Path
-        </button>
-        
-        <button
-          onClick={() => runCommand('Show Recent Logs', async () => {
-            const logs = await invoke<string>('get_recent_logs', { lines: 50 });
-            console.log('Recent logs (last 50 lines):', logs);
-          })}
-          className="w-full px-2 py-1 bg-teal-600/80 hover:bg-teal-600 text-xs rounded-sm font-mono transition-all border border-teal-400/30"
-        >
-          Show Recent Logs
-        </button>
-        
-        <button
-          onClick={() => runCommand('Window State Truth', async () => {
-            const truth = await invoke<string>('get_window_state_truth');
-            console.log('=== WINDOW STATE TRUTH ===');
-            console.log(truth);
-          })}
-          className="w-full px-2 py-1 bg-fuchsia-600/80 hover:bg-fuchsia-600 text-xs rounded-sm font-mono transition-all border border-fuchsia-400/30"
-        >
-          Window State Truth
-        </button>
+      <div className="space-y-1">
+        {/* Primary Categories */}
+        <div className="space-y-1">
+          <button
+            onClick={() => setActiveCategory(activeCategory === 'inspect' ? null : 'inspect')}
+            className={`w-full px-2.5 py-1 text-[11px] font-light rounded transition-all text-left flex items-center justify-between ${
+              activeCategory === 'inspect' ? 'bg-blue-600/20 text-blue-300' : 'bg-white/5 hover:bg-white/10'
+            }`}
+          >
+            <span>🔍 State Inspection</span>
+            <span className="text-[9px] opacity-60">{activeCategory === 'inspect' ? '−' : '+'}</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveCategory(activeCategory === 'testing' ? null : 'testing')}
+            className={`w-full px-2.5 py-1 text-[11px] font-light rounded transition-all text-left flex items-center justify-between ${
+              activeCategory === 'testing' ? 'bg-green-600/20 text-green-300' : 'bg-white/5 hover:bg-white/10'
+            }`}
+          >
+            <span>🧪 Window Testing</span>
+            <span className="text-[9px] opacity-60">{activeCategory === 'testing' ? '−' : '+'}</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveCategory(activeCategory === 'cleanup' ? null : 'cleanup')}
+            className={`w-full px-2.5 py-1 text-[11px] font-light rounded transition-all text-left flex items-center justify-between ${
+              activeCategory === 'cleanup' ? 'bg-orange-600/20 text-orange-300' : 'bg-white/5 hover:bg-white/10'
+            }`}
+          >
+            <span>🧹 Cleanup Tools</span>
+            <span className="text-[9px] opacity-60">{activeCategory === 'cleanup' ? '−' : '+'}</span>
+          </button>
         </div>
+        
+        {/* Secondary Menu - State Inspection */}
+        {activeCategory === 'inspect' && (
+          <div className="pl-3 space-y-0.5 border-l border-gray-700/30 ml-1">
+            <button
+              onClick={async () => {
+                const truth = await invoke<string>('get_window_state_truth');
+                console.log('\n=== WINDOW STATE TRUTH ===');
+                console.log(truth);
+                console.log('==========================\n');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Window State Truth
+            </button>
+            <button
+              onClick={async () => {
+                const logs = await invoke<string>('get_recent_logs', { lines: 50 });
+                console.log('\n=== RECENT LOGS ===');
+                console.log(logs);
+                console.log('==================\n');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Show Recent Logs
+            </button>
+            <button
+              onClick={async () => {
+                const windows = await invoke<string[]>('list_all_windows');
+                console.log('\n=== ALL WINDOWS ===');
+                windows.forEach(w => console.log(`  - ${w}`));
+                console.log('==================\n');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              List All Windows
+            </button>
+          </div>
+        )}
+        
+        {/* Secondary Menu - Window Testing */}
+        {activeCategory === 'testing' && (
+          <div className="pl-3 space-y-0.5 border-l border-gray-700/30 ml-1">
+            <button
+              onClick={async () => {
+                console.log('[DEV] Creating test window...');
+                await invoke('create_test_window');
+                await refreshWindows();
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Create Test Window
+            </button>
+            <button
+              onClick={async () => {
+                console.log('[DEV] Testing window events...');
+                await invoke('test_window_events');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Test Window Events
+            </button>
+            <button
+              onClick={async () => {
+                const noteId = prompt('Enter note ID to detach:');
+                if (noteId) {
+                  await invoke('force_create_detached_window', { noteId });
+                  await refreshWindows();
+                }
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Force Detach Note
+            </button>
+          </div>
+        )}
+        
+        {/* Secondary Menu - Cleanup Tools */}
+        {activeCategory === 'cleanup' && (
+          <div className="pl-3 space-y-0.5 border-l border-gray-700/30 ml-1">
+            <button
+              onClick={async () => {
+                await refreshWindows();
+                console.log('[DEV] State refreshed');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Refresh State
+            </button>
+            <button
+              onClick={async () => {
+                const result = await invoke<number>('cleanup_stale_windows');
+                console.log(`[DEV] Cleaned up ${result} stale windows`);
+                await refreshWindows();
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Cleanup Stale Windows
+            </button>
+            <button
+              onClick={async () => {
+                await invoke('force_close_test_window');
+                await refreshWindows();
+                console.log('[DEV] Test window closed');
+              }}
+              className="w-full px-2 py-0.5 bg-white/5 hover:bg-white/10 text-[10px] font-light rounded transition-all text-left"
+            >
+              Close Test Window
+            </button>
+            <button
+              onClick={async () => {
+                if (confirm('Clear all detached windows?')) {
+                  const count = await DetachedWindowsAPI.clearAllDetachedWindows();
+                  console.log(`[DEV] Cleared ${count} windows`);
+                  await refreshWindows();
+                }
+              }}
+              className="w-full px-2 py-0.5 bg-red-900/20 hover:bg-red-900/40 text-[10px] font-light rounded transition-all text-left text-red-300"
+            >
+              Clear All Windows
+            </button>
+          </div>
+        )}
+      </div>
       </div>
       
       {/* Floating DEV button */}
       <button
         onClick={() => {
-          setIsSpinning(true);
-          setIsOpen(!isOpen);
-          setTimeout(() => setIsSpinning(false), 150);
+          if (!isDragging) {
+            setIsSpinning(true);
+            setIsOpen(!isOpen);
+            setTimeout(() => setIsSpinning(false), 150);
+          }
         }}
-        className={`absolute bottom-0 right-0 w-12 h-12 bg-black/60 hover:bg-black/80 text-white text-xs rounded-full font-mono transition-all duration-300 flex items-center justify-center pointer-events-auto ${
+        onMouseDown={handleDrag}
+        className={`absolute bottom-0 right-0 w-10 h-10 bg-black/40 hover:bg-black/60 text-white/80 text-[10px] rounded-full font-light transition-all duration-300 flex items-center justify-center pointer-events-auto border border-gray-600/20 shadow-sm hover:shadow-md ${
           isSpinning ? (isOpen ? 'animate-[spin_0.15s_ease-in-out_1_reverse]' : 'animate-[spin_0.15s_ease-in-out_1]') : ''
-        }`}
+        } ${!isOpen ? 'cursor-move' : 'cursor-pointer'}`}
+        title={!isOpen ? 'Drag to reposition' : 'Click to close'}
       >
         DEV
       </button>
