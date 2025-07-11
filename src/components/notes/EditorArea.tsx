@@ -60,29 +60,38 @@ export function EditorArea({
             </h2>
             
             {/* Mode toggle */}
-            <button
-              onClick={onPreviewToggle}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-background/50 hover:bg-background/70 border border-border/30 rounded-lg transition-colors duration-150 text-xs font-medium"
-              title="Toggle preview mode (⌘⇧P)"
-            >
-              {isPreviewMode ? (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                  <span>Edit</span>
-                </>
-              ) : (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <span>Preview</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center bg-background/40 border border-border/30 rounded-xl">
+              <button
+                onClick={onPreviewToggle}
+                className={`px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                  !isPreviewMode 
+                    ? 'bg-primary/20 text-primary shadow-sm' 
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                }`}
+                title="Edit mode (⌘⇧P)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                <span>Edit</span>
+              </button>
+              <button
+                onClick={onPreviewToggle}
+                className={`px-2.5 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                  isPreviewMode 
+                    ? 'bg-primary/20 text-primary shadow-sm' 
+                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                }`}
+                title="Preview mode (⌘⇧P)"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span>Preview</span>
+              </button>
+            </div>
           </div>
           
           {/* Editor area */}
