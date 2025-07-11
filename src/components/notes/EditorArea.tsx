@@ -59,37 +59,47 @@ export function EditorArea({
               {extractTitleFromContent(currentContent) || 'Untitled'}
             </h2>
             
-            {/* Mode toggle */}
-            <div className="flex items-center bg-background/40 border border-border/30 rounded-xl">
+            {/* Mode toggle with smooth sliding animation */}
+            <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl p-0.5">
+              {/* Sliding background indicator */}
+              <div 
+                className="absolute h-[calc(100%-4px)] bg-primary/20 rounded-lg transition-all duration-300 ease-out"
+                style={{
+                  width: 'calc(50% - 2px)',
+                  left: isPreviewMode ? 'calc(50% + 1px)' : '2px',
+                }}
+              />
+              
               <button
-                onClick={() => onPreviewToggle()}
-                className={`px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                onClick={() => !isPreviewMode && onPreviewToggle()}
+                className={`relative px-3 py-1 flex items-center gap-1.5 rounded-lg transition-all duration-300 text-xs font-medium z-10 ${
                   !isPreviewMode 
-                    ? 'bg-primary/20 text-primary shadow-sm' 
-                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    ? 'text-primary' 
+                    : 'text-muted-foreground/60 hover:text-foreground'
                 }`}
                 title="Edit mode (⌘⇧P)"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="transition-transform duration-300">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
-                Edit
+                <span className="transition-all duration-300">Edit</span>
               </button>
+              
               <button
-                onClick={() => onPreviewToggle()}
-                className={`px-2 py-1 flex items-center gap-1.5 rounded-xl transition-all duration-200 text-xs font-medium ${
+                onClick={() => isPreviewMode && onPreviewToggle()}
+                className={`relative px-3 py-1 flex items-center gap-1.5 rounded-lg transition-all duration-300 text-xs font-medium z-10 ${
                   isPreviewMode 
-                    ? 'bg-primary/20 text-primary shadow-sm' 
-                    : 'text-muted-foreground/60 hover:text-foreground hover:bg-white/5'
+                    ? 'text-primary' 
+                    : 'text-muted-foreground/60 hover:text-foreground'
                 }`}
                 title="Preview mode (⌘⇧P)"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="transition-transform duration-300">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
-                Preview
+                <span className="transition-all duration-300">Preview</span>
               </button>
             </div>
           </div>
@@ -101,7 +111,9 @@ export function EditorArea({
               value={currentContent}
               onChange={(e) => onContentChange(e.target.value)}
               placeholder="Your thoughts, unfiltered..."
-              className="w-full h-full resize-none bg-transparent border-none outline-none p-5 text-foreground placeholder-muted-foreground/50 scrollbar-thin"
+              className={`w-full h-full resize-none bg-transparent border-none outline-none p-5 text-foreground placeholder-muted-foreground/50 scrollbar-thin transition-opacity duration-300 ease-out ${
+                isPreviewMode ? 'opacity-0' : 'opacity-100'
+              }`}
               style={{
                 fontSize: `${editorConfig.fontSize || 15}px`,
                 fontFamily: editorConfig.editorFontFamily || 'system-ui',
@@ -109,8 +121,10 @@ export function EditorArea({
               }}
             />
             
-            {/* Preview overlay */}
-            {isPreviewMode && selectedNote && (
+            {/* Preview overlay with smooth fade transition */}
+            <div className={`absolute inset-0 transition-opacity duration-300 ease-out ${
+              isPreviewMode ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}>
               <MarkdownRenderer
                 content={currentContent}
                 syntaxHighlighting={editorConfig.syntaxHighlighting}
@@ -124,7 +138,7 @@ export function EditorArea({
                   padding: '1.25rem' 
                 }}
               />
-            )}
+            </div>
           </div>
           
           {/* Note-specific footer */}
