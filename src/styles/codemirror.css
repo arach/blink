@@ -60,16 +60,24 @@
 
 /* Vim mode cursor styles */
 .cm-editor.cm-vim-mode .cm-cursor-primary {
-  display: block;
-  width: 0.5em !important;
-  background-color: hsl(var(--primary) / 0.8);
+  display: block !important;
+  width: 0.7em !important;
+  background-color: hsl(var(--primary)) !important;
   border: none !important;
+  outline: 1px solid hsl(var(--primary) / 0.3);
 }
 
 .cm-editor.cm-vim-mode.cm-vim-insert .cm-cursor-primary {
   width: 2px !important;
-  background-color: transparent;
-  border-left: 2px solid hsl(var(--primary));
+  background-color: transparent !important;
+  border-left: 2px solid hsl(var(--primary)) !important;
+  outline: none;
+}
+
+/* Make vim block cursor more visible */
+.cm-editor.cm-focused.cm-vim-mode:not(.cm-vim-insert) .cm-cursor-primary {
+  background-color: hsl(var(--primary)) !important;
+  opacity: 0.8;
 }
 
 /* Vim command line styling */

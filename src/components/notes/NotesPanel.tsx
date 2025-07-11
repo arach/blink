@@ -44,12 +44,20 @@ export function NotesPanel({
       markdownToPlainText(note.content).toLowerCase().includes(query)
     );
   }, [notes, searchQuery]);
+  if (!sidebarVisible) {
+    return (
+      <div className="w-0 h-full overflow-hidden" data-notes-sidebar />
+    );
+  }
+
   return (
-    <div className={`h-full overflow-hidden transition-all duration-300 ease-out ${
-      sidebarVisible ? 'w-80' : 'w-0'
-    }`} data-notes-sidebar>
-      <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={400}>
-        <div className="h-full bg-card border-r border-border/30 flex flex-col">
+    <ResizablePanel
+      defaultWidth={320}
+      minWidth={240}
+      maxWidth={480}
+      className="h-full"
+    >
+      <div className="h-full bg-card border-r border-border/30 flex flex-col" data-notes-sidebar>
           {/* Header - Standardized 76px height */}
           <div className="h-[76px] flex flex-col justify-center px-4 border-b border-border/20 pt-5">
             <div className="flex items-center justify-between mb-3">
@@ -190,8 +198,7 @@ export function NotesPanel({
               </div>
             )}
           </div>
-        </div>
-      </ResizablePanel>
-    </div>
+      </div>
+    </ResizablePanel>
   );
 }

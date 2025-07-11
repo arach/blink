@@ -934,115 +934,6 @@ function calculateMetrics(data) {
           </div>
         </div>
 
-        {/* Features Group */}
-        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-              <line x1="9" y1="9" x2="15" y2="9"/>
-              <line x1="9" y1="12" x2="15" y2="12"/>
-              <line x1="9" y1="15" x2="12" y2="15"/>
-            </svg>
-            Features
-          </h3>
-          <div className="space-y-3">
-            
-            {/* Focus Mode */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Focus Mode</label>
-              <div className="flex items-center gap-3 flex-1">
-                <span className="text-xs text-muted-foreground/60 flex-1">distraction-free writing</span>
-                <button
-                  onClick={() => setLocalConfig({
-                    ...localConfig,
-                    appearance: {
-                      ...localConfig.appearance,
-                      focusMode: !localConfig.appearance?.focusMode
-                    }
-                  })}
-                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
-                    localConfig.appearance?.focusMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
-                    localConfig.appearance?.focusMode ? 'translate-x-3.5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Syntax Highlighting */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Syntax Highlighting</label>
-              <div className="flex items-center gap-3 flex-1">
-                <span className="text-xs text-muted-foreground/60 flex-1">code syntax colors</span>
-                <button
-                  onClick={() => setLocalConfig({
-                    ...localConfig,
-                    appearance: {
-                      ...localConfig.appearance,
-                      syntaxHighlighting: !localConfig.appearance?.syntaxHighlighting
-                    }
-                  })}
-                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
-                    localConfig.appearance?.syntaxHighlighting ? 'bg-primary' : 'bg-background/40 border border-border/40'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
-                    localConfig.appearance?.syntaxHighlighting ? 'translate-x-3.5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Typewriter Mode */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Typewriter Mode</label>
-              <div className="flex items-center gap-3 flex-1">
-                <span className="text-xs text-muted-foreground/60 flex-1">center current line</span>
-                <button
-                  onClick={() => setLocalConfig({
-                    ...localConfig,
-                    appearance: {
-                      ...localConfig.appearance,
-                      typewriterMode: !localConfig.appearance?.typewriterMode
-                    }
-                  })}
-                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
-                    localConfig.appearance?.typewriterMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
-                    localConfig.appearance?.typewriterMode ? 'translate-x-3.5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            </div>
-            {/* Vim Mode */}
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-foreground/80 w-28 font-mono">Vim Mode</label>
-              <div className="flex items-center gap-3 flex-1">
-                <span className="text-xs text-muted-foreground/60 flex-1">enable vim keybindings</span>
-                <button
-                  onClick={() => setLocalConfig({
-                    ...localConfig,
-                    appearance: {
-                      ...localConfig.appearance,
-                      vimMode: !localConfig.appearance?.vimMode
-                    }
-                  })}
-                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
-                    localConfig.appearance?.vimMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
-                  }`}
-                >
-                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
-                    localConfig.appearance?.vimMode ? 'translate-x-3.5' : 'translate-x-0'
-                  }`} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -1449,6 +1340,115 @@ function calculateMetrics(data) {
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Editor Features */}
+        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+              <path d="m9 11 3 3L22 4"/>
+            </svg>
+            Editor Features
+          </h3>
+          <div className="space-y-3">
+            
+            {/* Focus Mode */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-foreground/80 w-28 font-mono">Focus Mode</label>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xs text-muted-foreground/60 flex-1">distraction-free writing</span>
+                <button
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      focusMode: !localConfig.appearance?.focusMode
+                    }
+                  })}
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
+                    localConfig.appearance?.focusMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.focusMode ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Syntax Highlighting */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-foreground/80 w-28 font-mono">Syntax Highlighting</label>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xs text-muted-foreground/60 flex-1">code syntax colors</span>
+                <button
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      syntaxHighlighting: !localConfig.appearance?.syntaxHighlighting
+                    }
+                  })}
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
+                    localConfig.appearance?.syntaxHighlighting ? 'bg-primary' : 'bg-background/40 border border-border/40'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.syntaxHighlighting ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Typewriter Mode */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-foreground/80 w-28 font-mono">Typewriter Mode</label>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xs text-muted-foreground/60 flex-1">center current line</span>
+                <button
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      typewriterMode: !localConfig.appearance?.typewriterMode
+                    }
+                  })}
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
+                    localConfig.appearance?.typewriterMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.typewriterMode ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Vim Mode */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-foreground/80 w-28 font-mono">Vim Mode</label>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xs text-muted-foreground/60 flex-1">enable vim keybindings</span>
+                <button
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      vimMode: !localConfig.appearance?.vimMode
+                    }
+                  })}
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
+                    localConfig.appearance?.vimMode ? 'bg-primary' : 'bg-background/40 border border-border/40'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.vimMode ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
