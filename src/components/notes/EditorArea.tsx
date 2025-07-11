@@ -59,18 +59,18 @@ export function EditorArea({
               {extractTitleFromContent(currentContent) || 'Untitled'}
             </h2>
             
-            {/* Mode toggle */}
-            <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl p-1">
-              {/* Sliding background */}
+            {/* Mode toggle with sliding pill */}
+            <div className="relative flex items-center bg-background/40 border border-border/30 rounded-xl">
+              {/* Sliding pill background */}
               <div 
-                className="absolute inset-1 w-[calc(50%-4px)] bg-primary/20 rounded-lg transition-transform duration-200 ease-out"
+                className="absolute w-7 h-5 bg-primary/25 rounded-2xl shadow-sm transition-transform duration-200 ease-out"
                 style={{
-                  transform: isPreviewMode ? 'translateX(calc(100% + 4px))' : 'translateX(0)'
+                  transform: isPreviewMode ? 'translateX(28px)' : 'translateX(0)'
                 }}
               />
               <button
-                onClick={onPreviewToggle}
-                className={`relative z-10 px-2.5 py-1 flex items-center gap-1.5 rounded-lg transition-colors duration-200 text-xs font-medium ${
+                onClick={() => setIsPreviewMode(false)}
+                className={`relative w-7 h-5 flex items-center justify-center rounded-2xl transition-colors duration-200 ${
                   !isPreviewMode 
                     ? 'text-primary' 
                     : 'text-muted-foreground/60 hover:text-foreground'
@@ -81,11 +81,10 @@ export function EditorArea({
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
-                <span>Edit</span>
               </button>
               <button
-                onClick={onPreviewToggle}
-                className={`relative z-10 px-2.5 py-1 flex items-center gap-1.5 rounded-lg transition-colors duration-200 text-xs font-medium ${
+                onClick={() => setIsPreviewMode(true)}
+                className={`relative w-7 h-5 flex items-center justify-center rounded-2xl transition-colors duration-200 ${
                   isPreviewMode 
                     ? 'text-primary' 
                     : 'text-muted-foreground/60 hover:text-foreground'
@@ -96,7 +95,6 @@ export function EditorArea({
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
-                <span>Preview</span>
               </button>
             </div>
           </div>
