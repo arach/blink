@@ -126,17 +126,15 @@ export function NotesPanel({
                 </div>
               </div>
             ) : (
-              <div className="p-2">
+              <div className="flex flex-col divide-y divide-border/10">
                 {filteredNotes.map((note) => {
-                  // Find the original index in the unfiltered notes array for keyboard shortcuts
-                  const originalIndex = notes.findIndex(n => n.id === note.id);
                   return (
                   <div
                     key={note.id}
-                    className={`group relative p-3 rounded-lg mb-2 cursor-pointer transition-all ${
+                    className={`group relative cursor-pointer transition-all ${
                       selectedNoteId === note.id
-                        ? 'bg-primary/10 border border-primary/20'
-                        : 'bg-background/40 hover:bg-background/60 border border-transparent'
+                        ? 'bg-primary/10 border-l-4 border-l-primary -ml-[1px] pl-[17px] pr-4 py-3'
+                        : 'hover:bg-background/50 border-l-4 border-l-transparent px-4 py-3'
                     }`}
                     onClick={() => onSelectNote(note.id)}
                     onContextMenu={(e) => onShowContextMenu(e.clientX, e.clientY, note.id)}
@@ -146,69 +144,44 @@ export function NotesPanel({
                       }
                     }}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className={`text-sm font-medium truncate transition-colors ${
+                        <div className="flex items-start gap-2">
+                          <h3 className={`text-sm font-medium leading-tight transition-colors flex-1 ${
                             selectedNoteId === note.id 
                               ? 'text-primary' 
-                              : 'text-foreground group-hover:text-foreground'
+                              : 'text-foreground/90 group-hover:text-foreground'
                           }`}>
                             {note.title || 'Untitled'}
                           </h3>
-                          {originalIndex < 9 && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md font-mono transition-colors ${
-                              selectedNoteId === note.id 
-                                ? 'bg-primary/20 text-primary/80' 
-                                : 'bg-muted-foreground/10 text-muted-foreground/50 group-hover:text-muted-foreground/70'
-                            }`}>
-                              ⌃⌘⌥⇧{originalIndex + 1}
-                            </span>
+                          {isWindowOpen(note.id) && (
+                            <div className="w-1 h-1 rounded-full bg-primary/40 mt-2" title="Open in window" />
                           )}
                         </div>
                         
-                        {showNotePreviews && (
-                          <p className="text-xs text-muted-foreground/70 mt-1 line-clamp-2 leading-relaxed">
-                            {note.content ? truncateText(markdownToPlainText(note.content), 80) : 'Empty note'}
+                        {showNotePreviews && note.content && (
+                          <p className="text-xs text-muted-foreground/50 mt-1.5 line-clamp-2 leading-relaxed">
+                            {truncateText(markdownToPlainText(note.content), 120)}
                           </p>
                         )}
                       </div>
                       
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                        {/* Window indicator */}
-                        {isWindowOpen(note.id) && (
-                          <div className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                            selectedNoteId === note.id ? 'bg-primary/60' : 'bg-muted-foreground/40'
-                          }`} title="Note is open in window" />
-                        )}
-                        
-                        {/* Delete button - only show on hover */}
+                      {/* Actions */}
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onDeleteNote(note.id);
                           }}
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground/50 hover:text-red-400 p-1 rounded-lg transition-all"
+                          className="text-muted-foreground/40 hover:text-red-400 p-1 rounded transition-colors"
                           title="Delete note"
                         >
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <polyline points="3,6 5,6 21,6"/>
-                            <path d="M19,6l-1,14a2,2,0,0,1-2,2H8a2,2,0,0,1-2-2L5,6"/>
-                            <path d="M10,11v6"/>
-                            <path d="M14,11v6"/>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 6h18"/>
+                            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
+                            <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                           </svg>
                         </button>
-                        
-                        <div className={`text-xs transition-opacity ${
-                          selectedNoteId === note.id 
-                            ? 'text-primary/50' 
-                            : 'text-muted-foreground/40 group-hover:text-muted-foreground/60'
-                        }`}>
-                          {note.updated_at ? new Date(note.updated_at).toLocaleDateString('en-US', { 
-                            month: 'numeric', 
-                            day: 'numeric' 
-                          }) : ''}
-                        </div>
                       </div>
                     </div>
                   </div>
