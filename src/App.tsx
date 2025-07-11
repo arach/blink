@@ -415,16 +415,8 @@ function App() {
           console.log('[BLINK] Window closed event received for note:', event.payload);
           const noteId = event.payload as string;
           
-          // Force immediate refresh of windows list
-          await refreshWindows();
-          
-          // Additional force update by directly updating the store
-          setTimeout(async () => {
-            await refreshWindows();
-            const windowsStore = useDetachedWindowsStore.getState();
-            console.log('[BLINK] Windows after refresh:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => w.note_id) : 'no windows');
-            console.log('[BLINK] Is window still open?', windowsStore.isWindowOpen(noteId));
-          }, 200);
+          // Single refresh only
+          await useDetachedWindowsStore.getState().refreshWindows();
         });
         unlisteners.push(unlistenWindowClosed);
         
@@ -432,8 +424,8 @@ function App() {
         const unlistenWindowCreated = await listen('window-created', async (event) => {
           console.log('[BLINK] Window created event received for note:', event.payload);
           
-          // Force immediate refresh of windows list
-          await refreshWindows();
+          // Single refresh only
+          await useDetachedWindowsStore.getState().refreshWindows();
         });
         unlisteners.push(unlistenWindowCreated);
         
@@ -450,13 +442,8 @@ function App() {
             console.error('[BLINK] Failed to cleanup backend state:', error);
           }
           
-          // Force immediate refresh of windows list
-          await refreshWindows();
-          
-          // Additional cleanup check after a delay
-          setTimeout(async () => {
-            await refreshWindows();
-            const windowsStore = useDetachedWindowsStore.getState();
+          // Single refresh only
+          await useDetachedWindowsStore.getState().refreshWindows();
             console.log('[BLINK] Windows after destroy cleanup:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => w.note_id) : 'no windows');
           }, 500);
         });
@@ -466,8 +453,8 @@ function App() {
         const unlistenHybridDestroyed = await listen('hybrid-window-destroyed', async (event) => {
           console.log('[BLINK] Hybrid window destroyed event received:', event.payload);
           
-          // Refresh to clean up any stale hybrid window state
-          await refreshWindows();
+          // Single refresh only
+          await useDetachedWindowsStore.getState().refreshWindows();
         });
         unlisteners.push(unlistenHybridDestroyed);
         
@@ -498,7 +485,7 @@ function App() {
         cleanup();
       }
     };
-  }, [createNewNote, refreshWindows]); // Remove notes dependency - using ref instead
+  }, [createNewNote]); // Remove refreshWindows to prevent re-registration
 
 
   // Animation handlers

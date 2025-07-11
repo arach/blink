@@ -124,18 +124,8 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
 
   refreshWindows: async (): Promise<void> => {
     try {
-      console.log('[DETACHED-WINDOWS-STORE] Refreshing windows...');
       const windows = await DetachedWindowsAPI.getDetachedWindows();
-      console.log('[DETACHED-WINDOWS-STORE] Received windows from API:', windows);
-      console.log('[DETACHED-WINDOWS-STORE] Type of windows:', typeof windows);
-      console.log('[DETACHED-WINDOWS-STORE] Is array:', Array.isArray(windows));
-      console.log('[DETACHED-WINDOWS-STORE] Windows array details:', windows.map(w => ({ 
-        note_id: w.note_id, 
-        window_label: w.window_label, 
-        position: w.position 
-      })));
       set({ windows });
-      console.log('[DETACHED-WINDOWS-STORE] Windows set in store');
     } catch (error) {
       console.error('[DETACHED-WINDOWS-STORE] Failed to refresh windows:', error);
     }

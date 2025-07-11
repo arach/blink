@@ -29,23 +29,12 @@ export class DetachedWindowsAPI {
   }
 
   static async getDetachedWindows(): Promise<DetachedWindow[]> {
-    console.log('[DETACHED-WINDOWS-API] Requesting windows from backend...');
     const result = await invoke<{[key: string]: DetachedWindow}>('get_detached_windows');
-    console.log('[DETACHED-WINDOWS-API] Received from backend:', result);
-    console.log('[DETACHED-WINDOWS-API] Type of result:', typeof result);
-    console.log('[DETACHED-WINDOWS-API] Is array:', Array.isArray(result));
     
     // Convert HashMap to array and filter out hybrid-drag windows (just in case backend didn't filter)
     const windowsArray = Object.values(result).filter(window => 
       window.window_label.startsWith('note-')
     );
-    console.log('[DETACHED-WINDOWS-API] Converted to array:', windowsArray);
-    console.log('[DETACHED-WINDOWS-API] Array length (after filtering):', windowsArray.length);
-    console.log('[DETACHED-WINDOWS-API] Filtered windows:', windowsArray.map(w => ({ 
-      note_id: w.note_id, 
-      window_label: w.window_label, 
-      position: w.position 
-    })));
     
     return windowsArray;
   }
