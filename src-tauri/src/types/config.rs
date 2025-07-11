@@ -74,6 +74,12 @@ pub struct AppearanceConfig {
     #[serde(rename = "windowOpacity")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub window_opacity: Option<f64>,
+    #[serde(rename = "notePaperStyle")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note_paper_style: Option<String>,
+    #[serde(rename = "vimMode")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vim_mode: Option<bool>,
 }
 
 // Default constructors
@@ -100,6 +106,8 @@ pub fn default_appearance() -> AppearanceConfig {
         theme_id: Some("midnightInk".to_string()),
         show_note_previews: Some(true),
         window_opacity: None,
+        note_paper_style: Some("none".to_string()),
+        vim_mode: Some(false),
     }
 }
 

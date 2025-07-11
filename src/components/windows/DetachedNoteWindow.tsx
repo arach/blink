@@ -12,6 +12,7 @@ import { CustomTitleBar } from '../layout/CustomTitleBar';
 import { WindowWrapper } from '../layout/WindowWrapper';
 import { extractTitleFromContent, getWordCount } from '../../lib/utils';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
+import { CodeMirrorEditor } from '../editor/CodeMirrorEditor';
 
 import { Note } from '../../types';
 
@@ -313,21 +314,20 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
             : ''
         } ${getPaperStyleClass(config.appearance?.notePaperStyle)}`}>
           {/* Editor */}
-          <textarea 
-            className={`w-full h-full bg-transparent text-foreground resize-none outline-none placeholder-muted-foreground/40 transition-opacity ${
-              isPreviewMode ? 'absolute inset-0 z-10 opacity-0 pointer-events-none' : 'opacity-100'
-            }`}
-            style={{ 
-              fontSize: `${config.appearance?.fontSize || 15}px`,
-              fontFamily: config.appearance?.editorFontFamily || 'system-ui',
-              lineHeight: config.appearance?.lineHeight || 1.6,
-              padding: '0' 
-            }}
-            placeholder="Start writing..."
-            value={content}
-            onChange={(e) => updateNoteContent(e.target.value)}
-            autoFocus={!isPreviewMode}
-          />
+          {!isPreviewMode ? (
+            <CodeMirrorEditor
+              value={content}
+              onChange={updateNoteContent}
+              placeholder="Start writing..."
+              vimMode={config?.appearance?.vimMode || false}
+              fontSize={config.appearance?.fontSize || 15}
+              fontFamily={config.appearance?.editorFontFamily || 'system-ui'}
+              lineHeight={config.appearance?.lineHeight || 1.6}
+              typewriterMode={config?.appearance?.typewriterMode || false}
+              autoFocus={true}
+              className={getPaperStyleClass(config.appearance?.notePaperStyle)}
+            />
+          ) : null}
           
           {/* Preview overlay */}
           {isPreviewMode && (

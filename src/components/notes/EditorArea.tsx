@@ -1,6 +1,8 @@
 import { Note } from '../../types';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { extractTitleFromContent } from '../../lib/utils';
+import { CodeMirrorEditor } from '../editor/CodeMirrorEditor';
+import { useConfigStore } from '../../stores/config-store';
 
 interface SaveStatus {
   isSaving: boolean;
@@ -37,6 +39,7 @@ export function EditorArea({
   onContentChange,
   onPreviewToggle
 }: EditorAreaProps) {
+  const { config } = useConfigStore();
   const getPaperStyleClass = (style?: string) => {
     switch (style) {
       case 'dotted-grid':
@@ -107,18 +110,29 @@ export function EditorArea({
           
           {/* Editor area */}
           <div className={`flex-1 relative ${getPaperStyleClass(editorConfig.notePaperStyle)}`}>
-            <textarea
-              ref={textareaRef}
-              value={currentContent}
-              onChange={(e) => onContentChange(e.target.value)}
-              placeholder="Your thoughts, unfiltered..."
-              className="w-full h-full resize-none bg-transparent border-none outline-none p-5 text-foreground placeholder-muted-foreground/50 scrollbar-thin"
-              style={{
-                fontSize: `${editorConfig.fontSize || 15}px`,
-                fontFamily: editorConfig.editorFontFamily || 'system-ui',
-                lineHeight: editorConfig.lineHeight || 1.6,
-              }}
-            />
+            {!isPreviewMode ? (
+              <CodeMirrorEditor
+                value={currentContent}
+                onChange={onContentChange}
+                placeholder="Your thoughts, unfiltered..."
+                vimMode={config?.appearance?.vimMode || false}
+                fontSize={editorConfig.fontSize || 15}
+                fontFamily={editorConfig.editorFontFamily || 'system-ui'}
+                lineHeight={editorConfig.lineHeight || 1.6}
+                typewriterMode={config?.appearance?.typewriterMode || false}
+                autoFocus={true}
+                className={getPaperStyleClass(editorConfig.notePaperStyle)}
+              />
+            ) : (
+              /* Keep textarea hidden for preview mode to maintain ref */
+              <textarea
+                ref={textareaRef}
+                value={currentContent}
+                onChange={(e) => onContentChange(e.target.value)}
+                className="sr-only"
+                tabIndex={-1}
+              />
+            )}
             
             {/* Preview overlay */}
             {isPreviewMode && selectedNote && (

@@ -1,4 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { useState, useEffect, useRef } from 'react';
 import { 
   DetachedNoteWindow, 
@@ -413,7 +414,6 @@ function App() {
         // Listen for window closed events
         const unlistenWindowClosed = await listen('window-closed', async (event) => {
           console.log('[BLINK] Window closed event received for note:', event.payload);
-          const noteId = event.payload as string;
           
           // Single refresh only
           await useDetachedWindowsStore.getState().refreshWindows();
@@ -432,11 +432,10 @@ function App() {
         // Listen for window destroyed events (from OS/user closing window)
         const unlistenWindowDestroyed = await listen('window-destroyed', async (event) => {
           console.log('[BLINK] Window destroyed event received for note:', event.payload);
-          const noteId = event.payload as string;
           
           // Clean up backend state
           try {
-            await invoke('cleanup_destroyed_window', { noteId });
+            await invoke('cleanup_destroyed_window', { noteId: event.payload as string });
             console.log('[BLINK] Backend state cleaned up for destroyed window');
           } catch (error) {
             console.error('[BLINK] Failed to cleanup backend state:', error);

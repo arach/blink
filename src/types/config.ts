@@ -38,6 +38,7 @@ export interface AppConfig {
     syntaxHighlighting?: boolean;
     focusMode?: boolean;
     typewriterMode?: boolean;
+    vimMode?: boolean;
     showNotePreviews?: boolean;
     windowOpacity?: number; // Background transparency (0-1)
     appFontFamily: string;
@@ -79,6 +80,7 @@ export const defaultConfig: AppConfig = {
     syntaxHighlighting: true,
     focusMode: false,
     typewriterMode: false,
+    vimMode: false,
     showNotePreviews: false,
     appFontFamily: 'system-ui',
   },
