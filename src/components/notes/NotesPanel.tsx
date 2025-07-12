@@ -112,7 +112,7 @@ export function NotesPanel({
           </div>
 
           {/* Notes List */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             {loading ? (
               <div className="p-4 text-center text-muted-foreground/60 text-sm">
                 Loading your thoughts...
@@ -134,16 +134,16 @@ export function NotesPanel({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col divide-y divide-border/10">
-                {filteredNotes.map((note) => {
+              <div className="flex flex-col">
+                {filteredNotes.map((note, index) => {
                   return (
                   <div
                     key={note.id}
                     className={`group relative cursor-pointer transition-all ${
                       selectedNoteId === note.id
-                        ? 'bg-primary/10 border-l-4 border-l-primary -ml-[1px] pl-[17px] pr-4 py-3'
-                        : 'hover:bg-background/50 border-l-4 border-l-transparent px-4 py-3'
-                    }`}
+                        ? 'bg-primary/10 border-l-4 border-l-primary ml-0 pl-4 pr-4 py-3'
+                        : 'hover:bg-background/50 border-l-4 border-l-transparent ml-1 pl-3 pr-4 py-3'
+                    } ${index > 0 ? 'border-t border-border/10' : ''}`}
                     onClick={() => onSelectNote(note.id)}
                     onContextMenu={(e) => onShowContextMenu(e.clientX, e.clientY, note.id)}
                     onMouseDown={(e) => {

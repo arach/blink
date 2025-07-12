@@ -4,7 +4,6 @@ import { EditorState, Extension, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { vim, getCM } from '@replit/codemirror-vim';
-import { oneDark } from '@codemirror/theme-one-dark';
 
 interface CodeMirrorEditorProps {
   value: string;
@@ -49,11 +48,13 @@ export function CodeMirrorEditor({
         height: '100%',
         fontSize: `${fontSize}px`,
         fontFamily: fontFamily,
+        backgroundColor: 'hsl(var(--background))',
       },
       '.cm-content': {
         padding: '20px',
         lineHeight: `${lineHeight}`,
         caretColor: 'var(--primary)',
+        backgroundColor: 'transparent',
       },
       '.cm-focused': {
         outline: 'none',
@@ -61,14 +62,20 @@ export function CodeMirrorEditor({
       '.cm-editor': {
         height: '100%',
         outline: 'none',
+        backgroundColor: 'hsl(var(--card) / 0.3)',
+        borderRadius: '0',
+        '--editor-font-size': `${fontSize}px`,
+        '--editor-line-height': `${lineHeight}`,
       },
       '.cm-editor.cm-focused': {
         outline: 'none',
+        backgroundColor: 'hsl(var(--card) / 0.4)',
       },
       '.cm-scroller': {
         fontFamily: fontFamily,
         fontSize: `${fontSize}px`,
         lineHeight: `${lineHeight}`,
+        backgroundColor: 'transparent',
       },
       '.cm-placeholder': {
         color: 'var(--muted-foreground)',
@@ -112,10 +119,7 @@ export function CodeMirrorEditor({
   // Create extensions array
   const createExtensions = (): Extension[] => {
     const extensions: Extension[] = [
-      configCompartment.current.of([
-        createTheme(),
-        oneDark,
-      ]),
+      configCompartment.current.of(createTheme()),
       markdown(),
       keymap.of([
         ...defaultKeymap,
@@ -171,6 +175,21 @@ export function CodeMirrorEditor({
                                vimState.visualMode ? 'VISUAL' : 
                                'NORMAL';
                   onVimStatusChange({ mode, subMode: vimState.status });
+                  
+                  // Update editor classes based on vim mode
+                  const editorDom = update.view.dom;
+                  editorDom.classList.remove('cm-vim-insert-mode', 'cm-vim-visual-mode', 'cm-vim-normal-mode', 'cm-vim-visual-line');
+                  
+                  if (vimState.insertMode) {
+                    editorDom.classList.add('cm-vim-insert-mode');
+                  } else if (vimState.visualMode) {
+                    editorDom.classList.add('cm-vim-visual-mode');
+                    if (vimState.visualLine) {
+                      editorDom.classList.add('cm-vim-visual-line');
+                    }
+                  } else {
+                    editorDom.classList.add('cm-vim-normal-mode');
+                  }
                 }
               }
             }
@@ -255,10 +274,7 @@ export function CodeMirrorEditor({
     if (!view) return;
 
     view.dispatch({
-      effects: configCompartment.current.reconfigure([
-        createTheme(),
-        oneDark,
-      ]),
+      effects: configCompartment.current.reconfigure(createTheme()),
     });
   }, [fontSize, fontFamily, lineHeight, typewriterMode]);
 

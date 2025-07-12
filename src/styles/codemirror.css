@@ -29,9 +29,9 @@
 /* Paper styles for CodeMirror */
 .cm-editor.note-paper-dotted-grid .cm-content {
   background-image: 
-    radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.25) 1px, transparent 1px);
-  background-size: 20px 20px;
-  background-position: 0 0;
+    radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.04) 1px, transparent 1px);
+  background-size: calc(var(--editor-font-size) * var(--editor-line-height)) calc(var(--editor-font-size) * var(--editor-line-height));
+  background-position: calc(var(--editor-font-size) * var(--editor-line-height) * 0.5) calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
 }
 
 .cm-editor.note-paper-lines .cm-content {
@@ -39,45 +39,87 @@
     repeating-linear-gradient(
       to bottom,
       transparent,
-      transparent 27px,
-      hsl(var(--muted-foreground) / 0.15) 27px,
-      hsl(var(--muted-foreground) / 0.15) 28px
+      transparent calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--muted-foreground) / 0.04) calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--muted-foreground) / 0.04) calc(var(--editor-font-size) * var(--editor-line-height))
     );
+  background-position: 0 calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
 }
 
 .cm-editor.note-paper-ruled .cm-content {
   background-image: 
-    linear-gradient(to right, hsl(var(--red) / 0.2) 0px, hsl(var(--red) / 0.2) 1px, transparent 1px, transparent 100%),
+    linear-gradient(to right, hsl(var(--red) / 0.08) 0px, hsl(var(--red) / 0.08) 1px, transparent 1px, transparent 100%),
     repeating-linear-gradient(
       to bottom,
       transparent,
-      transparent 27px,
-      hsl(var(--primary) / 0.1) 27px,
-      hsl(var(--primary) / 0.1) 28px
+      transparent calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--primary) / 0.03) calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--primary) / 0.03) calc(var(--editor-font-size) * var(--editor-line-height))
     );
-  background-position: 60px 0;
+  background-position: 60px calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
 }
 
-/* Vim mode cursor styles */
-.cm-editor.cm-vim-mode .cm-cursor-primary {
-  display: block !important;
+/* Vim mode cursor styles - Normal mode block cursor */
+.cm-vim-fat-cursor .cm-cursor-primary {
+  display: inline-block !important;
   width: 0.7em !important;
-  background-color: hsl(var(--primary)) !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
   border: none !important;
-  outline: 1px solid hsl(var(--primary) / 0.3);
+  opacity: 1;
+  margin-left: -1px;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
 }
 
-.cm-editor.cm-vim-mode.cm-vim-insert .cm-cursor-primary {
+/* Force block cursor visibility in vim normal mode */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  border: none !important;
+  opacity: 1;
+  margin-left: -1px;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.3);
+}
+
+/* Vim cursor blink animation */
+@keyframes vim-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Ensure the cursor-primary is visible */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor-primary {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  border-left: none !important;
+  opacity: 1;
+}
+
+/* Vim insert mode - thin cursor */
+.cm-vim-insert-mode .cm-cursor-primary {
   width: 2px !important;
+  height: 1.2em !important;
   background-color: transparent !important;
   border-left: 2px solid hsl(var(--primary)) !important;
-  outline: none;
+  opacity: 1;
+  margin-left: 0;
 }
 
-/* Make vim block cursor more visible */
-.cm-editor.cm-focused.cm-vim-mode:not(.cm-vim-insert) .cm-cursor-primary {
-  background-color: hsl(var(--primary)) !important;
-  opacity: 0.8;
+/* Ensure the vim cursor is visible */
+.cm-vim-fat-cursor {
+  position: relative;
+  display: inline-block;
+  width: 0.7em;
+  height: 1.2em;
+  background-color: hsl(var(--primary));
+  opacity: 0.7;
 }
 
 /* Enable text selection with mouse in vim mode */
@@ -96,9 +138,66 @@
   visibility: visible !important;
 }
 
+/* Force vim normal mode block cursor with after pseudo-element as fallback */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-line {
+  position: relative;
+}
+
+/* Create a visible cursor using the vim fat cursor class */
+.cm-vim-fat-cursor {
+  position: relative;
+  display: inline-block;
+  width: 0.7em;
+  height: 1.2em;
+  background-color: hsl(var(--foreground));
+  margin-left: -1px;
+  opacity: 1;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
+}
+
+/* Ensure vim cursor container is visible */
+.cm-vim-cursor {
+  display: inline-block !important;
+  visibility: visible !important;
+}
+
+/* Override any theme that might hide the cursor */
+.cm-editor .cm-vim-fat-cursor * {
+  visibility: visible !important;
+}
+
 /* Visual mode selection */
 .cm-editor.cm-vim-mode .cm-selectionBackground {
   background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+/* Visual mode selection - ensure it's visible in focused editor */
+.cm-editor.cm-vim-mode.cm-focused .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Visual mode - ensure selected text is visible */
+.cm-vim-visual-mode .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Visual mode cursor (should be at the end of selection) */
+.cm-vim-visual-mode .cm-cursor {
+  display: inline-block !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  opacity: 1;
+}
+
+/* Ensure visual mode selections are visible over syntax highlighting */
+.cm-vim-visual-mode .cm-selectionLayer {
+  z-index: 2;
+}
+
+/* Visual line mode */
+.cm-vim-visual-line .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
 }
 
 /* Vim command panel */
