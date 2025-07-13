@@ -20,11 +20,20 @@ mod services;
 pub use modules::{
     logging::*,
     commands::*,
-    storage::*,
+    storage::{get_notes_directory, get_default_notes_directory, get_configured_notes_directory, 
+             get_config, update_config, get_detached_windows},
     windows::*,
 };
 
 use modules::logging::init_file_logging;
+use modules::storage::{
+    save_notes_to_disk as save_notes_to_disk_storage,
+    load_notes_from_disk as load_notes_from_disk_storage,
+    save_config_to_disk as save_config_to_disk_storage,
+    load_config_from_disk as load_config_from_disk_storage,
+    save_detached_windows_to_disk as save_detached_windows_to_disk_storage,
+    load_detached_windows_from_disk as load_detached_windows_from_disk_storage,
+};
 
 // Re-export from types
 pub use types::{
@@ -90,7 +99,7 @@ async fn import_notes_from_directory(
     }
     
     // Save updated notes to disk
-    save_notes_to_disk(&notes_lock).await?;
+    save_notes_to_disk_storage(&notes_lock).await?;
     
     log_info!("FILE_IMPORT", "Successfully imported {} notes", imported_notes.len());
     Ok(imported_notes)
@@ -112,7 +121,7 @@ async fn import_single_file(
     
     let mut notes_lock = notes.lock().await;
     notes_lock.insert(note.id.clone(), note.clone());
-    save_notes_to_disk(&notes_lock).await?;
+    save_notes_to_disk_storage(&notes_lock).await?;
     
     log_info!("FILE_IMPORT", "Successfully imported note: {}", note.title);
     Ok(note)
@@ -198,7 +207,7 @@ async fn set_notes_directory(
     let config_clone = config_lock.clone();
     drop(config_lock);
     
-    save_config_to_disk(&config_clone).await?;
+    save_config_to_disk_storage(&config_clone).await?;
     
     log_info!("STORAGE", "Notes directory updated successfully");
     Ok(())
@@ -246,7 +255,7 @@ async fn reload_notes_from_directory(
     }
     
     // Also save to JSON for compatibility
-    save_notes_to_disk(&notes_lock).await?;
+    save_notes_to_disk_storage(&notes_lock).await?;
     
     log_info!("STORAGE", "Successfully loaded {} notes from directory", loaded_notes.len());
     Ok(loaded_notes)
@@ -282,6 +291,7 @@ async fn parse_markdown_file(path: &Path) -> Result<Note, String> {
             created_at: now.clone(),
             updated_at: now,
             tags: vec![],
+            position: None,
         })
     }
 }
@@ -311,6 +321,7 @@ fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
         created_at: frontmatter.created_at,
         updated_at: frontmatter.updated_at,
         tags: frontmatter.tags,
+        position: None,
     })
 }
 
@@ -509,136 +520,23 @@ async fn test_window_creation(app: tauri::AppHandle) -> Result<String, String> {
 
 
 
-async fn save_notes_to_disk(notes: &HashMap<String, Note>) -> Result<(), String> {
-    let notes_dir = get_notes_directory()?;
-    fs::create_dir_all(&notes_dir).map_err(|e| format!("Failed to create notes directory: {}", e))?;
-    
-    let notes_file = notes_dir.join("notes.json");
-    let notes_json = serde_json::to_string_pretty(notes)
-        .map_err(|e| format!("Failed to serialize notes: {}", e))?;
-    
-    fs::write(notes_file, notes_json)
-        .map_err(|e| format!("Failed to write notes to disk: {}", e))?;
-    
-    Ok(())
-}
+// Function removed - using save_notes_to_disk_storage from modules::storage instead
 
-async fn load_notes_from_disk() -> Result<HashMap<String, Note>, String> {
-    let notes_dir = get_notes_directory()?;
-    let notes_file = notes_dir.join("notes.json");
-    
-    if !notes_file.exists() {
-        return Ok(HashMap::new());
-    }
-    
-    let notes_json = fs::read_to_string(notes_file)
-        .map_err(|e| format!("Failed to read notes from disk: {}", e))?;
-    
-    let notes: HashMap<String, Note> = serde_json::from_str(&notes_json)
-        .map_err(|e| format!("Failed to parse notes JSON: {}", e))?;
-    
-    Ok(notes)
-}
+// Function removed - using load_notes_from_disk_storage from modules::storage instead
 
-fn get_notes_directory() -> Result<PathBuf, String> {
-    get_default_notes_directory()
-}
+// Functions removed - using get_notes_directory, get_default_notes_directory, and get_configured_notes_directory from modules::storage instead
 
-fn get_default_notes_directory() -> Result<PathBuf, String> {
-    // Always use app data directory to avoid restart loops in development
-    let data_dir = if cfg!(debug_assertions) {
-        // Development: use app data directory with dev suffix
-        dirs::data_dir()
-            .ok_or_else(|| "Failed to get data directory".to_string())?
-            .join("com.blink.dev")
-            .join("data")
-    } else {
-        // Production: use app data directory
-        dirs::data_dir()
-            .ok_or_else(|| "Failed to get data directory".to_string())?
-            .join("com.blink.dev")
-            .join("data")
-    };
-    
-    log_debug!("STORAGE", "Default data directory path: {:?}", data_dir);
-    Ok(data_dir)
-}
+// Function removed - using save_config_to_disk_storage from modules::storage instead
 
-fn get_configured_notes_directory(config: &AppConfig) -> Result<PathBuf, String> {
-    if config.storage.use_custom_directory {
-        if let Some(custom_dir) = &config.storage.notes_directory {
-            let path = PathBuf::from(custom_dir);
-            if path.exists() && path.is_dir() {
-                log_debug!("STORAGE", "Using custom notes directory: {:?}", path);
-                return Ok(path);
-            } else {
-                log_error!("STORAGE", "Custom directory does not exist or is not a directory: {:?}", path);
-                // Fall back to default
-            }
-        }
-    }
-    
-    // Use default directory
-    get_default_notes_directory()
-}
+// Function removed - using load_config_from_disk_storage from modules::storage instead
 
-async fn save_config_to_disk(config: &AppConfig) -> Result<(), String> {
-    let notes_dir = get_notes_directory()?;
-    fs::create_dir_all(&notes_dir).map_err(|e| format!("Failed to create notes directory: {}", e))?;
-    
-    let config_file = notes_dir.join("config.json");
-    let config_json = serde_json::to_string_pretty(config)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
-    
-    fs::write(config_file, config_json)
-        .map_err(|e| format!("Failed to write config to disk: {}", e))?;
-    
-    Ok(())
-}
-
-async fn load_config_from_disk() -> Result<AppConfig, String> {
-    let notes_dir = get_notes_directory()?;
-    let config_file = notes_dir.join("config.json");
-    
-    if !config_file.exists() {
-        // println!("Config file not found, creating default config");
-        let default_config = AppConfig::default();
-        save_config_to_disk(&default_config).await?;
-        return Ok(default_config);
-    }
-    
-    let config_json = fs::read_to_string(&config_file)
-        .map_err(|e| format!("Failed to read config from disk: {}", e))?;
-    
-    // println!("Loaded config JSON from disk: {}", config_json);
-    
-    let config: AppConfig = serde_json::from_str(&config_json)
-        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
-    
-    // println!("Parsed config: opacity={}, alwaysOnTop={}", config.opacity, config.always_on_top);
-    
-    Ok(config)
-}
-
-async fn save_detached_windows_to_disk(windows: &HashMap<String, DetachedWindow>) -> Result<(), String> {
-    let notes_dir = get_notes_directory()?;
-    fs::create_dir_all(&notes_dir).map_err(|e| format!("Failed to create notes directory: {}", e))?;
-    
-    let windows_file = notes_dir.join("detached_windows.json");
-    let windows_json = serde_json::to_string_pretty(windows)
-        .map_err(|e| format!("Failed to serialize windows: {}", e))?;
-    
-    fs::write(windows_file, windows_json)
-        .map_err(|e| format!("Failed to write windows to disk: {}", e))?;
-    
-    Ok(())
-}
+// Function removed - using save_detached_windows_to_disk_storage from modules::storage instead
 
 // Function removed - using the one from modules::storage instead
 
 // Spatial positioning functions
 async fn load_spatial_data(note_id: &str) -> Option<DetachedWindow> {
-    let notes_dir = get_notes_directory().ok()?;
+    let notes_dir = get_default_notes_directory().ok()?;
     let spatial_file = notes_dir.join("spatial_positions.json");
     
     if !spatial_file.exists() {
@@ -654,7 +552,7 @@ async fn load_spatial_data(note_id: &str) -> Option<DetachedWindow> {
 // Currently unused - kept for potential future use
 #[allow(dead_code)]
 async fn save_spatial_data(note_id: &str, window: &DetachedWindow) -> Result<(), String> {
-    let notes_dir = get_notes_directory()?;
+    let notes_dir = get_default_notes_directory()?;
     let spatial_file = notes_dir.join("spatial_positions.json");
     
     // Load existing spatial data
@@ -941,32 +839,10 @@ pub fn run() {
         }
     }
     
-    let notes_state = match tauri::async_runtime::block_on(load_notes_from_disk()) {
-        Ok(notes) => NotesState::new(notes),
-        Err(e) => {
-            eprintln!("Failed to load notes from disk: {}", e);
-            NotesState::new(HashMap::new())
-        }
-    };
-
-    let config_state = match tauri::async_runtime::block_on(load_config_from_disk()) {
-        Ok(config) => {
-            // println!("Loaded config from disk: {:?}", config);
-            ConfigState::new(config)
-        },
-        Err(e) => {
-            eprintln!("Failed to load config from disk: {}", e);
-            ConfigState::new(AppConfig::default())
-        }
-    };
-
-    let detached_windows_state = match tauri::async_runtime::block_on(load_detached_windows_from_disk()) {
-        Ok(windows) => DetachedWindowsState::new(windows),
-        Err(e) => {
-            eprintln!("Failed to load detached windows from disk: {}", e);
-            DetachedWindowsState::new(HashMap::new())
-        }
-    };
+    // Initialize with empty states - data will be loaded after app starts
+    let notes_state = NotesState::new(HashMap::new());
+    let config_state = ConfigState::new(AppConfig::default());
+    let detached_windows_state = DetachedWindowsState::new(HashMap::new());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -1095,6 +971,7 @@ pub fn run() {
             create_note,
             update_note,
             delete_note,
+            reorder_notes,
             import_notes_from_directory,
             import_single_file,
             export_note_to_file,
@@ -1254,10 +1131,9 @@ pub fn run() {
         .setup(|app| {
             let app_handle = app.handle().clone();
             
-            // Clone all states upfront before any async operations
-            let notes_state = app.state::<NotesState>().clone();
-            let detached_windows_state = app.state::<DetachedWindowsState>().clone();
-            let config_state = app.state::<ConfigState>().clone();
+            // Get states for menu building
+            let notes_state = app.state::<NotesState>();
+            let detached_windows_state = app.state::<DetachedWindowsState>();
             
             // Set up initial menu
             let app_handle_for_menu = app_handle.clone();
@@ -1386,8 +1262,9 @@ pub fn run() {
             }
             
             // Apply config settings synchronously
+            let config_state_ref = app.state::<ConfigState>();
             let config_for_init = tauri::async_runtime::block_on(async {
-                config_state.lock().await.clone()
+                config_state_ref.lock().await.clone()
             });
             
             println!("Applying initial config settings: opacity={}, alwaysOnTop={}", config_for_init.opacity, config_for_init.always_on_top);
@@ -1475,6 +1352,55 @@ pub fn run() {
             } else {
                 log_error!("STARTUP", "❌ Could not find main window!");
             }
+            
+            // Load data asynchronously after app starts
+            let app_handle_for_loading = app_handle.clone();
+            
+            tauri::async_runtime::spawn(async move {
+                log_info!("STARTUP", "Loading data asynchronously...");
+                
+                // Load all data in parallel
+                let (notes_result, config_result, windows_result) = tokio::join!(
+                    load_notes_from_disk_storage(),
+                    load_config_from_disk_storage(),
+                    load_detached_windows_from_disk_storage()
+                );
+                
+                // Get state references from app handle
+                let app_handle_ref = &app_handle_for_loading;
+                
+                // Update notes state
+                if let Ok(notes) = notes_result {
+                    if let Some(notes_state) = app_handle_ref.try_state::<NotesState>() {
+                        let mut notes_lock = notes_state.lock().await;
+                        *notes_lock = notes;
+                        log_info!("STARTUP", "✅ Loaded {} notes", notes_lock.len());
+                    }
+                }
+                
+                // Update config state
+                if let Ok(config) = config_result {
+                    if let Some(config_state) = app_handle_ref.try_state::<ConfigState>() {
+                        let mut config_lock = config_state.lock().await;
+                        *config_lock = config;
+                        log_info!("STARTUP", "✅ Loaded config");
+                    }
+                }
+                
+                // Update windows state
+                if let Ok(windows) = windows_result {
+                    if let Some(windows_state) = app_handle_ref.try_state::<DetachedWindowsState>() {
+                        let mut windows_lock = windows_state.lock().await;
+                        *windows_lock = windows;
+                        log_info!("STARTUP", "✅ Loaded {} detached windows", windows_lock.len());
+                    }
+                }
+                
+                // Notify frontend that data is loaded
+                let _ = app_handle_for_loading.emit("data-loaded", ());
+                
+                log_info!("STARTUP", "✅ All data loaded successfully");
+            });
             
             Ok(())
         })

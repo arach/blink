@@ -113,7 +113,7 @@ pub async fn load_detached_windows_from_disk() -> Result<HashMap<String, Detache
 }
 
 /// Get the notes directory path
-fn get_notes_directory() -> Result<PathBuf, String> {
+pub fn get_notes_directory() -> Result<PathBuf, String> {
     get_default_notes_directory()
 }
 
