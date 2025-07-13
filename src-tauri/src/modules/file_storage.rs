@@ -97,7 +97,7 @@ impl FileStorageManager {
                     created_at: frontmatter.created_at,
                     updated_at: frontmatter.updated_at,
                     tags: frontmatter.tags,
-                    position: None,
+                    position: frontmatter.position,
                 });
             }
         }
@@ -141,6 +141,7 @@ impl FileStorageManager {
             created_at: note.created_at.clone(),
             updated_at: note.updated_at.clone(),
             tags: note.tags.clone(),
+            position: note.position,
         };
         
         let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
@@ -227,7 +228,7 @@ impl FileStorageManager {
     }
     
     /// Update notes index for fast lookups
-    async fn update_notes_index(&self, notes: &HashMap<String, Note>) -> Result<(), String> {
+    pub async fn update_notes_index(&self, notes: &HashMap<String, Note>) -> Result<(), String> {
         let index_file = self.blink_dir.join("index.json");
         
         let mut index = NotesIndex::default();
@@ -243,6 +244,7 @@ impl FileStorageManager {
                 created_at: note.created_at.clone(),
                 updated_at: note.updated_at.clone(),
                 tags: note.tags.clone(),
+                position: note.position,
                 file_hash: None, // TODO: Add file hash for change detection
             });
         }

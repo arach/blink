@@ -26,9 +26,8 @@ pub use modules::{
 };
 
 use modules::logging::init_file_logging;
+use modules::file_notes_storage::FileNotesStorage;
 use modules::storage::{
-    save_notes_to_disk as save_notes_to_disk_storage,
-    load_notes_from_disk as load_notes_from_disk_storage,
     save_config_to_disk as save_config_to_disk_storage,
     load_config_from_disk as load_config_from_disk_storage,
     save_detached_windows_to_disk as save_detached_windows_to_disk_storage,
@@ -65,16 +64,21 @@ type ToggleState = Mutex<bool>;
 async fn import_notes_from_directory(
     directory_path: String,
     notes: State<'_, NotesState>,
+    config: State<'_, ConfigState>,
 ) -> Result<Vec<Note>, String> {
     log_info!("FILE_IMPORT", "Importing notes from directory: {}", directory_path);
     
     let mut imported_notes = Vec::new();
     let mut notes_lock = notes.lock().await;
+    let config_lock = config.lock().await;
     
     let dir_path = Path::new(&directory_path);
     if !dir_path.exists() {
         return Err("Directory does not exist".to_string());
     }
+    
+    // Create FileNotesStorage instance
+    let file_storage = FileNotesStorage::new(&config_lock)?;
     
     // Read all markdown files in the directory
     let entries = fs::read_dir(dir_path)
@@ -98,8 +102,8 @@ async fn import_notes_from_directory(
         }
     }
     
-    // Save updated notes to disk
-    save_notes_to_disk_storage(&notes_lock).await?;
+    // Save all notes using FileNotesStorage
+    file_storage.save_all_notes(&notes_lock).await?;
     
     log_info!("FILE_IMPORT", "Successfully imported {} notes", imported_notes.len());
     Ok(imported_notes)
@@ -109,6 +113,7 @@ async fn import_notes_from_directory(
 async fn import_single_file(
     file_path: String,
     notes: State<'_, NotesState>,
+    config: State<'_, ConfigState>,
 ) -> Result<Note, String> {
     log_info!("FILE_IMPORT", "Importing single file: {}", file_path);
     
@@ -120,8 +125,15 @@ async fn import_single_file(
     let note = parse_markdown_file(path).await?;
     
     let mut notes_lock = notes.lock().await;
+    let config_lock = config.lock().await;
+    
+    // Create FileNotesStorage instance
+    let file_storage = FileNotesStorage::new(&config_lock)?;
+    
     notes_lock.insert(note.id.clone(), note.clone());
-    save_notes_to_disk_storage(&notes_lock).await?;
+    
+    // Save all notes using FileNotesStorage
+    file_storage.save_all_notes(&notes_lock).await?;
     
     log_info!("FILE_IMPORT", "Successfully imported note: {}", note.title);
     Ok(note)
@@ -221,41 +233,19 @@ async fn reload_notes_from_directory(
     log_info!("STORAGE", "Reloading notes from configured directory");
     
     let config_lock = config.lock().await;
-    let notes_dir = get_configured_notes_directory(&config_lock)?;
-    drop(config_lock);
     
-    let mut loaded_notes = Vec::new();
+    // Create FileNotesStorage instance
+    let file_storage = FileNotesStorage::new(&config_lock)?;
+    
+    // Load all notes using FileNotesStorage
+    let loaded_notes_map = file_storage.load_notes().await?;
+    
+    // Convert HashMap to Vec for return value
+    let loaded_notes: Vec<Note> = loaded_notes_map.values().cloned().collect();
+    
+    // Update the notes state
     let mut notes_lock = notes.lock().await;
-    
-    // Clear existing notes
-    notes_lock.clear();
-    
-    // Load all markdown files from the configured directory
-    if notes_dir.exists() {
-        let entries = fs::read_dir(&notes_dir)
-            .map_err(|e| format!("Failed to read notes directory: {}", e))?;
-        
-        for entry in entries {
-            let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-            let path = entry.path();
-            
-            if path.extension().and_then(|s| s.to_str()) == Some("md") {
-                match parse_markdown_file(&path).await {
-                    Ok(note) => {
-                        log_info!("STORAGE", "Loaded note: {} from {}", note.title, path.display());
-                        notes_lock.insert(note.id.clone(), note.clone());
-                        loaded_notes.push(note);
-                    },
-                    Err(e) => {
-                        log_error!("STORAGE", "Failed to load {}: {}", path.display(), e);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Also save to JSON for compatibility
-    save_notes_to_disk_storage(&notes_lock).await?;
+    *notes_lock = loaded_notes_map;
     
     log_info!("STORAGE", "Successfully loaded {} notes from directory", loaded_notes.len());
     Ok(loaded_notes)
@@ -332,6 +322,7 @@ async fn write_note_to_file(note: &Note, file_path: &str) -> Result<(), String> 
         created_at: note.created_at.clone(),
         updated_at: note.updated_at.clone(),
         tags: note.tags.clone(),
+        position: note.position,
     };
     
     let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
@@ -520,19 +511,9 @@ async fn test_window_creation(app: tauri::AppHandle) -> Result<String, String> {
 
 
 
-// Function removed - using save_notes_to_disk_storage from modules::storage instead
+// Note storage functions have been migrated to FileNotesStorage for individual markdown files
 
-// Function removed - using load_notes_from_disk_storage from modules::storage instead
-
-// Functions removed - using get_notes_directory, get_default_notes_directory, and get_configured_notes_directory from modules::storage instead
-
-// Function removed - using save_config_to_disk_storage from modules::storage instead
-
-// Function removed - using load_config_from_disk_storage from modules::storage instead
-
-// Function removed - using save_detached_windows_to_disk_storage from modules::storage instead
-
-// Function removed - using the one from modules::storage instead
+// Config and window storage functions are imported from modules::storage
 
 // Spatial positioning functions
 async fn load_spatial_data(note_id: &str) -> Option<DetachedWindow> {
@@ -1359,37 +1340,53 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 log_info!("STARTUP", "Loading data asynchronously...");
                 
-                // Load all data in parallel
-                let (notes_result, config_result, windows_result) = tokio::join!(
-                    load_notes_from_disk_storage(),
-                    load_config_from_disk_storage(),
-                    load_detached_windows_from_disk_storage()
-                );
+                // Load config first (needed for notes directory)
+                let config_result = load_config_from_disk_storage().await;
                 
-                // Get state references from app handle
-                let app_handle_ref = &app_handle_for_loading;
+                // Update config state
+                let config = if let Ok(config) = config_result {
+                    if let Some(config_state) = app_handle_for_loading.try_state::<ConfigState>() {
+                        let mut config_lock = config_state.lock().await;
+                        *config_lock = config.clone();
+                        log_info!("STARTUP", "✅ Loaded config");
+                    }
+                    config
+                } else {
+                    AppConfig::default()
+                };
+                
+                // Now load notes using FileNotesStorage
+                let notes_result = async {
+                    // Create FileNotesStorage
+                    let file_storage = FileNotesStorage::new(&config)
+                        .map_err(|e| format!("Failed to create file storage: {}", e))?;
+                    
+                    // Run migration if needed
+                    let notes_dir = get_notes_directory()?;
+                    let json_path = notes_dir.join("notes.json");
+                    file_storage.migrate_if_needed(json_path).await?;
+                    
+                    // Load notes from files
+                    file_storage.load_notes().await
+                }.await;
+                
+                // Load windows in parallel with notes
+                let windows_result = load_detached_windows_from_disk_storage().await;
                 
                 // Update notes state
                 if let Ok(notes) = notes_result {
-                    if let Some(notes_state) = app_handle_ref.try_state::<NotesState>() {
+                    if let Some(notes_state) = app_handle_for_loading.try_state::<NotesState>() {
                         let mut notes_lock = notes_state.lock().await;
                         *notes_lock = notes;
                         log_info!("STARTUP", "✅ Loaded {} notes", notes_lock.len());
                     }
-                }
-                
-                // Update config state
-                if let Ok(config) = config_result {
-                    if let Some(config_state) = app_handle_ref.try_state::<ConfigState>() {
-                        let mut config_lock = config_state.lock().await;
-                        *config_lock = config;
-                        log_info!("STARTUP", "✅ Loaded config");
-                    }
+                } else if let Err(e) = notes_result {
+                    log_error!("STARTUP", "Failed to load notes: {}", e);
                 }
                 
                 // Update windows state
                 if let Ok(windows) = windows_result {
-                    if let Some(windows_state) = app_handle_ref.try_state::<DetachedWindowsState>() {
+                    if let Some(windows_state) = app_handle_for_loading.try_state::<DetachedWindowsState>() {
                         let mut windows_lock = windows_state.lock().await;
                         *windows_lock = windows;
                         log_info!("STARTUP", "✅ Loaded {} detached windows", windows_lock.len());

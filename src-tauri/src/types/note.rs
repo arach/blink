@@ -33,4 +33,6 @@ pub struct NoteFrontmatter {
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<i32>,
 }

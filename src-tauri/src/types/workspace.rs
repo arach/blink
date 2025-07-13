@@ -38,6 +38,7 @@ pub struct NoteIndexEntry {
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
+    pub position: Option<i32>, // For manual ordering
     pub file_hash: Option<String>, // For change detection
 }
 
