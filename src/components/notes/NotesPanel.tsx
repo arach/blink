@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ResizablePanel } from '../windows/ResizablePanel';
 import { markdownToPlainText, truncateText } from '../../lib/utils';
 import { Note } from '../../types';
+import { invoke } from '@tauri-apps/api/core';
 
 interface NotesPanelProps {
   sidebarVisible: boolean;
@@ -31,6 +32,22 @@ export function NotesPanel({
   isWindowOpen
 }: NotesPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  
+  // Track open windows efficiently - only update when necessary
+  const [openWindowIds, setOpenWindowIds] = useState<Set<string>>(new Set());
+  
+  // Update open windows only when notes change
+  useEffect(() => {
+    const openIds = new Set<string>();
+    notes.forEach(note => {
+      if (isWindowOpen(note.id)) {
+        openIds.add(note.id);
+      }
+    });
+    setOpenWindowIds(openIds);
+  }, [notes, isWindowOpen]); // Re-run when notes array or isWindowOpen changes
 
   // Filter notes based on search query
   const filteredNotes = useMemo(() => {
@@ -44,6 +61,56 @@ export function NotesPanel({
       markdownToPlainText(note.content).toLowerCase().includes(query)
     );
   }, [notes, searchQuery]);
+
+  // Handle drag start
+  const handleDragStart = (e: React.DragEvent, noteId: string) => {
+    setDraggedNoteId(noteId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  // Handle drag over
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  // Handle drop
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (!draggedNoteId) return;
+    
+    const draggedIndex = filteredNotes.findIndex(note => note.id === draggedNoteId);
+    if (draggedIndex === dropIndex) {
+      setDraggedNoteId(null);
+      setDragOverIndex(null);
+      return;
+    }
+    
+    // Create new order
+    const newOrder = [...filteredNotes];
+    const [draggedNote] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(dropIndex, 0, draggedNote);
+    
+    // Update positions on backend
+    try {
+      await invoke('reorder_notes', { 
+        noteIds: newOrder.map(note => note.id) 
+      });
+    } catch (error) {
+      console.error('Failed to reorder notes:', error);
+    }
+    
+    setDraggedNoteId(null);
+    setDragOverIndex(null);
+  };
+
+  // Handle drag end
+  const handleDragEnd = () => {
+    setDraggedNoteId(null);
+    setDragOverIndex(null);
+  };
   if (!sidebarVisible) {
     return (
       <div className="w-0 h-full overflow-hidden" data-notes-sidebar />
@@ -139,20 +206,43 @@ export function NotesPanel({
                   return (
                   <div
                     key={note.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, note.id)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
                     className={`group relative cursor-pointer transition-all ${
                       selectedNoteId === note.id
                         ? 'bg-primary/10 border-l-4 border-l-primary ml-0 pl-4 pr-4 py-3'
                         : 'hover:bg-background/50 border-l-4 border-l-transparent ml-1 pl-3 pr-4 py-3'
-                    } ${index > 0 ? 'border-t border-border/10' : ''}`}
+                    } ${index > 0 ? 'border-t border-border/10' : ''} ${
+                      draggedNoteId === note.id ? 'opacity-50' : ''
+                    } ${
+                      dragOverIndex === index && draggedNoteId !== note.id ? 'border-t-2 border-t-primary' : ''
+                    }`}
                     onClick={() => onSelectNote(note.id)}
                     onContextMenu={(e) => onShowContextMenu(e.clientX, e.clientY, note.id)}
                     onMouseDown={(e) => {
-                      if (e.button === 0) { // Left click only
+                      // Only start drag if clicking on the drag handle, not the whole row
+                      const target = e.target as HTMLElement;
+                      const isDragHandle = target.closest('.cursor-move');
+                      if (e.button === 0 && isDragHandle) {
                         onStartDrag(e, note.id);
                       }
                     }}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2">
+                      {/* Drag handle */}
+                      <div className="opacity-0 group-hover:opacity-40 transition-opacity cursor-move pt-0.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                          <circle cx="12" cy="5" r="1"/>
+                          <circle cx="12" cy="12" r="1"/>
+                          <circle cx="12" cy="19" r="1"/>
+                          <circle cx="19" cy="5" r="1"/>
+                          <circle cx="19" cy="12" r="1"/>
+                          <circle cx="19" cy="19" r="1"/>
+                        </svg>
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-2">
                           <h3 className={`text-sm font-medium leading-tight transition-colors flex-1 ${
@@ -162,7 +252,7 @@ export function NotesPanel({
                           }`}>
                             {note.title || 'Untitled'}
                           </h3>
-                          {isWindowOpen(note.id) && (
+                          {openWindowIds.has(note.id) && (
                             <div className="w-1 h-1 rounded-full bg-primary/40 mt-2" title="Open in window" />
                           )}
                         </div>

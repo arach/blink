@@ -8,6 +8,7 @@ pub struct Note {
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
+    pub position: Option<i32>, // Manual ordering position
 }
 
 #[derive(Debug, Deserialize, Serialize)]

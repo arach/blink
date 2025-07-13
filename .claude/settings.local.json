@@ -49,7 +49,10 @@
       "Bash(npx tsc:*)",
       "Bash(pnpm tauri build:*)",
       "Bash(jobs)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git restore:*)",
+      "Bash(pnpm type-check:*)"
     ],
     "deny": []
   }

@@ -173,7 +173,9 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
 
   isWindowOpen: (noteId: string): boolean => {
     const { windows } = get();
-    return Array.isArray(windows) ? windows.some(w => w.note_id === noteId) : false;
+    const isOpen = Array.isArray(windows) ? windows.some(w => w.note_id === noteId) : false;
+    // Don't log this - it's called too frequently during renders
+    return isOpen;
   },
 
   getWindowByNoteId: (noteId: string): DetachedWindow | undefined => {

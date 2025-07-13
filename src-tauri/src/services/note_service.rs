@@ -74,6 +74,7 @@ impl NoteService {
             created_at: chrono::Utc::now().to_rfc3339(),
             updated_at: chrono::Utc::now().to_rfc3339(),
             tags: request.tags,
+            position: None,
         };
         
         // Save to file system

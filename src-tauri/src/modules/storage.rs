@@ -176,8 +176,7 @@ pub async fn get_detached_windows(
     windows: State<'_, DetachedWindowsState>,
 ) -> Result<HashMap<String, DetachedWindow>, String> {
     let windows_lock = windows.lock().await;
-    println!("[GET_DETACHED_WINDOWS] === RETURNING WINDOWS TO FRONTEND ===");
-    println!("[GET_DETACHED_WINDOWS] Total windows in backend: {}", windows_lock.len());
+    log_debug!("GET_DETACHED_WINDOWS", "Returning {} windows to frontend", windows_lock.len());
     
     // Filter out hybrid-drag windows - only return actual detached note windows
     let filtered_windows: HashMap<String, DetachedWindow> = windows_lock
@@ -186,11 +185,5 @@ pub async fn get_detached_windows(
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
     
-    println!("[GET_DETACHED_WINDOWS] Filtered windows count: {}", filtered_windows.len());
-    for (window_label, window) in filtered_windows.iter() {
-        println!("[GET_DETACHED_WINDOWS] Returning window: {} -> note_id: {}, position: ({}, {})", 
-            window_label, window.note_id, window.position.0, window.position.1);
-    }
-    println!("[GET_DETACHED_WINDOWS] === END WINDOWS TO FRONTEND ===");
     Ok(filtered_windows)
 }

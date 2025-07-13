@@ -46,7 +46,7 @@ import { getCenterPosition } from './utils/window-positioning';
 
 
 function App() {
-  const { config, updateConfig, isLoading } = useConfigStore();
+  const { config, updateConfig } = useConfigStore();
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [isPreviewMode, setIsPreviewMode] = useState(false); // Start in edit mode
   const [currentView, setCurrentView] = useState<'notes' | 'settings'>('notes');
@@ -259,14 +259,7 @@ function App() {
   // Calculate word count for current content
   const wordCount = getWordCount(currentContent);
   
-  // Show loading screen while config is loading
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-background">
-        <div className="text-foreground">Loading...</div>
-      </div>
-    );
-  }
+  // Remove loading screen - show UI immediately with defaults
 
   const themeId = config?.appearance?.themeId || 'midnight-ink';
   const theme = getThemeById(themeId);

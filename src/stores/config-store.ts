@@ -25,8 +25,11 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   loadConfig: async () => {
     set({ isLoading: true, error: null });
+    const startTime = performance.now();
     try {
       const rawConfig = await configApi.getConfig();
+      const loadTime = performance.now() - startTime;
+      console.log(`[BLINK] Config loaded in ${loadTime.toFixed(2)}ms`);
       
       if (!rawConfig) {
         console.warn('[BLINK] Received null config from backend, using defaults');

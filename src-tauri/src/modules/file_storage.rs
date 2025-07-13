@@ -97,6 +97,7 @@ impl FileStorageManager {
                     created_at: frontmatter.created_at,
                     updated_at: frontmatter.updated_at,
                     tags: frontmatter.tags,
+                    position: None,
                 });
             }
         }
@@ -125,6 +126,7 @@ impl FileStorageManager {
             created_at: now.clone(),
             updated_at: now,
             tags: vec![],
+            position: None,
         })
     }
     

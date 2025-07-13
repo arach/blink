@@ -99,14 +99,14 @@ export function ThemeSelector({ onSave }: ThemeSelectorProps) {
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-1.5">
         {allThemes.map((theme) => (
           <button
             key={theme.id}
             onClick={() => handleThemeClick(theme.id)}
             onMouseEnter={() => handleThemeHover(theme.id)}
             onMouseLeave={() => handleThemeHover(null)}
-            className={`group relative p-2 rounded transition-all text-left ${
+            className={`group relative p-1.5 rounded transition-all text-left ${
               getThemeState(theme.id) === 'selected'
                 ? 'border-primary border-solid bg-primary/10' 
                 : getThemeState(theme.id) === 'preview'
@@ -117,9 +117,9 @@ export function ThemeSelector({ onSave }: ThemeSelectorProps) {
             }`}
           >
             {/* Theme Preview */}
-            <div className="flex items-start gap-2 mb-1.5">
+            <div className="flex flex-col items-center gap-1">
               <div 
-                className="w-8 h-8 rounded border border-border/50 relative overflow-hidden flex-shrink-0"
+                className="w-10 h-10 rounded border border-border/50 relative overflow-hidden"
                 style={{ 
                   backgroundColor: theme.colors.background,
                   borderColor: theme.colors.border,
@@ -152,41 +152,12 @@ export function ThemeSelector({ onSave }: ThemeSelectorProps) {
                 )}
               </div>
               
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-medium text-foreground/90 truncate flex items-center gap-1">
-                  {theme.name}
-                  {getThemeState(theme.id) === 'selected' && (
-                    <span className="text-xs px-1 py-0.5 bg-primary/20 text-primary rounded">current</span>
-                  )}
-                  {getThemeState(theme.id) === 'preview' && (
-                    <span className="text-xs px-1 py-0.5 bg-primary/15 text-primary rounded">preview</span>
-                  )}
-                </h4>
-              </div>
-            </div>
-
-            {/* Color swatches */}
-            <div className="flex gap-0.5">
-              <div 
-                className="w-3 h-3 rounded border border-border/50"
-                style={{ backgroundColor: theme.colors.background }}
-                title="Background"
-              />
-              <div 
-                className="w-3 h-3 rounded border border-border/50"
-                style={{ backgroundColor: theme.colors.foreground }}
-                title="Text"
-              />
-              <div 
-                className="w-3 h-3 rounded border border-border/50"
-                style={{ backgroundColor: theme.colors.primary }}
-                title="Primary"
-              />
-              <div 
-                className="w-3 h-3 rounded border border-border/50"
-                style={{ backgroundColor: theme.colors.accent }}
-                title="Accent"
-              />
+              <h4 className="text-[10px] font-medium text-foreground/80 truncate px-1">
+                {theme.name}
+              </h4>
+              {getThemeState(theme.id) === 'selected' && (
+                <div className="w-1.5 h-1.5 bg-primary rounded-full mx-auto"></div>
+              )}
             </div>
           </button>
         ))}

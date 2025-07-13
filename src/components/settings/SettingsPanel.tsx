@@ -401,11 +401,11 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         <p className="text-xs text-muted-foreground/60">Make Blink uniquely yours • fonts, colors & textures</p>
       </div>
 
-      <div className="space-y-4">
-        {/* Theme Selector */}
-        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+      <div className="space-y-3">
+        {/* Theme Selector - Compact */}
+        <div className="bg-card/20 rounded-2xl p-3 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-2 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
             </svg>
             Themes
@@ -418,14 +418,14 @@ export function SettingsPanel({ selectedSection }: SettingsPanelProps) {
         </div>
 
         {/* Typography Group */}
-        <div className="bg-card/20 rounded-2xl p-4 border border-border/10">
-          <h3 className="text-xs font-medium text-foreground/90 mb-3 flex items-center gap-2 uppercase tracking-wide">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
+        <div className="bg-card/20 rounded-2xl p-3 border border-border/10">
+          <h3 className="text-xs font-medium text-foreground/90 mb-2 flex items-center gap-2 uppercase tracking-wide">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground/70">
               <path d="M4 7V4h16v3M9 20h6M12 4v16"/>
             </svg>
             Typography
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             
             {/* Editor Font Size - Single Line */}
             <div className="flex items-center gap-3">
@@ -1247,28 +1247,7 @@ function calculateMetrics(data) {
       </div>
       
       <div className="space-y-4">
-        <div>
-          <label className="flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">Font Size</span>
-            <input
-              type="range"
-              min="12"
-              max="24"
-              value={localConfig.editor?.fontSize || 16}
-              onChange={(e) => setLocalConfig({
-                ...localConfig,
-                editor: {
-                  ...localConfig.editor,
-                  fontSize: parseInt(e.target.value, 10)
-                }
-              })}
-              className="w-32 h-2 bg-gray-200 rounded-2xl appearance-none cursor-pointer"
-            />
-            <span className="text-sm text-muted-foreground w-8 text-right">
-              {localConfig.editor?.fontSize || 16}px
-            </span>
-          </label>
-        </div>
+        {/* Note: Font size is configured in Appearance section */}
         
         <div>
           <label className="flex items-center justify-between">
@@ -1551,8 +1530,10 @@ function calculateMetrics(data) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-5">
+      <div className="flex-1 overflow-y-auto p-5 relative">
         {renderSection()}
+        {/* Scroll hint gradient */}
+        <div className="pointer-events-none sticky bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background/80 to-transparent -mb-12" />
       </div>
       <div className="border-t border-border/20 px-5 py-3 bg-background/60 backdrop-blur-xl flex-shrink-0">
         <div className="flex justify-end">

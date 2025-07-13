@@ -50,21 +50,25 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
     loadCurrentDirectory();
   }, []);
 
-  const handleDirectoryClick = async () => {
-    // Only run in Tauri context
-    if (typeof window === 'undefined' || !window.__TAURI__) {
-      return;
-    }
+  const handleDirectoryClick = async (e: React.MouseEvent) => {
+    console.log('[AppFooter] Directory clicked');
     
+    // Both regular click and Alt+Click open the directory in Finder
     setIsLoading(true);
     try {
-      // Get the current notes directory path and open it in Finder
+      console.log('[AppFooter] Getting current notes directory...');
       const currentPath = await notesApi.getCurrentNotesDirectory();
+      console.log('[AppFooter] Current path:', currentPath);
+      
+      console.log('[AppFooter] Opening directory in Finder...');
       await notesApi.openDirectoryInFinder(currentPath);
-      console.log(`Opened notes directory in Finder: ${currentPath}`);
+      console.log(`[AppFooter] Successfully opened notes directory in Finder: ${currentPath}`);
     } catch (error) {
-      console.error('Failed to open directory in Finder:', error);
-      alert('Failed to open directory in Finder: ' + error);
+      console.error('[AppFooter] Failed to open directory in Finder:', error);
+      // Only show alert for actual errors, not for non-Tauri context
+      if (error && error.toString().includes('Failed to open')) {
+        alert('Failed to open directory in Finder: ' + error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +122,7 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
         onMouseLeave={() => setIsHovered(false)}
         disabled={isLoading}
         className="flex items-center gap-2 text-foreground/90 hover:text-primary transition-colors cursor-pointer px-2 py-1 rounded-xl hover:bg-background/40 disabled:opacity-50"
-        title="Show notes directory in Finder"
+        title="Click to open notes directory in Finder"
       >
         {isLoading ? (
           <div className="w-4 h-4 flex-shrink-0 animate-spin">
