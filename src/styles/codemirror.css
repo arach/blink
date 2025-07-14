@@ -1,0 +1,349 @@
+/* CodeMirror Custom Styles for Blink */
+
+/* Hide default scrollbars and use custom ones */
+.cm-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border) / 0.3) transparent;
+}
+
+.cm-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border) / 0.3);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--border) / 0.5);
+}
+
+/* Paper styles for CodeMirror */
+.cm-editor.note-paper-dotted-grid .cm-content {
+  background-image: 
+    radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.04) 1px, transparent 1px);
+  background-size: calc(var(--editor-font-size) * var(--editor-line-height)) calc(var(--editor-font-size) * var(--editor-line-height));
+  background-position: calc(var(--editor-font-size) * var(--editor-line-height) * 0.5) calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
+}
+
+.cm-editor.note-paper-lines .cm-content {
+  background-image: 
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--muted-foreground) / 0.04) calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--muted-foreground) / 0.04) calc(var(--editor-font-size) * var(--editor-line-height))
+    );
+  background-position: 0 calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
+}
+
+.cm-editor.note-paper-ruled .cm-content {
+  background-image: 
+    linear-gradient(to right, hsl(var(--red) / 0.08) 0px, hsl(var(--red) / 0.08) 1px, transparent 1px, transparent 100%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--primary) / 0.03) calc(var(--editor-font-size) * var(--editor-line-height) - 1px),
+      hsl(var(--primary) / 0.03) calc(var(--editor-font-size) * var(--editor-line-height))
+    );
+  background-position: 60px calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
+}
+
+/* Vim mode cursor styles - Normal mode block cursor */
+.cm-vim-fat-cursor .cm-cursor-primary {
+  display: inline-block !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  border: none !important;
+  opacity: 1;
+  margin-left: -1px;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
+}
+
+/* Force block cursor visibility in vim normal mode */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  border: none !important;
+  opacity: 1;
+  margin-left: -1px;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
+  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.3);
+}
+
+/* Vim cursor blink animation */
+@keyframes vim-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Ensure the cursor-primary is visible */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor-primary {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  border-left: none !important;
+  opacity: 1;
+}
+
+/* Vim insert mode - thin cursor */
+.cm-vim-insert-mode .cm-cursor-primary {
+  width: 2px !important;
+  height: 1.2em !important;
+  background-color: transparent !important;
+  border-left: 2px solid hsl(var(--primary)) !important;
+  opacity: 1;
+  margin-left: 0;
+}
+
+/* Ensure the vim cursor is visible */
+.cm-vim-fat-cursor {
+  position: relative;
+  display: inline-block;
+  width: 0.7em;
+  height: 1.2em;
+  background-color: hsl(var(--primary));
+  opacity: 0.7;
+}
+
+/* Enable text selection with mouse in vim mode */
+.cm-editor.cm-vim-mode .cm-content {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Ensure cursor is always visible */
+.cm-editor .cm-cursor {
+  visibility: visible !important;
+}
+
+/* Make cursor more visible in all states */
+.cm-cursor-primary {
+  visibility: visible !important;
+}
+
+/* Force vim normal mode block cursor with after pseudo-element as fallback */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-line {
+  position: relative;
+}
+
+/* Create a visible cursor using the vim fat cursor class */
+.cm-vim-fat-cursor {
+  position: relative;
+  display: inline-block;
+  width: 0.7em;
+  height: 1.2em;
+  background-color: hsl(var(--foreground));
+  margin-left: -1px;
+  opacity: 1;
+  animation: vim-cursor-blink 1s ease-in-out infinite;
+}
+
+/* Ensure vim cursor container is visible */
+.cm-vim-cursor {
+  display: inline-block !important;
+  visibility: visible !important;
+}
+
+/* Override any theme that might hide the cursor */
+.cm-editor .cm-vim-fat-cursor * {
+  visibility: visible !important;
+}
+
+/* Visual mode selection */
+.cm-editor.cm-vim-mode .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+/* Visual mode selection - ensure it's visible in focused editor */
+.cm-editor.cm-vim-mode.cm-focused .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Visual mode - ensure selected text is visible */
+.cm-vim-visual-mode .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Visual mode cursor (should be at the end of selection) */
+.cm-vim-visual-mode .cm-cursor {
+  display: inline-block !important;
+  width: 0.7em !important;
+  height: 1.2em !important;
+  background-color: hsl(var(--foreground)) !important;
+  opacity: 1;
+}
+
+/* Ensure visual mode selections are visible over syntax highlighting */
+.cm-vim-visual-mode .cm-selectionLayer {
+  z-index: 2;
+}
+
+/* Visual line mode */
+.cm-vim-visual-line .cm-selectionBackground {
+  background-color: hsl(var(--primary) / 0.4) !important;
+}
+
+/* Vim command panel */
+.cm-vim-panel {
+  position: fixed !important;
+  bottom: 26px !important; /* Above the status footer */
+  left: 0 !important;
+  right: 0 !important;
+  background-color: hsl(var(--background) / 0.95) !important;
+  border-top: 1px solid hsl(var(--border) / 0.5) !important;
+  padding: 6px 20px !important;
+  font-size: 12px !important;
+  font-family: ui-monospace, monospace !important;
+  color: hsl(var(--foreground)) !important;
+  backdrop-filter: blur(12px) !important;
+  z-index: 100 !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Vim command line input styling */
+.cm-vim-panel input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  width: 100%;
+}
+
+/* Search match highlighting */
+.cm-searchMatch {
+  background-color: hsl(var(--primary) / 0.3);
+  outline: 1px solid hsl(var(--primary) / 0.5);
+}
+
+.cm-searchMatch.cm-searchMatch-selected {
+  background-color: hsl(var(--primary) / 0.6);
+}
+
+/* Markdown syntax highlighting */
+.cm-header-1 {
+  font-size: 2em;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  line-height: 1.2;
+}
+
+.cm-header-2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  line-height: 1.3;
+}
+
+.cm-header-3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  line-height: 1.4;
+}
+
+.cm-header-4, .cm-header-5, .cm-header-6 {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.cm-link {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.cm-url {
+  color: hsl(var(--primary) / 0.7);
+}
+
+.cm-emphasis {
+  font-style: italic;
+}
+
+.cm-strong {
+  font-weight: 700;
+}
+
+.cm-strikethrough {
+  text-decoration: line-through;
+}
+
+.cm-quote {
+  color: hsl(var(--muted-foreground));
+  border-left: 3px solid hsl(var(--primary) / 0.3);
+  padding-left: 1em;
+}
+
+.cm-list {
+  color: hsl(var(--primary) / 0.8);
+}
+
+.cm-code {
+  background-color: hsl(var(--muted) / 0.3);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.cm-codeblock {
+  background-color: hsl(var(--muted) / 0.2);
+  padding: 0.5em;
+  border-radius: 6px;
+  font-family: ui-monospace, monospace;
+}
+
+/* Line wrapping */
+.cm-lineWrapping {
+  word-break: break-word;
+}
+
+/* Focus mode enhancements */
+.focus-mode .cm-line:not(.cm-activeLine) {
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.focus-mode .cm-activeLine {
+  opacity: 1;
+}
+
+/* Typewriter mode */
+.cm-content.typewriter-mode {
+  padding-top: 50vh !important;
+  padding-bottom: 50vh !important;
+}
+
+/* Remove any box shadows or borders that might appear */
+.cm-editor {
+  box-shadow: none !important;
+}
+
+.cm-editor.cm-focused {
+  box-shadow: none !important;
+}
+
+/* Ensure proper text color */
+.cm-content {
+  color: hsl(var(--foreground));
+  caret-color: hsl(var(--primary));
+}

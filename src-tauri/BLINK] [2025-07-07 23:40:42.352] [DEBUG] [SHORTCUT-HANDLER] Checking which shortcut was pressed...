@@ -1,0 +1,3 @@
+#!/bin/sh
+
+multitail -Z ,,inverse -s 2 -sn 1,3 -m 0 -t "🔧 Vite (blink.vite.claude)" -n 100 "/Users/arach/dev/blink/.dev-pids/blink.vite.claude.log" -m 0 -t "🦀 Tauri (blink.tauri.claude)" -n 100 "/Users/arach/dev/blink/.dev-pids/blink.tauri.claude.log"

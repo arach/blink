@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { createRoot } from 'react-dom/client';
-import { DragCancelEffect } from '../components/DragCancelEffect';
+import { DragCancelEffect } from '../components/windows';
 
 interface DragState {
   isDragging: boolean;
@@ -79,6 +79,15 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     setIsOutsideSidebar(false);
     setRealWindowCreated(false);
     dragRef.current.hasMovedEnough = false;
+    
+    // Clean up any existing hybrid drag window for this note first
+    if (dragRef.current.realWindowLabel) {
+      console.log('[DRAG] Cleaning up existing hybrid window before creating new one');
+      invoke('close_hybrid_drag_window', {
+        windowLabel: dragRef.current.realWindowLabel,
+      }).catch(() => {}); // Ignore errors
+    }
+    
     dragRef.current.realWindowLabel = null;
     dragRef.current.lastMousePosition = { x: e.screenX, y: e.screenY };
     dragRef.current.wasOutsideSidebar = false;
@@ -102,15 +111,38 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     });
     
     invoke<string>('create_hybrid_drag_window', {
-      noteId,
+      noteId: noteId,
       x: screenX,
       y: screenY,
       hidden: true, // Create hidden
     }).then(windowLabel => {
       dragRef.current.realWindowLabel = windowLabel;
       console.log('[DRAG] Hidden window pre-created on mousedown:', windowLabel);
-    }).catch(error => {
+    }).catch(async (error) => {
       console.error('[DRAG] Failed to pre-create window:', error);
+      
+      // If window already exists, try to close it first and retry
+      if (error.toString().includes('already exists')) {
+        const existingLabel = `hybrid-drag-${noteId}`;
+        console.log('[DRAG] Window already exists, closing it first:', existingLabel);
+        
+        try {
+          await invoke('close_hybrid_drag_window', { windowLabel: existingLabel });
+          console.log('[DRAG] Closed existing window, retrying creation...');
+          
+          // Retry creation
+          const windowLabel = await invoke<string>('create_hybrid_drag_window', {
+            noteId: noteId,
+            x: screenX,
+            y: screenY,
+            hidden: true,
+          });
+          dragRef.current.realWindowLabel = windowLabel;
+          console.log('[DRAG] Successfully created window on retry:', windowLabel);
+        } catch (retryError) {
+          console.error('[DRAG] Failed to create window even after cleanup:', retryError);
+        }
+      }
     });
   }, []);
 
@@ -198,7 +230,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       
       // Check if cursor is outside sidebar (any direction)
       if (dragRef.current.hasMovedEnough) {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.querySelector('[data-notes-sidebar]');
         const rect = sidebar?.getBoundingClientRect();
         
         if (rect) {
@@ -210,6 +242,19 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
             e.clientY > rect.bottom;    // Below sidebar
           
           setIsOutsideSidebar(outside);
+          
+          // Reduce excessive logging - only log boundary changes, not every mouse move
+          if (outside !== dragRef.current.wasOutsideSidebar) {
+            console.log('[DRAG] Boundary change:', {
+              mouseX: e.clientX,
+              mouseY: e.clientY,
+              sidebarLeft: rect.left,
+              sidebarRight: rect.right,
+              sidebarTop: rect.top,
+              sidebarBottom: rect.bottom,
+              outside
+            });
+          }
           
           // Log only when transitioning from inside to outside
           if (outside && !dragRef.current.wasOutsideSidebar) {
@@ -236,6 +281,13 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
     };
 
     const handleMouseUp = async (_e: MouseEvent) => {
+      console.log('[DRAG] Mouse up - drop detection:', {
+        isDragging: dragState.isDragging,
+        isOutsideSidebar,
+        wasOutsideSidebar: dragRef.current.wasOutsideSidebar,
+        hasRealWindow: !!dragRef.current.realWindowLabel
+      });
+      
       if (dragState.noteId && dragRef.current.realWindowLabel) {
         if (dragState.isDragging && isOutsideSidebar) {
           // Actually dragged and dropped outside sidebar - finalize the window in place
@@ -283,7 +335,13 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       });
       setIsOutsideSidebar(false);
       setRealWindowCreated(false);
-      dragRef.current.realWindowLabel = null;
+      
+      // Always clean up the hybrid window reference
+      if (dragRef.current.realWindowLabel) {
+        console.log('[DRAG] Cleaning up hybrid window reference after drag end');
+        dragRef.current.realWindowLabel = null;
+      }
+      
       dragRef.current.wasOutsideSidebar = false;
     };
 
@@ -293,6 +351,7 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
       if (e.key === 'Escape' && dragState.noteId) {
         // Cancel drag and close any pre-created window
         if (dragRef.current.realWindowLabel) {
+          console.log('[DRAG] Escape pressed - cleaning up hybrid window');
           invoke('close_hybrid_drag_window', {
             windowLabel: dragRef.current.realWindowLabel,
           }).catch(() => {});

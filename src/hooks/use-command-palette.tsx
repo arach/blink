@@ -1,15 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useConfigStore } from '../stores/config-store';
 import { useDetachedWindowsStore } from '../stores/detached-windows-store';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-}
+import { Note } from '../types';
 
 interface Command {
   id: string;
@@ -111,14 +103,14 @@ export function useCommandPalette({
       {
         id: 'toggle-focus',
         title: 'Toggle Focus Mode',
-        description: config.appearance?.focusMode ? 'Exit focus mode' : 'Enter distraction-free writing',
+        description: config?.appearance?.focusMode ? 'Exit focus mode' : 'Enter distraction-free writing',
         action: () => {
           setShowCommandPalette(false);
           const newConfig = {
             ...config,
             appearance: {
-              ...config.appearance,
-              focusMode: !config.appearance?.focusMode
+              ...config?.appearance,
+              focusMode: !config?.appearance?.focusMode
             }
           };
           updateConfig(newConfig);

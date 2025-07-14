@@ -4,7 +4,7 @@ import { useConfigStore } from '../stores/config-store';
 export function useTypewriterMode() {
   const { config } = useConfigStore();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isTypewriterMode = config.appearance.typewriterMode;
+  const isTypewriterMode = config?.appearance?.typewriterMode ?? false;
 
   useEffect(() => {
     if (!isTypewriterMode || !textareaRef.current) return;

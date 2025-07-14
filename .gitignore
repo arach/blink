@@ -28,3 +28,8 @@ src-tauri/target/
 
 # Local data directory
 data/.claude/
+
+# Development process management
+.dev-pids/
+*.pid
+*.dev.log

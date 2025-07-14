@@ -5,6 +5,7 @@ export interface Note {
   created_at: string;
   updated_at: string;
   tags: string[];
+  position?: number; // Manual ordering position
 }
 
 export interface CreateNoteRequest {

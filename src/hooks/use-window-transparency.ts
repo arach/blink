@@ -10,9 +10,12 @@ export const useWindowTransparency = () => {
   useEffect(() => {
     const ensureVisible = async () => {
       try {
-        const window = getCurrentWebviewWindow();
-        await window.show();
-        await window.center();
+        // Only run in Tauri context
+        if (typeof window !== 'undefined' && window.__TAURI__) {
+          const appWindow = getCurrentWebviewWindow();
+          await appWindow.show();
+          await appWindow.center();
+        }
       } catch (error) {
         console.error('Failed to ensure window visibility:', error);
       }
@@ -25,28 +28,34 @@ export const useWindowTransparency = () => {
   useEffect(() => {
     const applyOpacity = async () => {
       try {
-        console.log('Applying opacity:', config.opacity);
-        await invoke('set_window_opacity', { opacity: config.opacity });
+        // Only run in Tauri context and when config is available
+        if (typeof window !== 'undefined' && window.__TAURI__ && config && typeof config.opacity === 'number') {
+          console.log('Applying opacity:', config.opacity);
+          await invoke('set_window_opacity', { opacity: config.opacity });
+        }
       } catch (error) {
         console.error('Failed to apply window opacity:', error);
       }
     };
     
     applyOpacity();
-  }, [config.opacity]);
+  }, [config?.opacity]);
 
   // Apply always on top when config changes
   useEffect(() => {
     const applyAlwaysOnTop = async () => {
       try {
-        await invoke('set_window_always_on_top', { alwaysOnTop: config.alwaysOnTop });
+        // Only run in Tauri context and when config is available
+        if (typeof window !== 'undefined' && window.__TAURI__ && config && typeof config.alwaysOnTop === 'boolean') {
+          await invoke('set_window_always_on_top', { alwaysOnTop: config.alwaysOnTop });
+        }
       } catch (error) {
         console.error('Failed to apply always on top:', error);
       }
     };
     
     applyAlwaysOnTop();
-  }, [config.alwaysOnTop]);
+  }, [config?.alwaysOnTop]);
 
   const updateOpacity = useCallback(async (newOpacity: number) => {
     try {
@@ -59,11 +68,15 @@ export const useWindowTransparency = () => {
 
   const toggleAlwaysOnTop = useCallback(async () => {
     try {
-      const window = getCurrentWebviewWindow();
-      const current = await window.isAlwaysOnTop();
-      await invoke('set_window_always_on_top', { alwaysOnTop: !current });
-      await updateAlwaysOnTop(!current);
-      return !current;
+      // Only run in Tauri context
+      if (typeof window !== 'undefined' && window.__TAURI__) {
+        const appWindow = getCurrentWebviewWindow();
+        const current = await appWindow.isAlwaysOnTop();
+        await invoke('set_window_always_on_top', { alwaysOnTop: !current });
+        await updateAlwaysOnTop(!current);
+        return !current;
+      }
+      return false;
     } catch (error) {
       console.error('Failed to toggle always on top:', error);
       return false;
@@ -71,9 +84,9 @@ export const useWindowTransparency = () => {
   }, [updateAlwaysOnTop]);
 
   return {
-    opacity: config.opacity,
-    isTransparent: config.opacity < 1.0,
-    alwaysOnTop: config.alwaysOnTop,
+    opacity: config?.opacity ?? 1,
+    isTransparent: (config?.opacity ?? 1) < 1.0,
+    alwaysOnTop: config?.alwaysOnTop ?? false,
     updateOpacity,
     toggleAlwaysOnTop,
   };

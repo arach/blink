@@ -29,7 +29,14 @@ export class DetachedWindowsAPI {
   }
 
   static async getDetachedWindows(): Promise<DetachedWindow[]> {
-    return await invoke<DetachedWindow[]>('get_detached_windows');
+    const result = await invoke<{[key: string]: DetachedWindow}>('get_detached_windows');
+    
+    // Convert HashMap to array and filter out hybrid-drag windows (just in case backend didn't filter)
+    const windowsArray = Object.values(result).filter(window => 
+      window.window_label.startsWith('note-')
+    );
+    
+    return windowsArray;
   }
 
   static async updateWindowPosition(windowLabel: string, x: number, y: number): Promise<void> {
@@ -46,5 +53,17 @@ export class DetachedWindowsAPI {
 
   static async toggleMainWindowShade(): Promise<boolean> {
     return await invoke<boolean>('toggle_main_window_shade');
+  }
+
+  static async focusDetachedWindow(noteId: string): Promise<boolean> {
+    return await invoke<boolean>('focus_detached_window', { noteId });
+  }
+
+  static async restoreDetachedWindows(): Promise<string[]> {
+    return await invoke<string[]>('restore_detached_windows');
+  }
+
+  static async clearAllDetachedWindows(): Promise<number> {
+    return await invoke<number>('clear_all_detached_windows');
   }
 }

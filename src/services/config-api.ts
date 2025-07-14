@@ -3,19 +3,49 @@ import { AppConfig } from '../types/config';
 
 export const configApi = {
   async getConfig(): Promise<AppConfig> {
-    const config = await invoke<AppConfig>('get_config');
-    console.log('Loaded config from backend:', JSON.stringify(config, null, 2));
-    return config;
+    try {
+      const config = await invoke<AppConfig>('get_config');
+      
+      if (!config) {
+        throw new Error('Backend returned null config');
+      }
+      
+      if (!config.appearance) {
+        throw new Error('Backend returned invalid config - missing appearance');
+      }
+      
+      return config;
+    } catch (error) {
+      console.error('[BLINK] Error getting config:', error);
+      throw error;
+    }
   },
 
   async updateConfig(config: AppConfig): Promise<AppConfig> {
-    console.log('Sending config to backend:', JSON.stringify(config, null, 2));
-    const result = await invoke<AppConfig>('update_config', { newConfig: config });
-    console.log('Received from backend:', JSON.stringify(result, null, 2));
-    return result;
+    try {
+      const result = await invoke<AppConfig>('update_config', { newConfig: config });
+      
+      if (!result) {
+        throw new Error('Backend returned null on config update');
+      }
+      
+      if (!result.appearance) {
+        throw new Error('Backend returned invalid config on update - missing appearance');
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('[BLINK] Error updating config:', error);
+      throw error;
+    }
   },
 
   async toggleWindowVisibility(): Promise<boolean> {
-    return await invoke('toggle_window_visibility');
+    try {
+      return await invoke('toggle_window_visibility');
+    } catch (error) {
+      console.error('[BLINK] Error toggling window visibility:', error);
+      throw error;
+    }
   },
 };

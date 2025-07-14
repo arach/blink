@@ -6,6 +6,11 @@ export function useWindowShade() {
   const [isShaded, setIsShaded] = useState(false);
   
   useEffect(() => {
+    // Only run in Tauri context
+    if (typeof window === 'undefined' || !window.__TAURI__) {
+      return;
+    }
+    
     const appWindow = getCurrentWebviewWindow();
     
     // Check initial window height to determine if shaded

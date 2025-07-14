@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
 
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-}
+import { Note } from '../types';
 
 interface SyncEvent {
   type: 'note-updated' | 'note-created' | 'note-deleted';

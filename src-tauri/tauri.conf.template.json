@@ -1,0 +1,186 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeBuildCommand": "pnpm run build",
+    "beforeDevCommand": "pnpm run dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "category": "Productivity",
+    "copyright": "",
+    "externalBin": [],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "longDescription": "A modern, fast note-taking application built with Tauri, React, and TypeScript",
+    "macOS": {
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null
+    },
+    "resources": [],
+    "shortDescription": "Modern note-taking application",
+    "targets": "all",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "productName": "Blink",
+  "version": "0.1.0",
+  "identifier": "com.blink.dev",
+  "app": {
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": null,
+      "capabilities": [
+        {
+          "identifier": "main-capability",
+          "description": "Capability for the main window",
+          "windows": ["main"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-always-on-top",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-set-focus",
+            "core:window:allow-is-visible",
+            "core:window:allow-center",
+            "core:window:allow-is-always-on-top",
+            "core:window:allow-minimize",
+            "core:window:allow-maximize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-is-maximized",
+            "core:window:allow-create",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-outer-size",
+            "core:window:allow-set-min-size",
+            "core:webview:allow-create-webview-window",
+            "core:webview:allow-create-webview",
+            "global-shortcut:allow-register",
+            "global-shortcut:allow-unregister",
+            "global-shortcut:allow-is-registered",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
+          ]
+        },
+        {
+          "identifier": "note-window-capability",
+          "description": "Capability for detached note windows",
+          "windows": ["note-*"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-set-always-on-top",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-set-focus",
+            "core:window:allow-is-visible",
+            "core:window:allow-close",
+            "core:window:allow-minimize",
+            "core:window:allow-maximize",
+            "core:window:allow-unmaximize",
+            "core:window:allow-is-maximized",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-outer-size",
+            "core:window:allow-set-min-size",
+            "core:window:allow-set-position",
+            "core:window:allow-center",
+            "core:window:allow-set-title",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
+          ]
+        },
+        {
+          "identifier": "drag-ghost-capability",
+          "description": "Capability for drag ghost window",
+          "windows": ["drag-ghost-*"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-set-position",
+            "core:window:allow-set-size",
+            "core:window:allow-set-title",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
+          ]
+        },
+        {
+          "identifier": "hybrid-drag-capability",
+          "description": "Capability for hybrid drag windows",
+          "windows": ["hybrid-drag-*"],
+          "permissions": [
+            "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-hide",
+            "core:window:allow-close",
+            "core:window:allow-set-position",
+            "core:window:allow-outer-position",
+            "core:window:allow-set-title",
+            "core:window:allow-set-size",
+            "core:window:allow-inner-size",
+            "core:window:allow-set-resizable",
+            "core:window:allow-set-always-on-top",
+            "core:webview:allow-create-webview-window",
+            "core:event:allow-listen",
+            "core:event:allow-emit",
+            "core:event:allow-unlisten"
+          ]
+        },
+        {
+          "identifier": "test-window-capability",
+          "description": "Capability for test window",
+          "windows": ["test-window"],
+          "permissions": [
+            "core:window:allow-show",
+            "core:window:allow-close",
+            "core:webview:allow-create-webview-window"
+          ]
+        }
+      ]
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Blink",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 200,
+        "minHeight": 40,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "visible": true,
+        "center": true,
+        "shadow": false,
+        "backgroundColor": "#00000000"
+      }
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

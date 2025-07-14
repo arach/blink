@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css');
+@import './styles/codemirror.css';
 
 @tailwind base;
 @tailwind components;
@@ -382,6 +383,44 @@
   .bg-texture-gradient > * {
     position: relative;
     z-index: 2;
+  }
+
+  /* Notebook Paper Styles */
+  .note-paper-dotted-grid {
+    background-image: 
+      radial-gradient(circle at 1px 1px, hsl(var(--muted-foreground) / 0.25) 1px, transparent 1px);
+    background-size: 16px 16px;
+    background-position: 0 0;
+  }
+
+  .note-paper-lines {
+    background-image: 
+      repeating-linear-gradient(
+        transparent,
+        transparent 23px,
+        hsl(var(--muted-foreground) / 0.2) 24px,
+        hsl(var(--muted-foreground) / 0.2) 25px
+      );
+    background-size: 100% 24px;
+  }
+
+  .note-paper-ruled {
+    background-image: 
+      repeating-linear-gradient(
+        transparent,
+        transparent 23px,
+        hsl(var(--muted-foreground) / 0.25) 24px,
+        hsl(var(--muted-foreground) / 0.25) 25px
+      ),
+      linear-gradient(
+        to right,
+        transparent 0px,
+        transparent 79px,
+        hsl(var(--destructive) / 0.4) 80px,
+        hsl(var(--destructive) / 0.4) 81px,
+        transparent 82px
+      );
+    background-size: 100% 24px, 100% 100%;
   }
   
   /* Focus Mode - hide some UI elements for minimal distraction */

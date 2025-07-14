@@ -1,15 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { noteSyncService, useNoteSync } from '../services/note-sync';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-}
+import { Note } from '../types';
+import { extractTitleFromContent } from '../lib/utils';
 
 interface UseNoteManagementReturn {
   // State
@@ -37,6 +31,8 @@ export function useNoteManagement(): UseNoteManagementReturn {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [currentContent, setCurrentContent] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const selectedNote = notes.find(note => note.id === selectedNoteId);
 
@@ -47,34 +43,16 @@ export function useNoteManagement(): UseNoteManagementReturn {
     }
   });
 
-  // Extract title from markdown content (first header)
-  const extractTitleFromContent = useCallback((content: string): string => {
-    if (!content.trim()) return 'Untitled';
-    
-    // Always use first non-empty line as title
-    const firstLine = content.split('\n').find(line => line.trim());
-    if (!firstLine) return 'Untitled';
-    
-    // Clean up the line and extract title
-    let title = firstLine.trim();
-    
-    // Remove markdown formatting if present
-    title = title.replace(/^#+\s*/, ''); // Remove markdown headers
-    title = title.replace(/^\*\*(.+)\*\*$/, '$1'); // Remove bold
-    title = title.replace(/^\*(.+)\*$/, '$1'); // Remove italic
-    title = title.replace(/^[-*+]\s+/, ''); // Remove list markers
-    
-    // Limit length and ensure we have something
-    return title.substring(0, 50).trim() || 'Untitled';
-  }, []);
 
   // Load notes from backend
   const loadNotes = useCallback(async () => {
-    console.log('[BLINK] Loading notes...');
     setLoading(true);
+    const startTime = performance.now();
     try {
+      // Try to load notes from Tauri - if this fails, we'll fall back to demo data
       const loadedNotes = await invoke<Note[]>('get_notes');
-      console.log('[BLINK] Loaded notes:', loadedNotes.length);
+      const loadTime = performance.now() - startTime;
+      console.log(`[BLINK] Notes loaded in ${loadTime.toFixed(2)}ms (${loadedNotes.length} notes)`);
       setNotes(loadedNotes);
       
       // If we have notes but no selected note, select the first one
@@ -84,7 +62,31 @@ export function useNoteManagement(): UseNoteManagementReturn {
         setCurrentContent(firstNote.content);
       }
     } catch (error) {
-      console.error('[BLINK] Failed to load notes:', error);
+      console.warn('[BLINK] Failed to load notes from Tauri, falling back to demo data:', error);
+      // Demo data for browser context or when Tauri fails
+      const demoNotes: Note[] = [
+        { 
+          id: 'demo-1', 
+          title: 'Welcome to Blink', 
+          content: '# Welcome to Blink\n\nThis is a demo note running in browser mode.',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: []
+        },
+        { 
+          id: 'demo-2', 
+          title: 'Demo Note 2', 
+          content: '# Demo Note\n\nYou can see the interface, but Tauri features require the desktop app.',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          tags: []
+        }
+      ];
+      setNotes(demoNotes);
+      if (!selectedNoteId) {
+        setSelectedNoteId('demo-1');
+        setCurrentContent(demoNotes[0].content);
+      }
     } finally {
       setLoading(false);
     }
@@ -113,6 +115,12 @@ export function useNoteManagement(): UseNoteManagementReturn {
 
   // Select a note
   const selectNote = useCallback((noteId: string) => {
+    // Clear any pending save for the previous note
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
     const note = notes.find(n => n.id === noteId);
     if (note) {
       setSelectedNoteId(noteId);
@@ -120,51 +128,52 @@ export function useNoteManagement(): UseNoteManagementReturn {
     }
   }, [notes]);
 
-  // Update note content
-  const updateNoteContent = useCallback(async (content: string) => {
+  // Update note content with debouncing
+  const updateNoteContent = useCallback((content: string) => {
     if (!selectedNoteId) return;
-
-    console.log('[BLINK] Updating note content for:', selectedNoteId);
     
     // Update local state immediately for responsiveness
     setCurrentContent(content);
     
-    // Extract title and update the note in local state
+    // Extract title and update the note in local state immediately
     const title = extractTitleFromContent(content);
     setNotes(prev => prev.map(note => 
       note.id === selectedNoteId 
-        ? { ...note, title, content, updatedAt: new Date().toISOString() }
+        ? { ...note, title, content, updated_at: new Date().toISOString() }
         : note
     ));
 
-    try {
-      // Update in backend
-      const updatedNote = await invoke<Note>('update_note', {
-        id: selectedNoteId,
-        request: {
-          title,
-          content,
-          tags: undefined // Keep existing tags
-        }
-      });
-
-      console.log('[BLINK] Note updated successfully:', updatedNote.id);
-      
-      // Notify other windows about the update
-      noteSyncService.noteUpdated(updatedNote);
-      
-    } catch (error) {
-      console.error('[BLINK] Failed to update note:', error);
-      // Revert local changes on error
-      const originalNote = notes.find(n => n.id === selectedNoteId);
-      if (originalNote) {
-        setCurrentContent(originalNote.content);
-        setNotes(prev => prev.map(note => 
-          note.id === selectedNoteId ? originalNote : note
-        ));
-      }
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  }, [selectedNoteId, notes, extractTitleFromContent]);
+
+    // Set new timeout for saving to backend (debounced)
+    saveTimeoutRef.current = setTimeout(async () => {
+      console.log('[BLINK] Saving note content to backend (debounced):', selectedNoteId);
+      
+      try {
+        // Update in backend
+        const updatedNote = await invoke<Note>('update_note', {
+          id: selectedNoteId,
+          request: {
+            title,
+            content,
+            tags: undefined // Keep existing tags
+          }
+        });
+
+        console.log('[BLINK] Note saved successfully:', updatedNote.id);
+        
+        // Notify other windows about the update
+        noteSyncService.noteUpdated(updatedNote);
+        
+      } catch (error) {
+        console.error('[BLINK] Failed to save note:', error);
+        // Note: We don't revert local changes here since the user may have continued typing
+      }
+    }, 1000); // 1 second debounce
+  }, [selectedNoteId]);
 
   // Delete a note
   const deleteNote = useCallback(async (noteId: string) => {
@@ -194,9 +203,29 @@ export function useNoteManagement(): UseNoteManagementReturn {
     }
   }, [selectedNoteId, notes]);
 
-  // Load notes on mount
+  // Load notes on mount and listen for data-loaded event
   useEffect(() => {
     loadNotes();
+    
+    // Listen for data-loaded event from backend
+    const setupListener = async () => {
+      const unlisten = await listen('data-loaded', () => {
+        console.log('[BLINK] Backend data loaded, reloading notes...');
+        loadNotes();
+      });
+      return unlisten;
+    };
+    
+    let unlisten: (() => void) | undefined;
+    setupListener().then(fn => { unlisten = fn; });
+    
+    return () => {
+      if (unlisten) unlisten();
+      // Clear any pending save timeout
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [loadNotes]);
 
   return {

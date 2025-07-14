@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppConfig, defaultConfig, migrateConfig } from '../types/config';
 import { configApi } from '../services/config-api';
+import { emit } from '@tauri-apps/api/event';
 
 interface ConfigStore {
   config: AppConfig;
@@ -24,15 +25,29 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   loadConfig: async () => {
     set({ isLoading: true, error: null });
+    const startTime = performance.now();
     try {
-      // console.log('Loading config from backend...');
       const rawConfig = await configApi.getConfig();
-      // console.log('Raw config loaded:', rawConfig);
+      const loadTime = performance.now() - startTime;
+      console.log(`[BLINK] Config loaded in ${loadTime.toFixed(2)}ms`);
+      
+      if (!rawConfig) {
+        console.warn('[BLINK] Received null config from backend, using defaults');
+        set({ config: defaultConfig, isLoading: false });
+        return;
+      }
+      
       const config = migrateConfig(rawConfig);
-      // console.log('Migrated config:', config);
+      
+      if (!config || !config.appearance) {
+        console.warn('[BLINK] Invalid config structure, using defaults');
+        set({ config: defaultConfig, isLoading: false });
+        return;
+      }
+      
       set({ config, isLoading: false });
     } catch (error) {
-      console.warn('Failed to load config, using defaults:', error);
+      console.warn('[BLINK] Failed to load config, using defaults:', error);
       set({ 
         config: defaultConfig,
         isLoading: false,
@@ -71,6 +86,14 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   updateConfig: async (configUpdate: Partial<AppConfig>) => {
     const { config } = get();
+    
+    if (!config) {
+      console.error('[BLINK] Current config is null! Using defaults');
+      const newConfig = { ...defaultConfig, ...configUpdate };
+      set({ config: newConfig });
+      return;
+    }
+    
     // Deep merge to handle nested objects properly
     const updatedConfig: AppConfig = {
       ...config,
@@ -89,15 +112,35 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       }
     };
     
-    // console.log('Updating config from:', config);
-    // console.log('With update:', configUpdate);
-    // console.log('Result:', updatedConfig);
-    
     try {
       const newConfig = await configApi.updateConfig(updatedConfig);
-      // console.log('Received from backend:', newConfig);
+      
+      if (!newConfig) {
+        console.error('[BLINK] Backend returned null config');
+        set({ error: 'Backend returned null config' });
+        return;
+      }
+      
+      if (!newConfig.appearance) {
+        console.error('[BLINK] Backend returned invalid config structure');
+        set({ 
+          config: { ...defaultConfig, ...newConfig },
+          error: 'Invalid config structure received'
+        });
+        return;
+      }
+      
       set({ config: newConfig });
+      
+      // Emit config-updated event to notify all windows
+      try {
+        await emit('config-updated', newConfig);
+        console.log('[CONFIG] Config updated event emitted successfully');
+      } catch (error) {
+        console.error('[CONFIG] Failed to emit config-updated event:', error);
+      }
     } catch (error) {
+      console.error('[BLINK] Error updating config:', error);
       set({ 
         error: error instanceof Error ? error.message : 'Failed to update config'
       });
