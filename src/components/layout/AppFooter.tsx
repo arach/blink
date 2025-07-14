@@ -50,7 +50,7 @@ export function AppFooter({ theme, themeId, config }: AppFooterProps) {
     loadCurrentDirectory();
   }, []);
 
-  const handleDirectoryClick = async (e: React.MouseEvent) => {
+  const handleDirectoryClick = async (_e: React.MouseEvent) => {
     console.log('[AppFooter] Directory clicked');
     
     // Both regular click and Alt+Click open the directory in Finder

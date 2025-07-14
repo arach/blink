@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen } from '@tauri-apps/api/event';
@@ -27,11 +27,13 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [vimStatus, setVimStatus] = useState<{ mode: string; subMode?: string }>({ mode: 'NORMAL' });
 
   const appWindow = getCurrentWebviewWindow();
   const { closeWindow } = useDetachedWindowsStore();
   const saveStatus = useSaveStatus();
   const isShaded = useWindowShade();
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
   
   // Track window position/size changes with proper debouncing
   useWindowTracking(noteId);
@@ -45,6 +47,13 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
   useEffect(() => {
     loadNote();
+    
+    // Cleanup function to clear save timeout on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [noteId]);
 
   useEffect(() => {
@@ -75,33 +84,48 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     }
   };
 
-  const updateNoteContent = async (newContent: string) => {
+  const updateNoteContent = useCallback((newContent: string) => {
     setContent(newContent);
     
-    if (note) {
-      try {
-        saveStatus.startSaving();
-        
-        const updatedNote = await invoke<Note>('update_note', {
-          id: noteId,
-          request: {
-            content: newContent
-          }
-        });
-        
-        if (updatedNote) {
-          setNote(updatedNote);
-          saveStatus.saveSuccess();
-          
-          // Notify other windows of the update
-          noteSyncService.noteUpdated(updatedNote);
-        }
-      } catch (error) {
-        console.error('Failed to update note:', error);
-        saveStatus.setSaveError('Failed to save note');
-      }
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
     }
-  };
+    
+    // Show saving indicator after a short delay to prevent flickering
+    const savingIndicatorTimeout = setTimeout(() => {
+      saveStatus.startSaving();
+    }, 300);
+    
+    // Debounce the actual save operation to 1 second
+    saveTimeoutRef.current = setTimeout(async () => {
+      clearTimeout(savingIndicatorTimeout);
+      
+      if (note) {
+        try {
+          saveStatus.startSaving();
+          
+          const updatedNote = await invoke<Note>('update_note', {
+            id: noteId,
+            request: {
+              content: newContent
+            }
+          });
+          
+          if (updatedNote) {
+            setNote(updatedNote);
+            saveStatus.saveSuccess();
+            
+            // Notify other windows of the update
+            noteSyncService.noteUpdated(updatedNote);
+          }
+        } catch (error) {
+          console.error('Failed to update note:', error);
+          saveStatus.setSaveError('Failed to save note');
+        }
+      }
+    }, 1000); // 1 second debounce, same as main window
+  }, [note, noteId, saveStatus]);
 
   const handleCloseWindow = async () => {
     console.log('[DETACHED-WINDOW] Closing window for note:', noteId);
@@ -326,6 +350,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
               typewriterMode={config?.appearance?.typewriterMode || false}
               autoFocus={true}
               className={getPaperStyleClass(config.appearance?.notePaperStyle)}
+              onVimStatusChange={setVimStatus}
             />
           ) : null}
           
@@ -349,28 +374,53 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
         {/* Footer */}
         <div className="bg-card/20 border-t border-border/15 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            {saveStatus.isSaving ? (
-              <>
-                <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
-                <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
-              </>
-            ) : saveStatus.saveError ? (
-              <>
-                <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
-                <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
-              </>
-            ) : saveStatus.lastSaved ? (
-              <>
-                <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
-                <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
-              </>
-            ) : (
-              <>
-                <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
-                <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
-              </>
+          <div className="flex items-center gap-3">
+            {/* Vim mode indicator */}
+            {config?.appearance?.vimMode && !isPreviewMode && (
+              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${
+                vimStatus.mode === 'INSERT' ? 'bg-green-500/10' : 
+                vimStatus.mode === 'VISUAL' ? 'bg-purple-500/10' : 
+                'bg-primary/10'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  vimStatus.mode === 'INSERT' ? 'bg-green-500' : 
+                  vimStatus.mode === 'VISUAL' ? 'bg-purple-500' : 
+                  'bg-primary'
+                }`} />
+                <span className={`text-xs font-mono ${
+                  vimStatus.mode === 'INSERT' ? 'text-green-500/70' : 
+                  vimStatus.mode === 'VISUAL' ? 'text-purple-500/70' : 
+                  'text-primary/70'
+                }`}>
+                  {vimStatus.mode}
+                </span>
+              </div>
             )}
+            
+            {/* Save status */}
+            <div className="flex items-center gap-1.5">
+              {saveStatus.isSaving ? (
+                <>
+                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
+                  <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+                </>
+              ) : saveStatus.saveError ? (
+                <>
+                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
+                  <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+                </>
+              ) : saveStatus.lastSaved ? (
+                <>
+                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+                  <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
+                </>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
+                  <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
+                </>
+              )}
+            </div>
           </div>
           
           {content && (
