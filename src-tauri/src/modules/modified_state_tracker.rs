@@ -4,17 +4,21 @@ use tokio::sync::Mutex;
 use sha2::{Sha256, Digest};
 
 use crate::types::note::Note;
-use crate::log_debug;
+use crate::{log_debug, log_info};
 
-/// Tracks which notes have unsaved changes and their content hashes
-pub struct DirtyTracker {
-    /// Maps note IDs to their dirty state
+/// Tracks note modification state and content hashes for change detection
+/// 
+/// This serves two purposes:
+/// 1. Track which notes have been modified in the current session
+/// 2. Store content hashes to detect actual changes and external modifications
+pub struct ModifiedStateTracker {
+    /// Maps note IDs to their dirty state (modified in current session)
     dirty_flags: Arc<Mutex<HashMap<String, bool>>>,
-    /// Maps note IDs to their last saved content hash
+    /// Maps note IDs to their last saved content hash (for drift detection)
     content_hashes: Arc<Mutex<HashMap<String, String>>>,
 }
 
-impl DirtyTracker {
+impl ModifiedStateTracker {
     pub fn new() -> Self {
         Self {
             dirty_flags: Arc::new(Mutex::new(HashMap::new())),
@@ -38,13 +42,15 @@ impl DirtyTracker {
             Some(existing_hash) => {
                 let changed = existing_hash != &new_hash;
                 if changed {
-                    log_debug!("DIRTY_TRACKER", "Note {} content changed. Old hash: {}, New hash: {}", 
+                    log_info!("MODIFIED_STATE", "🔍 Content change detected for note {}: old_hash={}, new_hash={}", 
                         note_id, &existing_hash[..8], &new_hash[..8]);
+                    // TODO: In the future, we could check if this change was external
+                    // by comparing timestamps or using file system events
                 }
                 changed
             },
             None => {
-                log_debug!("DIRTY_TRACKER", "Note {} has no previous hash, marking as changed", note_id);
+                log_debug!("MODIFIED_STATE", "Note {} has no previous hash, marking as changed", note_id);
                 true // No previous hash means this is new or first save
             }
         }
@@ -55,25 +61,25 @@ impl DirtyTracker {
         let mut hashes = self.content_hashes.lock().await;
         let hash = Self::compute_content_hash(content);
         hashes.insert(note_id.to_string(), hash);
-        log_debug!("DIRTY_TRACKER", "Updated content hash for note {}", note_id);
+        log_debug!("MODIFIED_STATE", "Updated content hash for note {}", note_id);
     }
     
-    /// Mark a note as dirty (has unsaved changes)
-    pub async fn mark_dirty(&self, note_id: &str) {
+    /// Mark a note as modified (has unsaved changes)
+    pub async fn mark_modified(&self, note_id: &str) {
         let mut flags = self.dirty_flags.lock().await;
         flags.insert(note_id.to_string(), true);
-        log_debug!("DIRTY_TRACKER", "Marked note {} as dirty", note_id);
+        log_debug!("MODIFIED_STATE", "Marked note {} as modified", note_id);
     }
     
-    /// Clear the dirty flag after a successful save
-    pub async fn clear_dirty(&self, note_id: &str) {
+    /// Clear the modified flag after a successful save
+    pub async fn clear_modified(&self, note_id: &str) {
         let mut flags = self.dirty_flags.lock().await;
         flags.remove(note_id);
-        log_debug!("DIRTY_TRACKER", "Cleared dirty flag for note {}", note_id);
+        log_debug!("MODIFIED_STATE", "Cleared modified flag for note {}", note_id);
     }
     
-    /// Check if a note is marked as dirty
-    pub async fn is_dirty(&self, note_id: &str) -> bool {
+    /// Check if a note is marked as modified
+    pub async fn is_modified(&self, note_id: &str) -> bool {
         let flags = self.dirty_flags.lock().await;
         flags.get(note_id).copied().unwrap_or(false)
     }
@@ -84,11 +90,11 @@ impl DirtyTracker {
         let hash = Self::compute_content_hash(&note.content);
         hashes.insert(note.id.clone(), hash);
         
-        // Clear any existing dirty flag
+        // Clear any existing modified flag
         let mut flags = self.dirty_flags.lock().await;
         flags.remove(&note.id);
         
-        log_debug!("DIRTY_TRACKER", "Initialized tracking for note {}", note.id);
+        log_debug!("MODIFIED_STATE", "Initialized tracking for note {}", note.id);
     }
     
     /// Remove tracking for a deleted note
@@ -99,11 +105,11 @@ impl DirtyTracker {
         let mut flags = self.dirty_flags.lock().await;
         flags.remove(note_id);
         
-        log_debug!("DIRTY_TRACKER", "Removed tracking for note {}", note_id);
+        log_debug!("MODIFIED_STATE", "Removed tracking for note {}", note_id);
     }
     
-    /// Get all dirty note IDs
-    pub async fn get_dirty_notes(&self) -> Vec<String> {
+    /// Get all modified note IDs
+    pub async fn get_modified_notes(&self) -> Vec<String> {
         let flags = self.dirty_flags.lock().await;
         flags.iter()
             .filter_map(|(id, &is_dirty)| if is_dirty { Some(id.clone()) } else { None })
@@ -118,7 +124,7 @@ impl DirtyTracker {
         let mut hashes = self.content_hashes.lock().await;
         hashes.clear();
         
-        log_debug!("DIRTY_TRACKER", "Cleared all tracking data");
+        log_debug!("MODIFIED_STATE", "Cleared all tracking data");
     }
 }
 
@@ -132,34 +138,34 @@ mod tests {
         let content2 = "Hello, world!";
         let content3 = "Hello, world!!";
         
-        let hash1 = DirtyTracker::compute_content_hash(content1);
-        let hash2 = DirtyTracker::compute_content_hash(content2);
-        let hash3 = DirtyTracker::compute_content_hash(content3);
+        let hash1 = ModifiedStateTracker::compute_content_hash(content1);
+        let hash2 = ModifiedStateTracker::compute_content_hash(content2);
+        let hash3 = ModifiedStateTracker::compute_content_hash(content3);
         
         assert_eq!(hash1, hash2, "Same content should produce same hash");
         assert_ne!(hash1, hash3, "Different content should produce different hash");
     }
     
     #[tokio::test]
-    async fn test_dirty_tracking() {
-        let tracker = DirtyTracker::new();
+    async fn test_modified_tracking() {
+        let tracker = ModifiedStateTracker::new();
         let note_id = "test-note-1";
         
-        // Initially not dirty
-        assert!(!tracker.is_dirty(note_id).await);
+        // Initially not modified
+        assert!(!tracker.is_modified(note_id).await);
         
-        // Mark as dirty
-        tracker.mark_dirty(note_id).await;
-        assert!(tracker.is_dirty(note_id).await);
+        // Mark as modified
+        tracker.mark_modified(note_id).await;
+        assert!(tracker.is_modified(note_id).await);
         
-        // Clear dirty flag
-        tracker.clear_dirty(note_id).await;
-        assert!(!tracker.is_dirty(note_id).await);
+        // Clear modified flag
+        tracker.clear_modified(note_id).await;
+        assert!(!tracker.is_modified(note_id).await);
     }
     
     #[tokio::test]
     async fn test_content_change_detection() {
-        let tracker = DirtyTracker::new();
+        let tracker = ModifiedStateTracker::new();
         let note_id = "test-note-1";
         let content1 = "Initial content";
         let content2 = "Modified content";

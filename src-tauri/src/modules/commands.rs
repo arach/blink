@@ -6,7 +6,7 @@ use crate::types::{
     window::{NotesState, ConfigState},
 };
 use crate::modules::file_notes_storage::FileNotesStorage;
-use crate::modules::dirty_tracker::DirtyTracker;
+use crate::modules::modified_state_tracker::ModifiedStateTracker;
 use crate::{log_info, log_error, log_debug};
 
 /// Helper function to save all notes using FileNotesStorage
@@ -59,7 +59,7 @@ pub async fn create_note(
     request: CreateNoteRequest,
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
-    dirty_tracker: State<'_, DirtyTracker>,
+    modified_tracker: State<'_, ModifiedStateTracker>,
 ) -> Result<Note, String> {
     let mut notes_lock = notes.lock().await;
     let config_lock = config.lock().await;
@@ -87,7 +87,7 @@ pub async fn create_note(
     save_note_using_file_storage(&note, &config_lock).await?;
     
     // Initialize tracking for the new note
-    dirty_tracker.initialize_note(&note).await;
+    modified_tracker.initialize_note(&note).await;
     
     log_info!("NOTES", "Created note: {} ({})", note.title, note.id);
     Ok(note)
@@ -100,7 +100,7 @@ pub async fn update_note(
     request: UpdateNoteRequest,
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
-    dirty_tracker: State<'_, DirtyTracker>,
+    modified_tracker: State<'_, ModifiedStateTracker>,
 ) -> Result<Option<Note>, String> {
     let mut notes_lock = notes.lock().await;
     let config_lock = config.lock().await;
@@ -108,7 +108,7 @@ pub async fn update_note(
     if let Some(note) = notes_lock.get_mut(&id) {
         // Check if content has actually changed
         let content_changed = if let Some(ref new_content) = request.content {
-            dirty_tracker.has_content_changed(&id, new_content).await
+            modified_tracker.has_content_changed(&id, new_content).await
         } else {
             false
         };
@@ -136,7 +136,7 @@ pub async fn update_note(
             if content_changed {
                 save_note_using_file_storage(&updated_note, &config_lock).await?;
                 // Update the content hash after successful save
-                dirty_tracker.update_content_hash(&id, &updated_note.content).await;
+                modified_tracker.update_content_hash(&id, &updated_note.content).await;
                 log_info!("NOTES", "Updated and saved note: {} ({})", updated_note.title, updated_note.id);
             } else {
                 // For title/tags only changes, still save but log differently
@@ -161,7 +161,7 @@ pub async fn delete_note(
     id: String, 
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
-    dirty_tracker: State<'_, DirtyTracker>,
+    modified_tracker: State<'_, ModifiedStateTracker>,
 ) -> Result<bool, String> {
     let mut notes_lock = notes.lock().await;
     let config_lock = config.lock().await;
@@ -172,8 +172,8 @@ pub async fn delete_note(
         let file_storage = FileNotesStorage::new(&config_lock)?;
         file_storage.delete_note(&id).await?;
         
-        // Remove from dirty tracker
-        dirty_tracker.remove_note(&id).await;
+        // Remove from modified tracker
+        modified_tracker.remove_note(&id).await;
         
         log_info!("NOTES", "Deleted note: {}", id);
     } else {

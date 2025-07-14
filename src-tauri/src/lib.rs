@@ -27,7 +27,7 @@ pub use modules::{
 
 use modules::logging::init_file_logging;
 use modules::file_notes_storage::FileNotesStorage;
-use modules::dirty_tracker::DirtyTracker;
+use modules::modified_state_tracker::ModifiedStateTracker;
 use modules::storage::{
     save_config_to_disk as save_config_to_disk_storage,
     load_config_from_disk as load_config_from_disk_storage,
@@ -53,7 +53,7 @@ type NotesState = Mutex<HashMap<String, Note>>;
 type ConfigState = Mutex<AppConfig>;
 type DetachedWindowsState = Mutex<HashMap<String, DetachedWindow>>;
 type ToggleState = Mutex<bool>;
-type DirtyTrackerState = DirtyTracker;
+type ModifiedStateTrackerState = ModifiedStateTracker;
 
 
 
@@ -67,7 +67,7 @@ async fn import_notes_from_directory(
     directory_path: String,
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
-    dirty_tracker: State<'_, DirtyTrackerState>,
+    modified_tracker: State<'_, ModifiedStateTrackerState>,
 ) -> Result<Vec<Note>, String> {
     log_info!("FILE_IMPORT", "Importing notes from directory: {}", directory_path);
     
@@ -97,7 +97,7 @@ async fn import_notes_from_directory(
                     log_info!("FILE_IMPORT", "Imported note: {} from {}", note.title, path.display());
                     notes_lock.insert(note.id.clone(), note.clone());
                     // Initialize dirty tracking for imported note
-                    dirty_tracker.initialize_note(&note).await;
+                    modified_tracker.initialize_note(&note).await;
                     imported_notes.push(note);
                 },
                 Err(e) => {
@@ -234,7 +234,7 @@ async fn set_notes_directory(
 async fn reload_notes_from_directory(
     config: State<'_, ConfigState>,
     notes: State<'_, NotesState>,
-    dirty_tracker: State<'_, DirtyTrackerState>,
+    modified_tracker: State<'_, ModifiedStateTrackerState>,
 ) -> Result<Vec<Note>, String> {
     log_info!("STORAGE", "Reloading notes from configured directory");
     
@@ -254,9 +254,9 @@ async fn reload_notes_from_directory(
     *notes_lock = loaded_notes_map;
     
     // Clear and reinitialize dirty tracking for all notes
-    dirty_tracker.clear_all().await;
+    modified_tracker.clear_all().await;
     for note in notes_lock.values() {
-        dirty_tracker.initialize_note(note).await;
+        modified_tracker.initialize_note(note).await;
     }
     
     log_info!("STORAGE", "Successfully loaded {} notes from directory", loaded_notes.len());
@@ -836,7 +836,7 @@ pub fn run() {
     let notes_state = NotesState::new(HashMap::new());
     let config_state = ConfigState::new(AppConfig::default());
     let detached_windows_state = DetachedWindowsState::new(HashMap::new());
-    let dirty_tracker_state = DirtyTrackerState::new();
+    let modified_state_tracker = ModifiedStateTrackerState::new();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -959,7 +959,7 @@ pub fn run() {
         .manage(config_state)
         .manage(detached_windows_state)
         .manage(ToggleState::new(false))
-        .manage(dirty_tracker_state)
+        .manage(modified_state_tracker)
         .invoke_handler(tauri::generate_handler![
             get_notes,
             get_note,
@@ -1394,12 +1394,12 @@ pub fn run() {
                         *notes_lock = notes;
                         log_info!("STARTUP", "✅ Loaded {} notes", notes_lock.len());
                         
-                        // Initialize dirty tracker for all loaded notes
-                        if let Some(dirty_tracker) = app_handle_for_loading.try_state::<DirtyTrackerState>() {
+                        // Initialize modified state tracker for all loaded notes
+                        if let Some(modified_tracker) = app_handle_for_loading.try_state::<ModifiedStateTrackerState>() {
                             for note in notes_lock.values() {
-                                dirty_tracker.initialize_note(note).await;
+                                modified_tracker.initialize_note(note).await;
                             }
-                            log_info!("STARTUP", "✅ Initialized dirty tracking for {} notes", notes_lock.len());
+                            log_info!("STARTUP", "✅ Initialized modified state tracking for {} notes", notes_lock.len());
                         }
                     }
                 } else if let Err(e) = notes_result {
