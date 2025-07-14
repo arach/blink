@@ -11,7 +11,7 @@ import { noteSyncService, useNoteSync } from '../../services/note-sync';
 import { CustomTitleBar } from '../layout/CustomTitleBar';
 import { WindowWrapper } from '../layout/WindowWrapper';
 import { extractTitleFromContent, getWordCount } from '../../lib/utils';
-import { NoteEditorCore, VimModeIndicator, type VimStatus, type EditorConfig } from '../editor/NoteEditorCore';
+import { NoteEditor, VimModeIndicator, type VimStatus, type EditorConfig } from '../editor/NoteEditor';
 
 import { Note } from '../../types';
 
@@ -300,8 +300,8 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   // Calculate word count
   const wordCount = getWordCount(content);
 
-  // Create a unified config object for NoteEditorCore
-  const editorCoreConfig: EditorConfig = {
+  // Create a unified config object for NoteEditor
+  const noteEditorConfig: EditorConfig = {
     fontSize: config.appearance?.fontSize || 15,
     fontFamily: config.appearance?.appFontFamily || 'system-ui',
     lineHeight: config.appearance?.lineHeight || 1.6,
@@ -331,12 +331,12 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
       {/* Content area - hide when shaded */}
       {!isShaded && (
-        <NoteEditorCore
+        <NoteEditor
           content={content}
           onContentChange={updateNoteContent}
           isPreviewMode={isPreviewMode}
           onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
-          config={editorCoreConfig}
+          config={noteEditorConfig}
           vimStatus={vimStatus}
           onVimStatusChange={setVimStatus}
           placeholder="Start writing..."

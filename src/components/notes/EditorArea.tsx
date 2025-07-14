@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Note } from '../../types';
 import { extractTitleFromContent } from '../../lib/utils';
 import { useConfigStore } from '../../stores/config-store';
-import { NoteEditorCore, VimModeIndicator, type VimStatus, type EditorConfig } from '../editor/NoteEditorCore';
+import { NoteEditor, VimModeIndicator, type VimStatus, type EditorConfig } from '../editor/NoteEditor';
 
 interface SaveStatus {
   isSaving: boolean;
@@ -41,8 +41,8 @@ export function EditorArea({
 }: EditorAreaProps) {
   const { config } = useConfigStore();
   const [vimStatus, setVimStatus] = useState<VimStatus>({ mode: 'NORMAL' });
-  // Create a unified config object for NoteEditorCore
-  const editorCoreConfig: EditorConfig = {
+  // Create a unified config object for NoteEditor
+  const noteEditorConfig: EditorConfig = {
     fontSize: editorConfig.fontSize || 15,
     fontFamily: editorConfig.editorFontFamily || 'system-ui',
     lineHeight: editorConfig.lineHeight || 1.6,
@@ -142,12 +142,12 @@ export function EditorArea({
   return (
     <div className="flex-1 flex flex-col bg-background">
       {selectedNote ? (
-        <NoteEditorCore
+        <NoteEditor
           content={currentContent}
           onContentChange={onContentChange}
           isPreviewMode={isPreviewMode}
           onPreviewToggle={onPreviewToggle}
-          config={editorCoreConfig}
+          config={noteEditorConfig}
           vimStatus={vimStatus}
           onVimStatusChange={setVimStatus}
           placeholder="Your thoughts, unfiltered..."

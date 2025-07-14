@@ -67,12 +67,12 @@ The Blink application currently has significant code duplication between the mai
 
 ## Proposed Solution
 
-### New Component: `NoteEditorCore`
+### New Component: `NoteEditor`
 
 Create a new component that encapsulates the shared editor functionality while allowing parent components to maintain their unique features.
 
 #### Component Location
-`/src/components/editor/NoteEditorCore.tsx`
+`/src/components/editor/NoteEditor.tsx`
 
 #### Interface Design
 
@@ -96,7 +96,7 @@ interface VimStatus {
   subMode?: string;
 }
 
-interface NoteEditorCoreProps {
+interface NoteEditorProps {
   // Content
   content: string;
   onContentChange: (content: string) => void;
@@ -127,7 +127,7 @@ interface NoteEditorCoreProps {
 #### Component Structure
 
 ```typescript
-export function NoteEditorCore({
+export function NoteEditor({
   content,
   onContentChange,
   isPreviewMode,
@@ -141,7 +141,7 @@ export function NoteEditorCore({
   textareaRef,
   renderModeToggle,
   renderFooter
-}: NoteEditorCoreProps) {
+}: NoteEditorProps) {
   // Shared paper style logic
   const paperStyleClass = getPaperStyleClass(config.notePaperStyle);
   
@@ -198,19 +198,19 @@ export function NoteEditorCore({
 ## Implementation Plan
 
 ### Phase 1: Create Core Component
-1. Create `/src/components/editor/NoteEditorCore.tsx`
+1. Create `/src/components/editor/NoteEditor.tsx`
 2. Move shared paper style utility function
 3. Implement the core editor/preview logic
 4. Add proper TypeScript types
 
 ### Phase 2: Refactor EditorArea
-1. Import `NoteEditorCore`
+1. Import `NoteEditor`
 2. Replace duplicated editor logic with the new component
 3. Use render props for custom mode toggle UI
 4. Preserve all existing functionality
 
 ### Phase 3: Refactor DetachedNoteWindow
-1. Import `NoteEditorCore`
+1. Import `NoteEditor`
 2. Replace duplicated editor logic
 3. Use render props for window-specific UI
 4. Ensure vim mode and save debouncing still work
@@ -262,7 +262,7 @@ export function NoteEditorCore({
 - [ ] No visual regressions
 
 ### Automated Testing Opportunities
-- Unit tests for `NoteEditorCore`
+- Unit tests for `NoteEditor`
 - Integration tests for parent components
 - Visual regression tests if available
 

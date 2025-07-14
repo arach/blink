@@ -35,7 +35,7 @@ export interface VimStatus {
   subMode?: string;
 }
 
-export interface NoteEditorCoreProps {
+export interface NoteEditorProps {
   // Content
   content: string;
   onContentChange: (content: string) => void;
@@ -66,7 +66,7 @@ export interface NoteEditorCoreProps {
   previewClassName?: string;
 }
 
-export function NoteEditorCore({
+export function NoteEditor({
   content,
   onContentChange,
   isPreviewMode,
@@ -81,7 +81,7 @@ export function NoteEditorCore({
   renderFooter,
   editorClassName = "",
   previewClassName = ""
-}: NoteEditorCoreProps) {
+}: NoteEditorProps) {
   // Shared paper style logic
   const paperStyleClass = getPaperStyleClass(config.notePaperStyle);
   
