@@ -4,7 +4,7 @@ use tokio::sync::Mutex;
 use sha2::{Sha256, Digest};
 
 use crate::types::note::Note;
-use crate::{log_debug, log_info};
+use crate::{log_debug, log_info, log_warn};
 
 /// Tracks note modification state and content hashes for change detection
 /// 
@@ -42,7 +42,7 @@ impl ModifiedStateTracker {
             Some(existing_hash) => {
                 let changed = existing_hash != &new_hash;
                 if changed {
-                    log_info!("MODIFIED_STATE", "🔍 Content change detected for note {}: old_hash={}, new_hash={}", 
+                    log_warn!("MODIFIED_STATE", "⚠️ Content change detected for note {}: old_hash={}, new_hash={}", 
                         note_id, &existing_hash[..8], &new_hash[..8]);
                     // TODO: In the future, we could check if this change was external
                     // by comparing timestamps or using file system events
@@ -59,23 +59,39 @@ impl ModifiedStateTracker {
     /// Update the content hash after a successful save
     pub async fn update_content_hash(&self, note_id: &str, content: &str) {
         let mut hashes = self.content_hashes.lock().await;
-        let hash = Self::compute_content_hash(content);
-        hashes.insert(note_id.to_string(), hash);
-        log_debug!("MODIFIED_STATE", "Updated content hash for note {}", note_id);
+        let new_hash = Self::compute_content_hash(content);
+        let old_hash = hashes.get(note_id).cloned();
+        
+        hashes.insert(note_id.to_string(), new_hash.clone());
+        
+        match old_hash {
+            Some(old) => {
+                log_info!("MODIFIED_STATE", "📝 Updated hash for note {}: {} → {}", 
+                    note_id, &old[..8], &new_hash[..8]);
+            },
+            None => {
+                log_info!("MODIFIED_STATE", "📝 Set initial hash for note {}: {}", 
+                    note_id, &new_hash[..8]);
+            }
+        }
     }
     
     /// Mark a note as modified (has unsaved changes)
     pub async fn mark_modified(&self, note_id: &str) {
         let mut flags = self.dirty_flags.lock().await;
-        flags.insert(note_id.to_string(), true);
-        log_debug!("MODIFIED_STATE", "Marked note {} as modified", note_id);
+        let was_modified = flags.insert(note_id.to_string(), true).unwrap_or(false);
+        
+        if !was_modified {
+            log_info!("MODIFIED_STATE", "✏️ Marked note {} as modified", note_id);
+        }
     }
     
     /// Clear the modified flag after a successful save
     pub async fn clear_modified(&self, note_id: &str) {
         let mut flags = self.dirty_flags.lock().await;
-        flags.remove(note_id);
-        log_debug!("MODIFIED_STATE", "Cleared modified flag for note {}", note_id);
+        if flags.remove(note_id).is_some() {
+            log_info!("MODIFIED_STATE", "✅ Cleared modified flag for note {} (saved)", note_id);
+        }
     }
     
     /// Check if a note is marked as modified

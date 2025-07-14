@@ -134,14 +134,15 @@ pub async fn update_note(
             
             // Save only if content changed (title/tags changes are lightweight)
             if content_changed {
+                log_info!("NOTES", "📝 Content changed for note: {} ({})", updated_note.title, updated_note.id);
                 save_note_using_file_storage(&updated_note, &config_lock).await?;
                 // Update the content hash after successful save
                 modified_tracker.update_content_hash(&id, &updated_note.content).await;
-                log_info!("NOTES", "Updated and saved note: {} ({})", updated_note.title, updated_note.id);
-            } else {
+                modified_tracker.clear_modified(&id).await;
+            } else if title_changed || tags_changed {
                 // For title/tags only changes, still save but log differently
+                log_info!("NOTES", "📝 Metadata changed for note: {} ({})", updated_note.title, updated_note.id);
                 save_note_using_file_storage(&updated_note, &config_lock).await?;
-                log_debug!("NOTES", "Updated metadata for note: {} ({})", updated_note.title, updated_note.id);
             }
             
             Ok(Some(updated_note))

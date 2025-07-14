@@ -150,10 +150,14 @@ impl FileStorageManager {
         
         let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
         
+        // Compute hash of the content we're about to write
+        let content_hash = Self::compute_file_hash(&note.content);
+        
         fs::write(&file_path, file_content)
             .map_err(|e| format!("Failed to write note file: {}", e))?;
         
-        log_debug!("FILE_STORAGE", "Saved note {} to {:?}", note.id, file_path);
+        log_info!("FILE_STORAGE", "💾 Wrote note {} to disk: {:?} ({} bytes, content_hash={})", 
+            note.id, file_path, note.content.len(), &content_hash[..8]);
         
         Ok(())
     }
@@ -228,8 +232,8 @@ impl FileStorageManager {
         Ok(())
     }
     
-    /// Compute SHA-256 hash of a file's content
-    fn compute_file_hash(content: &str) -> String {
+    /// Compute SHA-256 hash of content
+    pub fn compute_file_hash(content: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         format!("{:x}", hasher.finalize())
