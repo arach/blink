@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io::Write;
+use sha2::{Sha256, Digest};
 
 use crate::types::{
     note::{Note, NoteFrontmatter},
@@ -227,6 +228,13 @@ impl FileStorageManager {
         Ok(())
     }
     
+    /// Compute SHA-256 hash of a file's content
+    fn compute_file_hash(content: &str) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(content.as_bytes());
+        format!("{:x}", hasher.finalize())
+    }
+    
     /// Update notes index for fast lookups
     pub async fn update_notes_index(&self, notes: &HashMap<String, Note>) -> Result<(), String> {
         let index_file = self.blink_dir.join("index.json");
@@ -237,6 +245,21 @@ impl FileStorageManager {
             let filename = self.sanitize_filename(&note.title);
             let file_path = format!("{}.md", filename);
             
+            // Compute hash of the full file content (including frontmatter)
+            let frontmatter = NoteFrontmatter {
+                id: note.id.clone(),
+                title: note.title.clone(),
+                created_at: note.created_at.clone(),
+                updated_at: note.updated_at.clone(),
+                tags: note.tags.clone(),
+                position: note.position,
+            };
+            
+            let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
+                .unwrap_or_default();
+            let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
+            let file_hash = Self::compute_file_hash(&file_content);
+            
             index.notes.insert(note.id.clone(), NoteIndexEntry {
                 id: note.id.clone(),
                 title: note.title.clone(),
@@ -245,7 +268,7 @@ impl FileStorageManager {
                 updated_at: note.updated_at.clone(),
                 tags: note.tags.clone(),
                 position: note.position,
-                file_hash: None, // TODO: Add file hash for change detection
+                file_hash: Some(file_hash),
             });
         }
         

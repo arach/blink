@@ -9,3 +9,4 @@ pub mod window_commands;
 pub mod windows;
 // pub mod shortcuts;  // TODO: Extract shortcuts functions
 pub mod logging;
+pub mod dirty_tracker;
