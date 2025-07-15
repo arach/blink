@@ -113,28 +113,40 @@ export function EditorArea({
   const renderFooter = () => (
     <div className="status-footer bg-background/90 border-t border-border/30 px-6 h-6 flex items-center justify-between backdrop-blur-sm">
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
+        {/* Save status */}
+        <div className="flex items-center gap-1.5">
           {saveStatus.isSaving ? (
             <>
-              <div className="w-1.5 h-1.5 bg-yellow-500/70 rounded-full animate-pulse"></div>
-              <span className="text-xs text-muted-foreground/60 font-medium">Capturing thoughts...</span>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
+              <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+            </>
+          ) : saveStatus.saveError ? (
+            <>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
+              <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+            </>
+          ) : saveStatus.lastSaved ? (
+            <>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+              <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
             </>
           ) : (
             <>
-              <div className="w-1.5 h-1.5 bg-green-500/70 rounded-full"></div>
-              <span className="text-xs text-muted-foreground/60 font-medium">Safe & sound ✓</span>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
+              <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
             </>
           )}
-        </div>
-        
-        <div className="text-xs text-muted-foreground/60 font-medium">
-          {wordCount} words
         </div>
         
         {/* Vim mode indicator */}
         {config?.appearance?.vimMode && !isPreviewMode && (
           <VimModeIndicator vimStatus={vimStatus} />
         )}
+      </div>
+      
+      {/* Word count */}
+      <div className="text-xs text-muted-foreground/60 font-medium">
+        {wordCount} words
       </div>
     </div>
   );
