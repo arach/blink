@@ -62,6 +62,13 @@ export function NotesPanel({
     );
   }, [notes, searchQuery]);
 
+  // Helper function to get just the first line of text
+  const getFirstLine = (text: string): string => {
+    const plainText = markdownToPlainText(text);
+    const firstLine = plainText.split('\n')[0].trim();
+    return truncateText(firstLine, 60); // Shorter for single line
+  };
+
   // Handle drag start
   const handleDragStart = (e: React.DragEvent, noteId: string) => {
     setDraggedNoteId(noteId);
@@ -179,7 +186,7 @@ export function NotesPanel({
           </div>
 
           {/* Notes List */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden mt-3">
             {loading ? (
               <div className="p-4 text-center text-muted-foreground/60 text-sm">
                 Loading your thoughts...
@@ -258,8 +265,8 @@ export function NotesPanel({
                         </div>
                         
                         {showNotePreviews && note.content && (
-                          <p className="text-xs text-muted-foreground/50 mt-1.5 line-clamp-2 leading-relaxed">
-                            {truncateText(markdownToPlainText(note.content), 120)}
+                          <p className="text-xs text-muted-foreground/50 mt-1.5 line-clamp-1 leading-relaxed">
+                            {getFirstLine(note.content)}
                           </p>
                         )}
                       </div>
