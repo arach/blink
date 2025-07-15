@@ -69,6 +69,12 @@ export function NotesPanel({
     return truncateText(firstLine, 60); // Shorter for single line
   };
 
+  // Helper function to get shortcut key for note index
+  const getShortcutKey = (index: number): string => {
+    const keys = 'QWERTYUIOP';
+    return index < keys.length ? keys[index] : '';
+  };
+
   // Handle drag start
   const handleDragStart = (e: React.DragEvent, noteId: string) => {
     setDraggedNoteId(noteId);
@@ -259,9 +265,19 @@ export function NotesPanel({
                           }`}>
                             {note.title || 'Untitled'}
                           </h3>
-                          {openWindowIds.has(note.id) && (
-                            <div className="w-1 h-1 rounded-full bg-primary/40 mt-2" title="Open in window" />
-                          )}
+                          <div className="flex items-center gap-1">
+                            {getShortcutKey(index) && (
+                              <span 
+                                className="text-[9px] text-muted-foreground/40 font-mono bg-background/50 px-1 py-0.5 rounded border border-border/20"
+                                title={`Hyper+D, ${getShortcutKey(index)} to open in detached window`}
+                              >
+                                {getShortcutKey(index)}
+                              </span>
+                            )}
+                            {openWindowIds.has(note.id) && (
+                              <div className="w-1 h-1 rounded-full bg-primary/40 mt-1" title="Open in window" />
+                            )}
+                          </div>
                         </div>
                         
                         {showNotePreviews && note.content && (
