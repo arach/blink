@@ -6,6 +6,8 @@ import { NoteEditor, VimModeIndicator, type VimStatus, type EditorConfig } from 
 
 interface SaveStatus {
   isSaving: boolean;
+  lastSaved?: Date | null;
+  isModified?: boolean;
 }
 
 interface EditorAreaProps {
@@ -41,6 +43,7 @@ export function EditorArea({
 }: EditorAreaProps) {
   const { config } = useConfigStore();
   const [vimStatus, setVimStatus] = useState<VimStatus>({ mode: 'NORMAL' });
+  const [lastSavedContent, setLastSavedContent] = useState<string | null>(null);
   // Create a unified config object for NoteEditor
   const noteEditorConfig: EditorConfig = {
     fontSize: editorConfig.fontSize || 15,
@@ -119,6 +122,11 @@ export function EditorArea({
             <>
               <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
               <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+            </>
+          ) : saveStatus.isModified ? (
+            <>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Modified</span>
+              <div className="w-1 h-1 bg-orange-500/60 rounded-full"></div>
             </>
           ) : saveStatus.saveError ? (
             <>

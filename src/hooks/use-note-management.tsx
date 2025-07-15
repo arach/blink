@@ -26,7 +26,13 @@ interface UseNoteManagementReturn {
   setSelectedNoteId: (id: string | null) => void;
 }
 
-export function useNoteManagement(): UseNoteManagementReturn {
+interface UseNoteManagementOptions {
+  onSaveStart?: () => void;
+  onSaveComplete?: () => void;
+  onSaveError?: (error: any) => void;
+}
+
+export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteManagementReturn {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [currentContent, setCurrentContent] = useState('');
@@ -152,6 +158,9 @@ export function useNoteManagement(): UseNoteManagementReturn {
     saveTimeoutRef.current = setTimeout(async () => {
       console.log('[BLINK] Saving note content to backend (debounced):', selectedNoteId);
       
+      // Notify save is starting
+      options?.onSaveStart?.();
+      
       try {
         // Update in backend
         const updatedNote = await invoke<Note>('update_note', {
@@ -165,15 +174,19 @@ export function useNoteManagement(): UseNoteManagementReturn {
 
         console.log('[BLINK] Note saved successfully:', updatedNote.id);
         
+        // Notify save completed
+        options?.onSaveComplete?.();
+        
         // Notify other windows about the update
         noteSyncService.noteUpdated(updatedNote);
         
       } catch (error) {
         console.error('[BLINK] Failed to save note:', error);
+        options?.onSaveError?.(error);
         // Note: We don't revert local changes here since the user may have continued typing
       }
-    }, 1000); // 1 second debounce
-  }, [selectedNoteId]);
+    }, 30000); // 30 second save interval
+  }, [selectedNoteId, options]);
 
   // Delete a note
   const deleteNote = useCallback(async (noteId: string) => {

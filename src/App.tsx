@@ -28,6 +28,7 @@ import {
 import { 
   useAppInitialization,
   useSaveStatus,
+  useModifiedState,
   useWindowTransparency,
   useTypewriterMode,
   useDragToDetach,
@@ -81,6 +82,7 @@ function App() {
 
   // Save status tracking
   const saveStatus = useSaveStatus();
+  const modifiedState = useModifiedState();
   
   // Window transparency hook - handles opacity changes
   useWindowTransparency();
@@ -103,7 +105,18 @@ function App() {
     updateNoteContent,
     deleteNote,
     setCurrentContent,
-  } = useNoteManagement();
+  } = useNoteManagement({
+    onSaveStart: () => {
+      saveStatus.startSaving();
+    },
+    onSaveComplete: () => {
+      saveStatus.saveSuccess();
+      modifiedState.markSaved(currentContent);
+    },
+    onSaveError: (error) => {
+      saveStatus.setSaveError('Failed to save note');
+    }
+  });
 
   // Command palette hook
   const {
@@ -315,7 +328,11 @@ function App() {
                 selectedNote={selectedNote || null}
                 currentContent={currentContent}
                 isPreviewMode={isPreviewMode}
-                saveStatus={saveStatus}
+                saveStatus={{
+                  isSaving: saveStatus.isSaving,
+                  lastSaved: saveStatus.lastSaved,
+                  isModified: modifiedState.isModified
+                }}
                 wordCount={wordCount}
                 textareaRef={textareaRef}
                 editorConfig={{
@@ -330,6 +347,10 @@ function App() {
                 onContentChange={(content) => {
                   setCurrentContent(content);
                   updateNoteContent(content);
+                  // Mark as modified if content changed
+                  if (selectedNote && content !== selectedNote.content) {
+                    modifiedState.markModified();
+                  }
                 }}
                 onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
               />

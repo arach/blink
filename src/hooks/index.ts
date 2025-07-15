@@ -9,6 +9,7 @@ export { useNoteManagement } from './use-note-management';
 export { useNotes } from './use-notes';
 export { usePermissions } from './use-permissions';
 export { useSaveStatus } from './use-save-status';
+export { useModifiedState } from './use-modified-state';
 export { useTypewriterMode } from './use-typewriter-mode';
 export { useWindowManager } from './use-window-manager';
 export { useWindowShade } from './use-window-shade';

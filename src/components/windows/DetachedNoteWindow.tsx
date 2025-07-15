@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { useDetachedWindowsStore } from '../../stores/detached-windows-store';
 import { useConfigStore } from '../../stores/config-store';
 import { useSaveStatus } from '../../hooks/use-save-status';
+import { useModifiedState } from '../../hooks/use-modified-state';
 import { useWindowShade } from '../../hooks/use-window-shade';
 import { useWindowTracking } from '../../hooks/use-window-tracking';
 import { noteSyncService, useNoteSync } from '../../services/note-sync';
@@ -31,6 +32,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   const appWindow = getCurrentWebviewWindow();
   const { closeWindow } = useDetachedWindowsStore();
   const saveStatus = useSaveStatus();
+  const modifiedState = useModifiedState();
   const isShaded = useWindowShade();
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   
@@ -91,6 +93,11 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
       clearTimeout(saveTimeoutRef.current);
     }
     
+    // Mark as modified when content changes
+    if (note && newContent !== note.content) {
+      modifiedState.markModified();
+    }
+    
     // Show saving indicator after a short delay to prevent flickering
     const savingIndicatorTimeout = setTimeout(() => {
       saveStatus.startSaving();
@@ -114,6 +121,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           if (updatedNote) {
             setNote(updatedNote);
             saveStatus.saveSuccess();
+            modifiedState.markSaved(newContent);
             
             // Notify other windows of the update
             noteSyncService.noteUpdated(updatedNote);
@@ -123,7 +131,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
           saveStatus.setSaveError('Failed to save note');
         }
       }
-    }, 1000); // 1 second debounce, same as main window
+    }, 30000); // 30 second save interval, same as main window
   }, [note, noteId, saveStatus]);
 
   const handleCloseWindow = async () => {
@@ -362,6 +370,11 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
                     <>
                       <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
                       <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+                    </>
+                  ) : modifiedState.isModified ? (
+                    <>
+                      <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Modified</span>
+                      <div className="w-1 h-1 bg-orange-500/60 rounded-full"></div>
                     </>
                   ) : saveStatus.lastSaved ? (
                     <>
