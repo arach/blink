@@ -11,8 +11,7 @@ import { noteSyncService, useNoteSync } from '../../services/note-sync';
 import { CustomTitleBar } from '../layout/CustomTitleBar';
 import { WindowWrapper } from '../layout/WindowWrapper';
 import { extractTitleFromContent, getWordCount } from '../../lib/utils';
-import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { CodeMirrorEditor } from '../editor/CodeMirrorEditor';
+import { NoteEditor, VimModeIndicator, type VimStatus, type EditorConfig } from '../editor/NoteEditor';
 
 import { Note } from '../../types';
 
@@ -27,7 +26,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vimStatus, setVimStatus] = useState<{ mode: string; subMode?: string }>({ mode: 'NORMAL' });
+  const [vimStatus, setVimStatus] = useState<VimStatus>({ mode: 'NORMAL' });
 
   const appWindow = getCurrentWebviewWindow();
   const { closeWindow } = useDetachedWindowsStore();
@@ -301,18 +300,19 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   // Calculate word count
   const wordCount = getWordCount(content);
 
-  // Get paper style class
-  const getPaperStyleClass = (style?: string) => {
-    switch (style) {
-      case 'dotted-grid':
-        return 'note-paper-dotted-grid';
-      case 'lines':
-        return 'note-paper-lines';
-      case 'ruled':
-        return 'note-paper-ruled';
-      default:
-        return '';
-    }
+  // Create a unified config object for NoteEditor
+  const noteEditorConfig: EditorConfig = {
+    fontSize: config.appearance?.fontSize || 15,
+    fontFamily: config.appearance?.appFontFamily || 'system-ui',
+    lineHeight: config.appearance?.lineHeight || 1.6,
+    editorFontFamily: config.appearance?.editorFontFamily,
+    previewFontFamily: config.appearance?.previewFontFamily,
+    contentFontSize: config.appearance?.contentFontSize,
+    syntaxHighlighting: config.appearance?.syntaxHighlighting,
+    vimMode: config.appearance?.vimMode,
+    typewriterMode: config.appearance?.typewriterMode,
+    notePaperStyle: config.appearance?.notePaperStyle,
+    backgroundPattern: config.appearance?.backgroundPattern
   };
 
   return (
@@ -331,105 +331,60 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
 
       {/* Content area - hide when shaded */}
       {!isShaded && (
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <div className={`flex-1 p-6 pt-5 relative overflow-hidden ${
-          config.appearance?.backgroundPattern && config.appearance?.backgroundPattern !== 'none' 
-            ? `bg-pattern-${config.appearance?.backgroundPattern}` 
-            : ''
-        } ${getPaperStyleClass(config.appearance?.notePaperStyle)}`}>
-          {/* Editor */}
-          {!isPreviewMode ? (
-            <CodeMirrorEditor
-              value={content}
-              onChange={updateNoteContent}
-              placeholder="Start writing..."
-              vimMode={config?.appearance?.vimMode || false}
-              fontSize={config.appearance?.fontSize || 15}
-              fontFamily={config.appearance?.editorFontFamily || 'system-ui'}
-              lineHeight={config.appearance?.lineHeight || 1.6}
-              typewriterMode={config?.appearance?.typewriterMode || false}
-              autoFocus={true}
-              className={getPaperStyleClass(config.appearance?.notePaperStyle)}
-              onVimStatusChange={setVimStatus}
-            />
-          ) : null}
-          
-          {/* Preview overlay */}
-          {isPreviewMode && (
-            <MarkdownRenderer
-              content={content}
-              syntaxHighlighting={config.appearance?.syntaxHighlighting}
-              className={`w-full h-full overflow-y-auto prose prose-invert max-w-none cursor-text ${getPaperStyleClass(config.appearance?.notePaperStyle)}`}
-              onDoubleClick={() => setIsPreviewMode(false)}
-              title="Double-click to edit"
-              style={{ 
-                fontSize: `${config.appearance?.contentFontSize || config.appearance?.fontSize || 16}px`,
-                fontFamily: config.appearance?.previewFontFamily || 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-                lineHeight: config.appearance?.lineHeight || 1.6,
-                padding: '1.5rem' 
-              }}
-            />
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="bg-card/20 border-t border-border/15 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Vim mode indicator */}
-            {config?.appearance?.vimMode && !isPreviewMode && (
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${
-                vimStatus.mode === 'INSERT' ? 'bg-green-500/10' : 
-                vimStatus.mode === 'VISUAL' ? 'bg-purple-500/10' : 
-                'bg-primary/10'
-              }`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  vimStatus.mode === 'INSERT' ? 'bg-green-500' : 
-                  vimStatus.mode === 'VISUAL' ? 'bg-purple-500' : 
-                  'bg-primary'
-                }`} />
-                <span className={`text-xs font-mono ${
-                  vimStatus.mode === 'INSERT' ? 'text-green-500/70' : 
-                  vimStatus.mode === 'VISUAL' ? 'text-purple-500/70' : 
-                  'text-primary/70'
-                }`}>
-                  {vimStatus.mode}
-                </span>
+        <NoteEditor
+          content={content}
+          onContentChange={updateNoteContent}
+          isPreviewMode={isPreviewMode}
+          onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
+          config={noteEditorConfig}
+          vimStatus={vimStatus}
+          onVimStatusChange={setVimStatus}
+          placeholder="Start writing..."
+          autoFocus={true}
+          className="flex-1 flex flex-col overflow-hidden"
+          editorClassName="p-6 pt-5"
+          renderFooter={() => (
+            <div className="bg-card/20 border-t border-border/15 px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Vim mode indicator */}
+                {config?.appearance?.vimMode && !isPreviewMode && (
+                  <VimModeIndicator vimStatus={vimStatus} />
+                )}
+                
+                {/* Save status */}
+                <div className="flex items-center gap-1.5">
+                  {saveStatus.isSaving ? (
+                    <>
+                      <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
+                      <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
+                    </>
+                  ) : saveStatus.saveError ? (
+                    <>
+                      <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
+                      <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
+                    </>
+                  ) : saveStatus.lastSaved ? (
+                    <>
+                      <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+                      <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
+                      <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-            
-            {/* Save status */}
-            <div className="flex items-center gap-1.5">
-              {saveStatus.isSaving ? (
-                <>
-                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saving...</span>
-                  <div className="w-1 h-1 bg-yellow-500/60 rounded-full animate-pulse"></div>
-                </>
-              ) : saveStatus.saveError ? (
-                <>
-                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Error saving</span>
-                  <div className="w-1 h-1 bg-red-500/60 rounded-full"></div>
-                </>
-              ) : saveStatus.lastSaved ? (
-                <>
-                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
-                  <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
-                </>
-              ) : (
-                <>
-                  <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Ready</span>
-                  <div className="w-1 h-1 bg-gray-500/60 rounded-full"></div>
-                </>
+              
+              {content && (
+                <span className="text-xs text-muted-foreground/40 font-light" style={{ fontSize: '10px' }}>
+                  {getWordCount(content)} words
+                </span>
               )}
             </div>
-          </div>
-          
-          {content && (
-            <span className="text-xs text-muted-foreground/40 font-light" style={{ fontSize: '10px' }}>
-              {getWordCount(content)} words
-            </span>
           )}
-        </div>
-      </div>
+        />
       )}
     </WindowWrapper>
   );
