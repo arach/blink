@@ -115,14 +115,9 @@ export function useChordShortcuts({
           console.log('[CHORD] Starting note mode');
           startChordMode('note');
           return;
-        case 'w': // Hyper+W for "Window/detach mode"
+        case 'b': // Hyper+B for "Bring/detach window mode"
           e.preventDefault();
-          console.log('[CHORD] Starting window mode');
-          startChordMode('window');
-          return;
-        case 'd': // Hyper+D for "Detach window mode" (alternative)
-          e.preventDefault();
-          console.log('[CHORD] Starting window mode (via D)');
+          console.log('[CHORD] Starting window mode (via B)');
           startChordMode('window');
           return;
       }
@@ -138,6 +133,14 @@ export function useChordShortcuts({
     // Handle chord completions
     if (chordMode !== 'none') {
       console.log('[CHORD] In chord mode:', chordMode, 'key pressed:', e.key, 'code:', e.code);
+      
+      // Allow common shortcuts to pass through even in chord mode
+      if (e.metaKey && (e.key === 'v' || e.key === 'c' || e.key === 'x' || e.key === 'a' || e.key === 'z')) {
+        console.log('[CHORD] Allowing system shortcut:', e.key);
+        clearChordMode(); // Exit chord mode when using system shortcuts
+        return; // Don't prevent default for cut/copy/paste/select all/undo
+      }
+      
       e.preventDefault();
       
       switch (chordMode) {
@@ -164,11 +167,14 @@ export function useChordShortcuts({
         case 'window':
           console.log('[CHORD] In window mode, checking key:', e.key, 'code:', e.code);
           console.log('[CHORD] Current notes in window mode:', notes.length, notes.map(n => n.title));
-          // Check e.code instead of e.key to handle shifted numbers
-          if (e.code >= 'Digit1' && e.code <= 'Digit9') {
-            // Focus existing window or create new one
-            const noteIndex = parseInt(e.code.replace('Digit', '')) - 1;
-            console.log('[CHORD] ✅ Valid digit detected - noteIndex:', noteIndex, 'total notes:', notes.length);
+          
+          // QWERTY layout mapping for notes (Q=1, W=2, E=3, etc.)
+          const qwertyKeys = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'];
+          const keyLower = e.key.toLowerCase();
+          const noteIndex = qwertyKeys.indexOf(keyLower);
+          
+          if (noteIndex !== -1) {
+            console.log('[CHORD] ✅ Valid QWERTY key detected:', keyLower, '- noteIndex:', noteIndex, 'total notes:', notes.length);
             if (notes[noteIndex]) {
               const targetNote = notes[noteIndex];
               console.log('[CHORD] ✅ Target note found:', targetNote.title, 'id:', targetNote.id);

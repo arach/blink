@@ -19,6 +19,7 @@ interface CodeMirrorEditorProps {
   readOnly?: boolean;
   autoFocus?: boolean;
   typewriterMode?: boolean;
+  wordWrap?: boolean;
 }
 
 export function CodeMirrorEditor({
@@ -35,6 +36,7 @@ export function CodeMirrorEditor({
   readOnly = false,
   autoFocus = false,
   typewriterMode = false,
+  wordWrap = true,
 }: CodeMirrorEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -205,6 +207,11 @@ export function CodeMirrorEditor({
           class: 'typewriter-mode',
         })
       );
+    }
+
+    // Add word wrap extension
+    if (wordWrap) {
+      extensions.push(EditorView.lineWrapping);
     }
 
     return extensions;

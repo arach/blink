@@ -6,7 +6,12 @@ interface SaveStatus {
   saveError: string | null;
 }
 
-export function useSaveStatus() {
+export function useSaveStatus(): SaveStatus & {
+  startSaving: () => void;
+  saveSuccess: () => void;
+  setSaveError: (error: string) => void;
+  getRelativeTime: string | null;
+} {
   const [status, setStatus] = useState<SaveStatus>({
     isSaving: false,
     lastSaved: null,

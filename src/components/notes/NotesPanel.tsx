@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { ResizablePanel } from '../windows/ResizablePanel';
 import { markdownToPlainText, truncateText } from '../../lib/utils';
 import { Note } from '../../types';
-import { invoke } from '@tauri-apps/api/core';
 
 interface NotesPanelProps {
   sidebarVisible: boolean;
@@ -32,8 +31,6 @@ export function NotesPanel({
   isWindowOpen
 }: NotesPanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   
   // Track open windows efficiently - only update when necessary
   const [openWindowIds, setOpenWindowIds] = useState<Set<string>>(new Set());
@@ -75,55 +72,6 @@ export function NotesPanel({
     return index < keys.length ? keys[index] : '';
   };
 
-  // Handle drag start
-  const handleDragStart = (e: React.DragEvent, noteId: string) => {
-    setDraggedNoteId(noteId);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  // Handle drag over
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  };
-
-  // Handle drop
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    
-    if (!draggedNoteId) return;
-    
-    const draggedIndex = filteredNotes.findIndex(note => note.id === draggedNoteId);
-    if (draggedIndex === dropIndex) {
-      setDraggedNoteId(null);
-      setDragOverIndex(null);
-      return;
-    }
-    
-    // Create new order
-    const newOrder = [...filteredNotes];
-    const [draggedNote] = newOrder.splice(draggedIndex, 1);
-    newOrder.splice(dropIndex, 0, draggedNote);
-    
-    // Update positions on backend
-    try {
-      await invoke('reorder_notes', { 
-        noteIds: newOrder.map(note => note.id) 
-      });
-    } catch (error) {
-      console.error('Failed to reorder notes:', error);
-    }
-    
-    setDraggedNoteId(null);
-    setDragOverIndex(null);
-  };
-
-  // Handle drag end
-  const handleDragEnd = () => {
-    setDraggedNoteId(null);
-    setDragOverIndex(null);
-  };
   if (!sidebarVisible) {
     return (
       <div className="w-0 h-full overflow-hidden" data-notes-sidebar />
@@ -219,41 +167,31 @@ export function NotesPanel({
                   return (
                   <div
                     key={note.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, note.id)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDrop={(e) => handleDrop(e, index)}
-                    onDragEnd={handleDragEnd}
+                    data-note-id={note.id}
                     className={`group relative cursor-pointer transition-all ${
                       selectedNoteId === note.id
                         ? 'bg-primary/10 border-l-4 border-l-primary ml-0 pl-4 pr-4 py-3'
                         : 'hover:bg-background/50 border-l-4 border-l-transparent ml-1 pl-3 pr-4 py-3'
-                    } ${index > 0 ? 'border-t border-border/10' : ''} ${
-                      draggedNoteId === note.id ? 'opacity-50' : ''
-                    } ${
-                      dragOverIndex === index && draggedNoteId !== note.id ? 'border-t-2 border-t-primary' : ''
-                    }`}
+                    } ${index > 0 ? 'border-t border-border/10' : ''}`}
                     onClick={() => onSelectNote(note.id)}
                     onContextMenu={(e) => onShowContextMenu(e.clientX, e.clientY, note.id)}
                     onMouseDown={(e) => {
-                      // Only start drag if clicking on the drag handle, not the whole row
-                      const target = e.target as HTMLElement;
-                      const isDragHandle = target.closest('.cursor-move');
-                      if (e.button === 0 && isDragHandle) {
+                      // Drag-to-detach on entire note item (left mouse button only)
+                      if (e.button === 0) {
                         onStartDrag(e, note.id);
                       }
                     }}
                   >
                     <div className="flex items-start gap-2">
-                      {/* Drag handle */}
-                      <div className="opacity-0 group-hover:opacity-40 transition-opacity cursor-move pt-0.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
-                          <circle cx="12" cy="5" r="1"/>
-                          <circle cx="12" cy="12" r="1"/>
-                          <circle cx="12" cy="19" r="1"/>
-                          <circle cx="19" cy="5" r="1"/>
-                          <circle cx="19" cy="12" r="1"/>
-                          <circle cx="19" cy="19" r="1"/>
+                      {/* Drag indicator */}
+                      <div className="opacity-0 group-hover:opacity-30 transition-opacity pt-0.5">
+                        <svg width="8" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted-foreground">
+                          <circle cx="9" cy="5" r="1"/>
+                          <circle cx="9" cy="12" r="1"/>
+                          <circle cx="9" cy="19" r="1"/>
+                          <circle cx="15" cy="5" r="1"/>
+                          <circle cx="15" cy="12" r="1"/>
+                          <circle cx="15" cy="19" r="1"/>
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -269,7 +207,7 @@ export function NotesPanel({
                             {getShortcutKey(index) && (
                               <span 
                                 className="text-[9px] text-muted-foreground/40 font-mono bg-background/50 px-1 py-0.5 rounded border border-border/20"
-                                title={`Hyper+D, ${getShortcutKey(index)} to open in detached window`}
+                                title={`Hyper+B, ${getShortcutKey(index)} to open in detached window`}
                               >
                                 {getShortcutKey(index)}
                               </span>

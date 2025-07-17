@@ -49,10 +49,40 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
   useEffect(() => {
     loadNote();
     
+    // Listen for note update events from other windows
+    const setupListeners = async () => {
+      const unlistenNoteUpdated = await listen<Note>('note-updated', (event) => {
+        if (event.payload.id === noteId) {
+          console.log('[BLINK] Detached window received note-updated event:', event.payload);
+          setNote(event.payload);
+          setContent(event.payload.content);
+          modifiedState.markSaved(event.payload.content);
+        }
+      });
+      
+      const unlistenNoteDeleted = await listen<string>('note-deleted', (event) => {
+        if (event.payload === noteId) {
+          console.log('[BLINK] Detached window received note-deleted event, closing window');
+          appWindow.close();
+        }
+      });
+      
+      return () => {
+        unlistenNoteUpdated();
+        unlistenNoteDeleted();
+      };
+    };
+    
+    let cleanup: (() => void) | undefined;
+    setupListeners().then(fn => { cleanup = fn; });
+    
     // Cleanup function to clear save timeout on unmount
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+      }
+      if (cleanup) {
+        cleanup();
       }
     };
   }, [noteId]);
@@ -219,7 +249,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
       document.removeEventListener('keydown', handleKeyDown, true);
       window.removeEventListener('beforeunload', handleWindowClose);
     };
-  }, [noteId, closeWindow, appWindow]);
+  }, [noteId]);
 
   // Listen for config updates to sync across windows
   useEffect(() => {
@@ -319,6 +349,7 @@ export function DetachedNoteWindow({ noteId }: DetachedNoteWindowProps) {
     syntaxHighlighting: config.appearance?.syntaxHighlighting,
     vimMode: config.appearance?.vimMode,
     typewriterMode: config.appearance?.typewriterMode,
+    wordWrap: config.appearance?.wordWrap,
     notePaperStyle: config.appearance?.notePaperStyle,
     backgroundPattern: config.appearance?.backgroundPattern
   };

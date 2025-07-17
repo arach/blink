@@ -52,7 +52,16 @@
       "Bash(cargo build:*)",
       "Bash(pnpm add:*)",
       "Bash(git restore:*)",
-      "Bash(pnpm type-check:*)"
+      "Bash(pnpm type-check:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(pbpaste:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm link:*)",
+      "Bash(pnpm tauri:build:*)"
     ],
     "deny": []
   }

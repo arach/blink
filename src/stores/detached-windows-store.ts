@@ -123,12 +123,8 @@ export const useDetachedWindowsStore = create<DetachedWindowsState>((set, get) =
   },
 
   refreshWindows: async (): Promise<void> => {
-    try {
-      const windows = await DetachedWindowsAPI.getDetachedWindows();
-      set({ windows });
-    } catch (error) {
-      console.error('[DETACHED-WINDOWS-STORE] Failed to refresh windows:', error);
-    }
+    // Disabled to prevent loading loops - will be replaced with simple coordinate system
+    console.log('[DETACHED-WINDOWS-STORE] refreshWindows disabled');
   },
 
   updateWindowPosition: async (windowLabel: string, x: number, y: number) => {

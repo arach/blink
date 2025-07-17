@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{State, AppHandle, Emitter};
 use uuid::Uuid;
 
 use crate::types::{
@@ -56,6 +56,7 @@ pub async fn get_note(id: String, notes: State<'_, NotesState>) -> Result<Option
 /// Create a new note
 #[tauri::command]
 pub async fn create_note(
+    app: AppHandle,
     request: CreateNoteRequest,
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
@@ -90,12 +91,19 @@ pub async fn create_note(
     modified_tracker.initialize_note(&note).await;
     
     log_info!("NOTES", "Created note: {} ({})", note.title, note.id);
+    
+    // Emit event to all windows for synchronization
+    app.emit("note-created", &note).unwrap_or_else(|e| {
+        log_error!("NOTES", "Failed to emit note-created event: {}", e);
+    });
+    
     Ok(note)
 }
 
 /// Update an existing note
 #[tauri::command]
 pub async fn update_note(
+    app: AppHandle,
     id: String,
     request: UpdateNoteRequest,
     notes: State<'_, NotesState>,
@@ -145,6 +153,11 @@ pub async fn update_note(
                 save_note_using_file_storage(&updated_note, &config_lock).await?;
             }
             
+            // Emit event to all windows for synchronization
+            app.emit("note-updated", &updated_note).unwrap_or_else(|e| {
+                log_error!("NOTES", "Failed to emit note-updated event: {}", e);
+            });
+            
             Ok(Some(updated_note))
         } else {
             log_debug!("NOTES", "No changes detected for note: {} ({})", note.title, note.id);
@@ -159,6 +172,7 @@ pub async fn update_note(
 /// Delete a note
 #[tauri::command]
 pub async fn delete_note(
+    app: AppHandle,
     id: String, 
     notes: State<'_, NotesState>,
     config: State<'_, ConfigState>,
@@ -177,6 +191,11 @@ pub async fn delete_note(
         modified_tracker.remove_note(&id).await;
         
         log_info!("NOTES", "Deleted note: {}", id);
+        
+        // Emit event to all windows for synchronization
+        app.emit("note-deleted", &id).unwrap_or_else(|e| {
+            log_error!("NOTES", "Failed to emit note-deleted event: {}", e);
+        });
     } else {
         log_error!("NOTES", "Attempted to delete non-existent note: {}", id);
     }

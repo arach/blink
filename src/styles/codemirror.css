@@ -62,44 +62,65 @@
 /* Vim mode cursor styles - Normal mode block cursor */
 .cm-vim-fat-cursor .cm-cursor-primary {
   display: inline-block !important;
-  width: 0.7em !important;
-  height: 1.2em !important;
-  background-color: hsl(var(--foreground)) !important;
-  border: none !important;
+  width: 0.8em !important;
+  height: 1.4em !important;
+  background-color: hsl(var(--primary)) !important;
+  border: 2px solid hsl(var(--primary-foreground)) !important;
   opacity: 1;
   margin-left: -1px;
-  animation: vim-cursor-blink 1s ease-in-out infinite;
+  margin-top: -2px;
+  animation: vim-cursor-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
+              0 0 10px hsl(var(--primary) / 0.6),
+              inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
+  z-index: 10;
 }
 
 /* Force block cursor visibility in vim normal mode */
 .cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor {
   display: inline-block !important;
   visibility: visible !important;
-  width: 0.7em !important;
-  height: 1.2em !important;
-  background-color: hsl(var(--foreground)) !important;
-  border: none !important;
+  width: 0.8em !important;
+  height: 1.4em !important;
+  background-color: hsl(var(--primary)) !important;
+  border: 2px solid hsl(var(--primary-foreground)) !important;
   opacity: 1;
   margin-left: -1px;
-  animation: vim-cursor-blink 1s ease-in-out infinite;
-  box-shadow: 0 0 0 1px hsl(var(--foreground) / 0.3);
+  margin-top: -2px;
+  animation: vim-cursor-pulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
+              0 0 10px hsl(var(--primary) / 0.6),
+              inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
+  z-index: 10;
 }
 
-/* Vim cursor blink animation */
-@keyframes vim-cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+/* Enhanced vim cursor pulse animation */
+@keyframes vim-cursor-pulse {
+  0%, 100% { 
+    opacity: 1;
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
+                0 0 10px hsl(var(--primary) / 0.6),
+                inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
+  }
+  50% { 
+    opacity: 0.85;
+    box-shadow: 0 0 30px hsl(var(--primary)), 
+                0 0 15px hsl(var(--primary) / 0.8),
+                inset 0 0 15px hsl(var(--primary-foreground) / 0.5);
+  }
 }
 
 /* Ensure the cursor-primary is visible */
 .cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor-primary {
   display: inline-block !important;
   visibility: visible !important;
-  width: 0.7em !important;
-  height: 1.2em !important;
-  background-color: hsl(var(--foreground)) !important;
+  width: 0.8em !important;
+  height: 1.4em !important;
+  background-color: hsl(var(--primary)) !important;
+  border: 2px solid hsl(var(--primary-foreground)) !important;
   border-left: none !important;
   opacity: 1;
+  z-index: 10;
 }
 
 /* Vim insert mode - thin cursor */
@@ -116,10 +137,13 @@
 .cm-vim-fat-cursor {
   position: relative;
   display: inline-block;
-  width: 0.7em;
-  height: 1.2em;
+  width: 0.8em;
+  height: 1.4em;
   background-color: hsl(var(--primary));
-  opacity: 0.7;
+  border: 2px solid hsl(var(--primary-foreground));
+  opacity: 1;
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.8);
+  z-index: 10;
 }
 
 /* Enable text selection with mouse in vim mode */

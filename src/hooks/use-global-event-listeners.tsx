@@ -16,9 +16,15 @@ export function useGlobalEventListeners({
   onCreateNewNote,
   onStartWindowMode,
 }: GlobalEventListenersProps) {
-  // Keep a stable reference to current notes for event listeners
+  // Keep stable references to current values for event listeners
   const notesRef = useRef(notes);
+  const onCreateNewNoteRef = useRef(onCreateNewNote);
+  const onStartWindowModeRef = useRef(onStartWindowMode);
+  
+  // Update refs when props change
   notesRef.current = notes;
+  onCreateNewNoteRef.current = onCreateNewNote;
+  onStartWindowModeRef.current = onStartWindowMode;
 
   useEffect(() => {
     const setupListeners = async () => {
@@ -29,7 +35,7 @@ export function useGlobalEventListeners({
         // Listen for new note event
         const unlistenNewNote = await listen('menu-new-note', async (event) => {
           console.log('[BLINK] [FRONTEND] 🔥 Received menu-new-note event!', event);
-          onCreateNewNote();
+          onCreateNewNoteRef.current();
         });
         unlisteners.push(unlistenNewNote);
         
@@ -38,7 +44,7 @@ export function useGlobalEventListeners({
         const unlistenChordWindow = await listen('chord-window-mode', async (event) => {
           console.log('[BLINK] [FRONTEND] 🔥🔥🔥 RECEIVED CHORD-WINDOW-MODE EVENT! 🔥🔥🔥', event);
           console.log('[CHORD] Starting window mode from global shortcut');
-          onStartWindowMode();
+          onStartWindowModeRef.current();
         });
         unlisteners.push(unlistenChordWindow);
         console.log('[BLINK] [FRONTEND] ✅ chord-window-mode listener set up successfully');
@@ -73,17 +79,14 @@ export function useGlobalEventListeners({
               console.log('[DEPLOY] Grid position for slot', slotNumber, ':', gridPos);
               
               try {
-                // First refresh windows to get latest state from backend
-                console.log('[DEPLOY] Refreshing windows state...');
-                await windowsStore.refreshWindows();
-                
-                // Log state after refresh
-                const refreshedWindowsStore = useDetachedWindowsStore.getState();
-                console.log('[DEPLOY] Windows after refresh:', Array.isArray(refreshedWindowsStore.windows) ? refreshedWindowsStore.windows.map(w => ({ 
+                // Get current windows state
+                console.log('[DEPLOY] Checking current windows state...');
+                const windowsStore = useDetachedWindowsStore.getState();
+                console.log('[DEPLOY] Current windows:', Array.isArray(windowsStore.windows) ? windowsStore.windows.map(w => ({ 
                   note_id: w.note_id, 
                   window_label: w.window_label,
                   position: w.position 
-                })) : refreshedWindowsStore.windows);
+                })) : windowsStore.windows);
                 
                 // Simple algorithm: Try to focus detached window, if that fails create new one
                 const windowExists = windowsStore.isWindowOpen(targetNote.id);
@@ -125,14 +128,14 @@ export function useGlobalEventListeners({
         // Listen for window closed events
         const unlistenWindowClosed = await listen('window-closed', async (event) => {
           console.log('[BLINK] Window closed event received for note:', event.payload);
-          await useDetachedWindowsStore.getState().refreshWindows();
+          // Window positions store will be updated automatically when window closes
         });
         unlisteners.push(unlistenWindowClosed);
         
         // Listen for window created events
         const unlistenWindowCreated = await listen('window-created', async (event) => {
           console.log('[BLINK] Window created event received for note:', event.payload);
-          await useDetachedWindowsStore.getState().refreshWindows();
+          // For now, just log - the frontend store should be updated directly when creating windows
         });
         unlisteners.push(unlistenWindowCreated);
         
@@ -148,14 +151,14 @@ export function useGlobalEventListeners({
             console.error('[BLINK] Failed to cleanup backend state:', error);
           }
           
-          await useDetachedWindowsStore.getState().refreshWindows();
+          // Window positions store will be updated automatically when window is destroyed
         });
         unlisteners.push(unlistenWindowDestroyed);
         
         // Listen for hybrid window destroyed events
         const unlistenHybridDestroyed = await listen('hybrid-window-destroyed', async (event) => {
           console.log('[BLINK] Hybrid window destroyed event received:', event.payload);
-          await useDetachedWindowsStore.getState().refreshWindows();
+          // Window positions store will be updated automatically when hybrid window is destroyed
         });
         unlisteners.push(unlistenHybridDestroyed);
         
@@ -186,5 +189,5 @@ export function useGlobalEventListeners({
         cleanup();
       }
     };
-  }, [onCreateNewNote, onStartWindowMode]);
+  }, []); // Empty dependency array since we use refs for callbacks
 }

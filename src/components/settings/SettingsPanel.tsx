@@ -1429,6 +1429,30 @@ function calculateMetrics(data) {
                 </button>
               </div>
             </div>
+            
+            {/* Word Wrap */}
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-foreground/80 w-28 font-mono">Word Wrap</label>
+              <div className="flex items-center gap-3 flex-1">
+                <span className="text-xs text-muted-foreground/60 flex-1">wrap long lines in editor</span>
+                <button
+                  onClick={() => setLocalConfig({
+                    ...localConfig,
+                    appearance: {
+                      ...localConfig.appearance,
+                      wordWrap: localConfig.appearance?.wordWrap === false ? true : !localConfig.appearance?.wordWrap
+                    }
+                  })}
+                  className={`relative w-8 h-4 rounded-full transition-colors flex-shrink-0 ${
+                    localConfig.appearance?.wordWrap !== false ? 'bg-primary' : 'bg-background/40 border border-border/40'
+                  }`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-3 h-3 bg-background rounded-full transition-transform border border-border/20 ${
+                    localConfig.appearance?.wordWrap !== false ? 'translate-x-3.5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

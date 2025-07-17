@@ -861,9 +861,9 @@ pub fn run() {
                             Code::KeyH
                         );
                         
-                        let hyperkey_w = Shortcut::new(
+                        let hyperkey_b = Shortcut::new(
                             Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
-                            Code::KeyW
+                            Code::KeyB
                         );
                         
                         // Also check for a simpler shortcut (Cmd+Shift+N) for testing
@@ -896,8 +896,8 @@ pub fn run() {
                                     Err(e) => log_error!("SHORTCUT-HANDLER", "❌ Failed to toggle windows: {}", e),
                                 }
                             });
-                        } else if shortcut == &hyperkey_w {
-                            log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+W TRIGGERED! Entering window chord mode...");
+                        } else if shortcut == &hyperkey_b {
+                            log_info!("SHORTCUT-HANDLER", "🔥 HYPERKEY+B TRIGGERED! Entering window chord mode...");
                             // Emit event to enter window chord mode
                             match app.emit("chord-window-mode", ()) {
                                 Ok(_) => log_info!("SHORTCUT-HANDLER", "✅ Successfully emitted chord-window-mode event"),
@@ -1185,17 +1185,17 @@ pub fn run() {
                         }
                         
                         // Register Hyperkey+W for window chord mode
-                        let hyperkey_w = Shortcut::new(
+                        let hyperkey_b = Shortcut::new(
                             Some(Modifiers::SUPER | Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
-                            Code::KeyW
+                            Code::KeyB
                         );
                         
-                        match shortcut_manager.register(hyperkey_w) {
+                        match shortcut_manager.register(hyperkey_b) {
                             Ok(_) => {
-                                log_info!("STARTUP", "✅ Successfully registered global shortcut: Cmd+Ctrl+Alt+Shift+W (Window chord mode)");
+                                log_info!("STARTUP", "✅ Successfully registered global shortcut: Cmd+Ctrl+Alt+Shift+B (Window chord mode)");
                             },
                             Err(e) => {
-                                log_error!("STARTUP", "❌ Failed to register Hyperkey+W: {}", e);
+                                log_error!("STARTUP", "❌ Failed to register Hyperkey+B: {}", e);
                             }
                         }
                         

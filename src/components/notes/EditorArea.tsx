@@ -8,6 +8,7 @@ interface SaveStatus {
   isSaving: boolean;
   lastSaved?: Date | null;
   isModified?: boolean;
+  saveError?: string | null;
 }
 
 interface EditorAreaProps {
@@ -43,7 +44,7 @@ export function EditorArea({
 }: EditorAreaProps) {
   const { config } = useConfigStore();
   const [vimStatus, setVimStatus] = useState<VimStatus>({ mode: 'NORMAL' });
-  const [lastSavedContent, setLastSavedContent] = useState<string | null>(null);
+  // const [lastSavedContent, setLastSavedContent] = useState<string | null>(null);
   // Create a unified config object for NoteEditor
   const noteEditorConfig: EditorConfig = {
     fontSize: editorConfig.fontSize || 15,
@@ -55,6 +56,7 @@ export function EditorArea({
     syntaxHighlighting: editorConfig.syntaxHighlighting,
     vimMode: config?.appearance?.vimMode,
     typewriterMode: config?.appearance?.typewriterMode,
+    wordWrap: config?.appearance?.wordWrap,
     notePaperStyle: editorConfig.notePaperStyle
   };
 
@@ -135,7 +137,7 @@ export function EditorArea({
             </>
           ) : saveStatus.lastSaved ? (
             <>
-              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved {saveStatus.getRelativeTime}</span>
+              <span className="text-xs text-muted-foreground/50" style={{ fontSize: '10px' }}>Saved</span>
               <div className="w-1 h-1 bg-green-500/60 rounded-full"></div>
             </>
           ) : (

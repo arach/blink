@@ -28,6 +28,7 @@ export interface EditorConfig {
   typewriterMode?: boolean;
   backgroundPattern?: string;
   notePaperStyle?: string;
+  wordWrap?: boolean;
 }
 
 export interface VimStatus {
@@ -107,6 +108,7 @@ export function NoteEditor({
               fontFamily={config.editorFontFamily || config.fontFamily || 'system-ui'}
               lineHeight={config.lineHeight}
               typewriterMode={config.typewriterMode || false}
+              wordWrap={config.wordWrap !== false}
               autoFocus={autoFocus}
               className={paperStyleClass}
               onVimStatusChange={onVimStatusChange}

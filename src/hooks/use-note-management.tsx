@@ -24,6 +24,7 @@ interface UseNoteManagementReturn {
   // Setters for external control
   setCurrentContent: (content: string) => void;
   setSelectedNoteId: (id: string | null) => void;
+
 }
 
 interface UseNoteManagementOptions {
@@ -39,6 +40,10 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
   const [loading, setLoading] = useState(true);
   
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const selectedNoteIdRef = useRef<string | null>(null);
+
+  // Update ref when selectedNoteId changes
+  selectedNoteIdRef.current = selectedNoteId;
 
   const selectedNote = notes.find(note => note.id === selectedNoteId);
 
@@ -62,7 +67,7 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       setNotes(loadedNotes);
       
       // If we have notes but no selected note, select the first one
-      if (loadedNotes.length > 0 && !selectedNoteId) {
+      if (loadedNotes.length > 0 && !selectedNoteIdRef.current) {
         const firstNote = loadedNotes[0];
         setSelectedNoteId(firstNote.id);
         setCurrentContent(firstNote.content);
@@ -89,14 +94,14 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
         }
       ];
       setNotes(demoNotes);
-      if (!selectedNoteId) {
+      if (!selectedNoteIdRef.current) {
         setSelectedNoteId('demo-1');
         setCurrentContent(demoNotes[0].content);
       }
     } finally {
       setLoading(false);
     }
-  }, [selectedNoteId]);
+  }, []);
 
   // Create new note
   const createNewNote = useCallback(async () => {
@@ -240,6 +245,7 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       }
     };
   }, [loadNotes]);
+
 
   return {
     // State

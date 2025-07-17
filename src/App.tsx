@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { 
   DetachedNoteWindow, 
   DragGhost 
@@ -22,7 +22,7 @@ import {
   ChordHint 
 } from './components/common';
 import { 
-  useDetachedWindowsStore, 
+  useDetachedWindowsStore,
   useConfigStore 
 } from './stores';
 import { 
@@ -43,7 +43,7 @@ import {
 } from './hooks';
 import { getThemeById } from './types';
 import { getWordCount } from './lib/utils';
-import { getCenterPosition } from './utils/window-positioning';
+import { getCenterPosition, getGridPosition } from './utils/window-positioning';
 
 
 function App() {
@@ -59,25 +59,22 @@ function App() {
   // App initialization
   useAppInitialization({ isDetachedWindow });
 
-  // Detached windows store
+  // Detached windows store  
   const { 
     createWindow, 
     isWindowOpen, 
-    refreshWindows,
-    focusWindow 
+    focusWindow
   } = useDetachedWindowsStore();
 
-  // Drag-to-detach functionality
-  const { startDrag, isDragging } = useDragToDetach({
-    onDrop: async (noteId: string, x: number, y: number) => {
-      if (!isWindowOpen(noteId)) {
-        try {
-          await createWindow(noteId, x, y);
-        } catch (error) {
-          console.error('Window creation error:', error);
-        }
-      }
+  // Drag-to-detach functionality - stable callback to prevent re-renders
+  const onDropCallback = useCallback(async (noteId: string, x: number, y: number) => {
+    if (!isWindowOpen(noteId)) {
+      await createWindow(noteId, x, y);
     }
+  }, [isWindowOpen, createWindow]);
+
+  const { startDrag, isDragging } = useDragToDetach({
+    onDrop: onDropCallback
   });
 
   // Save status tracking
@@ -113,7 +110,7 @@ function App() {
       saveStatus.saveSuccess();
       modifiedState.markSaved(currentContent);
     },
-    onSaveError: (error) => {
+    onSaveError: () => {
       saveStatus.setSaveError('Failed to save note');
     }
   });
@@ -143,12 +140,8 @@ function App() {
   } = useContextMenu({
     onDeleteNote: deleteNote,
     onDetachNote: async (noteId: string) => {
-      try {
-        const { x, y } = getCenterPosition();
-        await createWindow(noteId, x, y);
-      } catch (error) {
-        console.error('Failed to detach note:', error);
-      }
+      const { x, y } = getCenterPosition();
+      await createWindow(noteId, x, y);
     },
   });
 
@@ -183,45 +176,37 @@ function App() {
     onCreateNewNote: createNewNote,
     onToggleCommandPalette: openCommandPalette,
     onCreateDetachedWindow: async (noteId: string) => {
-      try {
-        const { x, y } = getCenterPosition();
-        await createWindow(noteId, x, y);
-      } catch (error) {
-        console.error('Failed to create detached window via chord:', error);
-      }
+      const { x, y } = getCenterPosition();
+      await createWindow(noteId, x, y);
     },
     onFocusWindow: async (noteId: string) => {
       console.log('[CHORD] onFocusWindow called with noteId:', noteId);
-      try {
-        console.log('[CHORD] Checking if window exists for note:', noteId);
-        // First refresh windows to get latest state
-        await refreshWindows();
-        
-        // Check if window already exists in our state
-        if (isWindowOpen(noteId)) {
-          console.log('[CHORD] ✅ Window exists in state, attempting to focus');
-          const focused = await focusWindow(noteId);
-          console.log('[CHORD] Focus result:', focused);
-          if (focused) {
-            console.log('[CHORD] ✅ Successfully focused existing window');
-            return;
-          } else {
-            console.log('[CHORD] ❌ Focus failed but window exists - refreshing and trying again');
-            await refreshWindows();
-            const focused2 = await focusWindow(noteId);
-            console.log('[CHORD] Second focus attempt result:', focused2);
-            return; // Don't create a new one if it exists
-          }
-        } else {
-          // No existing window, create a new one
-          console.log('[CHORD] ❌ No existing window found, creating new one for note:', noteId);
-          const { x, y } = getCenterPosition();
-          const result = await createWindow(noteId, x, y);
-          console.log('[CHORD] Create window result:', result);
+      
+      // Check if window already exists
+      if (isWindowOpen(noteId)) {
+        console.log('[CHORD] ✅ Window exists, attempting to focus');
+        const focused = await focusWindow(noteId);
+        if (focused) {
+          console.log('[CHORD] ✅ Focus successful');
+          return;
         }
-      } catch (error) {
-        console.error('[CHORD] ❌ Error in onFocusWindow:', error);
       }
+      
+      console.log('[CHORD] Creating new window');
+      // Determine position based on note index for first 9 notes
+      const noteIndex = notes.findIndex(note => note.id === noteId);
+      let position;
+      
+      if (noteIndex >= 0 && noteIndex < 9) {
+        const slotNumber = noteIndex + 1;
+        position = getGridPosition(slotNumber);
+        console.log('[CHORD] Using grid position for slot', slotNumber, ':', position);
+      } else {
+        position = getCenterPosition();
+        console.log('[CHORD] Using center position');
+      }
+      
+      await createWindow(noteId, position.x, position.y, position.width, position.height);
     },
   });
   

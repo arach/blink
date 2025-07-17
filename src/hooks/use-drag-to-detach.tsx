@@ -296,7 +296,23 @@ export function useDragToDetach({ onDrop, dragThreshold = 5 }: UseDragToDetachOp
               windowLabel: dragRef.current.realWindowLabel,
               noteId: dragState.noteId,
             });
-            console.log('[DRAG] Window finalized in place');
+            console.log('[DRAG] Window finalized in place, updating frontend store directly');
+            
+            // Import and update the window positions store directly
+            const { useWindowPositionsStore } = await import('../stores/window-positions-store');
+            const store = useWindowPositionsStore.getState();
+            
+            // Add the window to our positions map
+            const newPositions = new Map(store.windowPositions);
+            newPositions.set(dragState.noteId, {
+              position: [dragRef.current.lastMousePosition.x - 200, dragRef.current.lastMousePosition.y - 20],
+              size: [800, 600] // Default size
+            });
+            
+            // Update the store
+            useWindowPositionsStore.setState({ windowPositions: newPositions });
+            
+            console.log('[DRAG] Frontend store updated directly');
           } catch (error) {
             console.error('[DRAG] Failed to finalize window:', error);
           }
