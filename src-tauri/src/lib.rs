@@ -93,7 +93,7 @@ async fn import_notes_from_directory(
         
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
             match parse_markdown_file(&path).await {
-                Ok(mut note) => {
+                Ok(note) => {
                     log_info!("FILE_IMPORT", "Imported note: {} from {}", note.title, path.display());
                     notes_lock.insert(note.id.clone(), note.clone());
                     // Initialize dirty tracking for imported note
@@ -316,8 +316,21 @@ fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
     let frontmatter: NoteFrontmatter = serde_yaml::from_str(frontmatter_str)
         .map_err(|e| format!("Failed to parse frontmatter: {}", e))?;
     
+    // Always generate a unique internal ID for the app
+    // The frontmatter 'id' is treated as a human-readable slug, not a UUID
+    let unique_id = Uuid::new_v4().to_string();
+    
+    // Log if we detect a UUID-like pattern in frontmatter (suggests old/corrupted data)
+    if frontmatter.id.len() == 36 && frontmatter.id.contains('-') {
+        log_warn!("FILE_STORAGE", "Note '{}' has UUID-like frontmatter ID: {}. Using new internal ID: {}", 
+                 frontmatter.title, frontmatter.id, unique_id);
+    } else {
+        log_debug!("FILE_STORAGE", "Note '{}' with slug '{}' assigned internal ID: {}", 
+                  frontmatter.title, frontmatter.id, unique_id);
+    }
+    
     Ok(Note {
-        id: frontmatter.id,
+        id: unique_id,
         title: frontmatter.title,
         content: body.to_string(),
         created_at: frontmatter.created_at,
@@ -328,8 +341,11 @@ fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
 }
 
 async fn write_note_to_file(note: &Note, file_path: &str) -> Result<(), String> {
+    // Generate a human-readable slug from the title for frontmatter
+    let slug = sanitize_filename(&note.title);
+    
     let frontmatter = NoteFrontmatter {
-        id: note.id.clone(),
+        id: slug, // Use slug instead of UUID in frontmatter
         title: note.title.clone(),
         created_at: note.created_at.clone(),
         updated_at: note.updated_at.clone(),
@@ -841,6 +857,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin({
             use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
             
@@ -1058,6 +1075,15 @@ pub fn run() {
                     log_info!("MENU", "✅ Main window shown and focused");
                 } else {
                     log_error!("MENU", "❌ Main window not found");
+                }
+            }
+            // Handle paste menu item
+            else if menu_id.0 == "59" || menu_id.0 == "paste" {
+                log_info!("MENU", "Paste menu item selected - triggering paste");
+                // For now, just emit an event that the frontend can handle
+                match app.emit("menu-paste", ()) {
+                    Ok(_) => log_info!("MENU", "✅ Paste event emitted"),
+                    Err(e) => log_error!("MENU", "❌ Failed to emit paste event: {}", e),
                 }
             }
             // Handle reload app menu item

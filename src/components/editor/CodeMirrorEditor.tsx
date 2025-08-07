@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { EditorView, keymap, ViewUpdate, placeholder, drawSelection } from '@codemirror/view';
 import { EditorState, Extension, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
-import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands';
 import { vim, getCM } from '@replit/codemirror-vim';
+import { listen } from '@tauri-apps/api/event';
+import { readText } from '@tauri-apps/plugin-clipboard-manager';
 
 interface CodeMirrorEditorProps {
   value: string;
@@ -119,9 +121,11 @@ export function CodeMirrorEditor({
     const extensions: Extension[] = [
       configCompartment.current.of(createTheme()),
       markdown(),
+      history(), // Add history support for undo/redo
       drawSelection(), // Add explicit selection drawing
       keymap.of([
         ...defaultKeymap,
+        ...historyKeymap, // Add history keybindings (Cmd-Z, Cmd-Shift-Z)
         indentWithTab,
         {
           key: 'Cmd-s',
@@ -159,6 +163,23 @@ export function CodeMirrorEditor({
         EditorView.editorAttributes.of({
           class: 'cm-vim-mode'
         })
+      );
+      
+      // Prevent delete key in Normal mode and handle paste
+      extensions.push(
+        keymap.of([
+          {
+            key: 'Delete',
+            run: (view) => {
+              const cm = getCM(view);
+              if (cm && cm.state.vim && !cm.state.vim.insertMode) {
+                // In Normal/Visual mode, don't allow delete key
+                return true; // Consume the event, do nothing
+              }
+              return false; // Let it pass through in Insert mode
+            }
+          },
+        ])
       );
       
       // Track vim mode changes
@@ -278,6 +299,51 @@ export function CodeMirrorEditor({
       viewRef.current = null;
     };
   }, []); // Only run once on mount
+
+  // Set up paste listener separately so it persists
+  useEffect(() => {
+    const unlistenPromise = listen('menu-paste', async () => {
+      console.log('[BLINK] Menu paste event received in editor');
+      try {
+        const text = await readText();
+        console.log('[BLINK] Clipboard text:', text?.substring(0, 50) + '...');
+        
+        if (text && viewRef.current) {
+          const view = viewRef.current;
+          const cm = getCM(view);
+          
+          // If in vim normal mode, switch to insert mode first
+          if (cm && cm.state.vim && !cm.state.vim.insertMode) {
+            // Enter insert mode at cursor position
+            view.dispatch({
+              changes: {
+                from: view.state.selection.main.head,
+                insert: text
+              }
+            });
+          } else {
+            // In insert mode or non-vim mode, just insert at selection
+            view.dispatch({
+              changes: {
+                from: view.state.selection.main.from,
+                to: view.state.selection.main.to,
+                insert: text
+              }
+            });
+          }
+          console.log('[BLINK] Text pasted successfully');
+        } else {
+          console.error('[BLINK] No text or view available');
+        }
+      } catch (err) {
+        console.error('[BLINK] Failed to paste:', err);
+      }
+    });
+
+    return () => {
+      unlistenPromise.then(unlisten => unlisten());
+    };
+  }, []); // Set up once on mount
 
 
   // Update content when value prop changes (external updates)
