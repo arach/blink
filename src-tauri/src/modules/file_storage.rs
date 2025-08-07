@@ -42,6 +42,7 @@ impl FileStorageManager {
         log_info!("FILE_STORAGE", "Loading notes from file system...");
         
         let mut notes = HashMap::new();
+        let mut duplicate_id_fixes = Vec::new();
         
         // Read all .md files in the notes directory
         let entries = fs::read_dir(&self.notes_dir)
@@ -54,7 +55,22 @@ impl FileStorageManager {
             // Only process .md files
             if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
                 match self.load_note_from_file(&path).await {
-                    Ok(note) => {
+                    Ok(mut note) => {
+                        // Check for duplicate ID
+                        if notes.contains_key(&note.id) {
+                            let old_id = note.id.clone();
+                            let new_id = uuid::Uuid::new_v4().to_string();
+                            
+                            log_error!("FILE_STORAGE", "🚨 DUPLICATE ID DETECTED: {} in file {:?}. Generating new ID: {}", 
+                                old_id, path, new_id);
+                            
+                            note.id = new_id.clone();
+                            note.updated_at = chrono::Utc::now().to_rfc3339();
+                            
+                            // Queue this note for re-saving with the new ID
+                            duplicate_id_fixes.push((path.clone(), note.clone()));
+                        }
+                        
                         log_debug!("FILE_STORAGE", "Loaded note: {} from {:?}", note.id, path);
                         notes.insert(note.id.clone(), note);
                     }
@@ -63,6 +79,100 @@ impl FileStorageManager {
                     }
                 }
             }
+        }
+        
+        // Fix duplicate IDs by re-saving notes with new IDs
+        for (path, note) in duplicate_id_fixes {
+            log_info!("FILE_STORAGE", "🔧 Fixing duplicate ID: re-saving note {} to {:?}", note.id, path);
+            
+            // Save the note with the new ID to its current file
+            let frontmatter = NoteFrontmatter {
+                id: note.id.clone(),
+                title: note.title.clone(),
+                created_at: note.created_at.clone(),
+                updated_at: note.updated_at.clone(),
+                tags: note.tags.clone(),
+                position: note.position,
+            };
+            
+            let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
+                .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
+            
+            let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
+            
+            fs::write(&path, file_content)
+                .map_err(|e| format!("Failed to write fixed note file: {}", e))?;
+            
+            log_info!("FILE_STORAGE", "✅ Fixed duplicate ID for note in {:?}", path);
+        }
+        
+        // Fix position conflicts
+        let mut position_fixes = Vec::new();
+        let mut position_counts = std::collections::HashMap::new();
+        let mut next_available_position = 0;
+        
+        // First pass: count how many notes have each position and find the maximum
+        for note in notes.values() {
+            if let Some(position) = note.position {
+                if position >= 0 {
+                    *position_counts.entry(position).or_insert(0) += 1;
+                    next_available_position = next_available_position.max(position + 1);
+                }
+            }
+        }
+        
+        // Second pass: fix conflicts and assign positions
+        let mut used_positions = std::collections::HashSet::new();
+        
+        for (note_id, note) in notes.iter_mut() {
+            let needs_fix = match note.position {
+                Some(position) if position < 0 => {
+                    log_error!("FILE_STORAGE", "🚨 INVALID POSITION: Note {} has negative position {}", note_id, position);
+                    true
+                }
+                Some(position) if position_counts.get(&position).unwrap_or(&0) > &1 => {
+                    log_error!("FILE_STORAGE", "🚨 POSITION CONFLICT: Note {} has position {} shared with {} other notes", 
+                        note_id, position, position_counts.get(&position).unwrap() - 1);
+                    true
+                }
+                Some(position) if used_positions.contains(&position) => {
+                    log_error!("FILE_STORAGE", "🚨 POSITION CONFLICT: Note {} has position {} that's already been processed", note_id, position);
+                    true
+                }
+                None => {
+                    log_info!("FILE_STORAGE", "Note {} has no position, assigning one", note_id);
+                    true
+                }
+                _ => false
+            };
+            
+            if needs_fix {
+                // Find the next available position
+                while used_positions.contains(&next_available_position) {
+                    next_available_position += 1;
+                }
+                
+                let old_position = note.position;
+                note.position = Some(next_available_position);
+                note.updated_at = chrono::Utc::now().to_rfc3339();
+                used_positions.insert(next_available_position);
+                
+                log_info!("FILE_STORAGE", "🔧 Fixed position for note {}: {:?} -> {}", note_id, old_position, next_available_position);
+                position_fixes.push(note.clone());
+                
+                next_available_position += 1;
+            } else {
+                // Mark this valid position as used
+                if let Some(position) = note.position {
+                    used_positions.insert(position);
+                }
+            }
+        }
+        
+        // Save notes with fixed positions back to disk
+        for note in position_fixes {
+            self.save_note(&note).await?;
+            log_info!("FILE_STORAGE", "✅ Saved position fix for note: {}", note.id);
         }
         
         log_info!("FILE_STORAGE", "Loaded {} notes from file system", notes.len());
