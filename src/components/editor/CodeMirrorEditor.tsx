@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { EditorView, keymap, ViewUpdate, placeholder } from '@codemirror/view';
+import { EditorView, keymap, ViewUpdate, placeholder, drawSelection } from '@codemirror/view';
 import { EditorState, Extension, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
@@ -55,7 +55,7 @@ export function CodeMirrorEditor({
       '.cm-content': {
         padding: '20px',
         lineHeight: `${lineHeight}`,
-        caretColor: 'var(--primary)',
+        caretColor: 'var(--cursor-insert)', // Green for insert mode by default
         backgroundColor: 'transparent',
       },
       '.cm-focused': {
@@ -99,13 +99,9 @@ export function CodeMirrorEditor({
       '.cm-focused .cm-selectionBackground': {
         backgroundColor: 'var(--primary)' + '40',
       },
-      // Cursor styling
-      '.cm-cursor': {
-        borderLeftColor: 'var(--primary)',
-        borderLeftWidth: '2px',
-      },
-      '.cm-cursor-primary': {
-        visibility: 'visible',
+      // Cursor styling handled by CSS - ensure base visibility
+      '.cm-cursor, .cm-cursor-primary': {
+        visibility: 'visible !important',
       },
       // Search highlights
       '.cm-searchMatch': {
@@ -123,6 +119,7 @@ export function CodeMirrorEditor({
     const extensions: Extension[] = [
       configCompartment.current.of(createTheme()),
       markdown(),
+      drawSelection(), // Add explicit selection drawing
       keymap.of([
         ...defaultKeymap,
         indentWithTab,
@@ -184,13 +181,52 @@ export function CodeMirrorEditor({
                   
                   if (vimState.insertMode) {
                     editorDom.classList.add('cm-vim-insert-mode');
+                    console.log('[BLINK] Vim mode: INSERT');
                   } else if (vimState.visualMode) {
                     editorDom.classList.add('cm-vim-visual-mode');
                     if (vimState.visualLine) {
                       editorDom.classList.add('cm-vim-visual-line');
                     }
+                    console.log('[BLINK] Vim mode: VISUAL', vimState.visualLine ? '(LINE)' : '');
+                    
+                    // Debug: Check selection state
+                    const selection = update.view.state.selection;
+                    console.log('[BLINK] Selection:', {
+                      main: selection.main,
+                      from: selection.main.from,
+                      to: selection.main.to,
+                      empty: selection.main.empty
+                    });
+                    
+                    // Force selection if in visual mode
+                    const cm = getCM(update.view);
+                    if (cm && cm.state.vim) {
+                      const vimSel = cm.state.vim.sel;
+                      if (vimSel && vimSel.anchor && vimSel.head) {
+                        console.log('[BLINK] Vim selection:', vimSel);
+                        
+                        // Calculate the actual selection positions
+                        const from = Math.min(vimSel.anchor.ch, vimSel.head.ch);
+                        const to = Math.max(vimSel.anchor.ch, vimSel.head.ch) + 1; // +1 because vim includes the character
+                        const line = vimSel.anchor.line || 0;
+                        
+                        // Get the document position
+                        const docLine = update.view.state.doc.line(line + 1); // Lines are 1-indexed
+                        const fromPos = docLine.from + from;
+                        const toPos = docLine.from + to;
+                        
+                        // Create a selection if it doesn't match
+                        if (selection.main.from !== fromPos || selection.main.to !== toPos) {
+                          console.log('[BLINK] Creating selection:', { fromPos, toPos });
+                          update.view.dispatch({
+                            selection: { anchor: fromPos, head: toPos }
+                          });
+                        }
+                      }
+                    }
                   } else {
                     editorDom.classList.add('cm-vim-normal-mode');
+                    console.log('[BLINK] Vim mode: NORMAL');
                   }
                 }
               }
@@ -332,6 +368,10 @@ export function CodeMirrorEditor({
         '--foreground': 'hsl(var(--foreground))',
         '--muted-foreground': 'hsl(var(--muted-foreground))',
         '--border': 'hsl(var(--border))',
+        '--cursor-normal': '#3b82f6',
+        '--cursor-insert': '#10b981',
+        '--cursor-visual': '#8b5cf6',
+        '--cursor-command': '#f59e0b',
       } as React.CSSProperties}
     />
   );
