@@ -16,6 +16,9 @@ mod types;
 mod modules;
 mod services;
 
+#[cfg(test)]
+mod tests;
+
 // Re-export from modules  
 pub use modules::{
     logging::*,
