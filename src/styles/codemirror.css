@@ -408,22 +408,33 @@
    VIM COMMAND PANEL - Enhanced styling
    ================================================================= */
 .cm-vim-panel {
-  position: fixed !important;
-  bottom: 26px !important; /* Above the status footer */
-  left: 0 !important;
-  right: 0 !important;
-  background-color: hsl(var(--background) / 0.95) !important;
-  border-top: 2px solid var(--cursor-command) !important;
-  padding: 8px 20px !important;
-  font-size: 13px !important;
+  position: absolute !important; /* Use absolute positioning within the editor container */
+  bottom: 0 !important; /* Align to bottom of editor container */
+  left: 0 !important; /* Start from left edge of editor container */
+  right: 0 !important; /* Extend to right edge of editor container */
+  height: 28px !important; /* Very compact height */
+  background: rgba(0, 0, 0, 0.9) !important; /* 90% opaque black background */
+  background-color: rgba(0, 0, 0, 0.9) !important; /* Ensure background is set */
+  background-image: none !important; /* Explicitly remove any gradient */
+  border: none !important; /* Remove all borders first */
+  border-top: 1px solid var(--cursor-command) !important; /* Add back only top border */
+  border-bottom: 0 !important; /* Explicitly no bottom border */
+  border-left: 0 !important; /* No left border */
+  border-right: 0 !important; /* No right border */
+  padding: 0 8px !important; /* Minimal padding for closer to edge */
+  display: flex !important;
+  align-items: center !important; /* Center content vertically */
+  font-size: 13px !important; /* Smaller, more elegant font size */
   font-family: ui-monospace, monospace !important;
-  color: hsl(var(--foreground)) !important;
-  backdrop-filter: blur(16px) !important;
-  z-index: 200 !important;
-  box-shadow: 
-    0 -4px 20px rgba(0, 0, 0, 0.3),
-    0 0 0 1px var(--cursor-command) !important;
+  font-weight: 300 !important; /* Thin/light weight */
+  color: var(--cursor-command) !important; /* Use the command color directly */
+  z-index: 10000 !important; /* Higher z-index to ensure it's on top */
+  backdrop-filter: none !important; /* No blur effect */
+  box-shadow: none !important; /* No shadow */
 }
+
+/* Remove the hardcoded colon - vim already provides it */
+/* .cm-vim-panel::before - removed to prevent double colon */
 
 /* Vim command line input styling */
 .cm-vim-panel input {
@@ -433,8 +444,12 @@
   color: var(--cursor-command) !important;
   font-family: inherit !important;
   font-size: inherit !important;
-  font-weight: 500 !important;
+  font-weight: 300 !important; /* Thin/light weight to match panel */
   width: 100% !important;
+  height: 100% !important; /* Fill the panel height */
+  padding: 0 !important; /* Remove default padding */
+  margin: 0 !important; /* Remove default margin */
+  letter-spacing: normal !important; /* Normal letter spacing for smaller text */
 }
 
 /* Command line cursor in panel */
