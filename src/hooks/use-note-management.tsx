@@ -77,11 +77,26 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       console.log(`[BLINK] Notes loaded in ${loadTime.toFixed(2)}ms (${loadedNotes.length} notes)`);
       setNotes(loadedNotes);
       
-      // If we have notes but no selected note, select the first one
+      // If we have notes but no selected note, select the first one by position
       if (loadedNotes.length > 0 && !selectedNoteIdRef.current) {
-        const firstNote = loadedNotes[0];
-        setSelectedNoteId(firstNote.id);
-        setCurrentContent(firstNote.content);
+        // Select the note with the lowest position value, or the first in array if no positions
+        const noteWithLowestPosition = loadedNotes.reduce((lowest, current) => {
+          // If current has a position and lowest doesn't, use current
+          if (current.position !== undefined && current.position !== null && 
+              (lowest.position === undefined || lowest.position === null)) {
+            return current;
+          }
+          // If both have positions, use the one with lower position
+          if (current.position !== undefined && current.position !== null && 
+              lowest.position !== undefined && lowest.position !== null) {
+            return current.position < lowest.position ? current : lowest;
+          }
+          // Otherwise keep lowest
+          return lowest;
+        }, loadedNotes[0]);
+        
+        setSelectedNoteId(noteWithLowestPosition.id);
+        setCurrentContent(noteWithLowestPosition.content);
       }
     } catch (error) {
       console.warn('[BLINK] Failed to load notes from Tauri, falling back to demo data:', error);
@@ -156,6 +171,14 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       notesCount: notes.length
     });
     
+    // DEBUG: Log the note at position 0 before selection
+    const noteAtPosition0 = notes.find(n => n.position === 0);
+    const noteAtIndex0 = notes[0];
+    console.log('[BLINK] [DEBUG] Before selection:', {
+      noteAtPosition0: noteAtPosition0 ? { id: noteAtPosition0.id, title: noteAtPosition0.title } : 'none',
+      noteAtIndex0: noteAtIndex0 ? { id: noteAtIndex0.id, title: noteAtIndex0.title, position: noteAtIndex0.position } : 'none'
+    });
+    
     // Clear any pending save for the previous note
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -167,14 +190,23 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       console.log('[BLINK] [SELECT] Found note:', {
         noteId: note.id,
         title: note.title,
-        contentLength: note.content.length
+        contentLength: note.content.length,
+        position: note.position
       });
       setSelectedNoteId(noteId);
       setCurrentContent(note.content);
+      
+      // DEBUG: Log the note at position 0 after selection
+      const noteAtPosition0After = notes.find(n => n.position === 0);
+      const noteAtIndex0After = notes[0];
+      console.log('[BLINK] [DEBUG] After selection:', {
+        noteAtPosition0: noteAtPosition0After ? { id: noteAtPosition0After.id, title: noteAtPosition0After.title } : 'none',
+        noteAtIndex0: noteAtIndex0After ? { id: noteAtIndex0After.id, title: noteAtIndex0After.title, position: noteAtIndex0After.position } : 'none'
+      });
     } else {
       console.error('[BLINK] [SELECT] Note not found:', noteId);
     }
-  }, [notes]);
+  }, [notes, selectedNoteId]);
 
   // Update note content with debouncing
   const updateNoteContent = useCallback((content: string) => {
