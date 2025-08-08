@@ -55,7 +55,7 @@ pub use types::{
 type NotesState = Mutex<HashMap<String, Note>>;
 type ConfigState = Mutex<AppConfig>;
 type DetachedWindowsState = Mutex<HashMap<String, DetachedWindow>>;
-type ToggleState = Mutex<bool>;
+// ToggleState is already defined in types::window
 type ModifiedStateTrackerState = ModifiedStateTracker;
 
 
