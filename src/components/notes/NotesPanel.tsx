@@ -202,6 +202,9 @@ export function NotesPanel({
                               : 'text-foreground/90 group-hover:text-foreground'
                           }`}>
                             {note.title || 'Untitled'}
+                            <span className="ml-1 text-[9px] font-mono text-muted-foreground/30">
+                              ...{note.id.slice(-5)}
+                            </span>
                           </h3>
                           <div className="flex items-center gap-1">
                             {getShortcutKey(index) && (

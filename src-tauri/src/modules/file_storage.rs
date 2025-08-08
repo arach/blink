@@ -243,8 +243,22 @@ impl FileStorageManager {
     
     /// Save a note to a markdown file
     pub async fn save_note(&self, note: &Note) -> Result<(), String> {
-        let filename = self.sanitize_filename(&note.title);
-        let file_path = self.notes_dir.join(format!("{}.md", filename));
+        // Use ID-based filename to prevent overwrites when title changes
+        // First try to find existing file for this ID
+        let file_path = if let Ok(index) = self.load_notes_index().await {
+            if let Some(entry) = index.notes.get(&note.id) {
+                // Use existing file path from index
+                self.notes_dir.join(&entry.file_path)
+            } else {
+                // New note - use title-based filename
+                let filename = self.sanitize_filename(&note.title);
+                self.notes_dir.join(format!("{}.md", filename))
+            }
+        } else {
+            // Fallback to title-based filename
+            let filename = self.sanitize_filename(&note.title);
+            self.notes_dir.join(format!("{}.md", filename))
+        };
         
         let frontmatter = NoteFrontmatter {
             id: note.id.clone(),
@@ -349,17 +363,20 @@ impl FileStorageManager {
         format!("{:x}", hasher.finalize())
     }
     
-    /// Update notes index for fast lookups
+    /// Update notes index in database
     pub async fn update_notes_index(&self, notes: &HashMap<String, Note>) -> Result<(), String> {
-        let index_file = self.blink_dir.join("index.json");
+        use crate::modules::database;
         
-        let mut index = NotesIndex::default();
+        // Initialize database
+        let db = database::initialize_database(&self.notes_dir)
+            .map_err(|e| format!("Failed to initialize database: {}", e))?;
         
+        // Update each note in the database
         for (_, note) in notes {
             let filename = self.sanitize_filename(&note.title);
             let file_path = format!("{}.md", filename);
             
-            // Compute hash of the full file content (including frontmatter)
+            // Compute hash of the full file content
             let frontmatter = NoteFrontmatter {
                 id: note.id.clone(),
                 title: note.title.clone(),
@@ -374,40 +391,56 @@ impl FileStorageManager {
             let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
             let file_hash = Self::compute_file_hash(&file_content);
             
-            index.notes.insert(note.id.clone(), NoteIndexEntry {
+            // Create database record
+            let note_record = database::NoteRecord {
                 id: note.id.clone(),
                 title: note.title.clone(),
                 file_path,
-                created_at: note.created_at.clone(),
-                updated_at: note.updated_at.clone(),
+                created_at: chrono::DateTime::parse_from_rfc3339(&note.created_at)
+                    .unwrap_or_else(|_| chrono::Utc::now().into())
+                    .with_timezone(&chrono::Utc),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&note.updated_at)
+                    .unwrap_or_else(|_| chrono::Utc::now().into())
+                    .with_timezone(&chrono::Utc),
                 tags: note.tags.clone(),
-                position: note.position,
-                file_hash: Some(file_hash),
-            });
+                position: note.position.unwrap_or(0),
+                file_hash,
+            };
+            
+            // Upsert to database
+            db.upsert_note(&note_record)
+                .map_err(|e| format!("Failed to update database: {}", e))?;
         }
-        
-        let content = serde_json::to_string_pretty(&index)
-            .map_err(|e| format!("Failed to serialize notes index: {}", e))?;
-        
-        fs::write(&index_file, content)
-            .map_err(|e| format!("Failed to write notes index: {}", e))?;
         
         Ok(())
     }
     
-    /// Load notes index
+    /// Load notes index from database
     async fn load_notes_index(&self) -> Result<NotesIndex, String> {
-        let index_file = self.blink_dir.join("index.json");
+        use crate::modules::database;
         
-        if !index_file.exists() {
-            return Ok(NotesIndex::default());
+        // Initialize database
+        let db = database::initialize_database(&self.notes_dir)
+            .map_err(|e| format!("Failed to initialize database: {}", e))?;
+        
+        // Get all notes from database
+        let note_records = db.get_all_notes()
+            .map_err(|e| format!("Failed to load notes from database: {}", e))?;
+        
+        // Convert to index format
+        let mut index = NotesIndex::default();
+        for record in note_records {
+            index.notes.insert(record.id.clone(), NoteIndexEntry {
+                id: record.id.clone(),
+                title: record.title.clone(),
+                file_path: record.file_path.clone(),
+                created_at: record.created_at.to_rfc3339(),
+                updated_at: record.updated_at.to_rfc3339(),
+                tags: record.tags.clone(),
+                position: Some(record.position),
+                file_hash: Some(record.file_hash.clone()),
+            });
         }
-        
-        let content = fs::read_to_string(&index_file)
-            .map_err(|e| format!("Failed to read notes index: {}", e))?;
-        
-        let index: NotesIndex = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse notes index: {}", e))?;
         
         Ok(index)
     }

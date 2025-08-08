@@ -243,3 +243,39 @@ pub async fn reorder_notes(
     
     Ok(())
 }
+
+/// Test database migration (temporary command for testing)
+#[tauri::command]
+pub async fn test_database_migration(
+    config: State<'_, ConfigState>,
+) -> Result<String, String> {
+    use crate::modules::database;
+    
+    let config_lock = config.lock().await;
+    let data_dir = crate::modules::storage::get_configured_notes_directory(&config_lock)?;
+    
+    // Initialize database (will auto-migrate from index.json)
+    match database::initialize_database(&data_dir) {
+        Ok(db) => {
+            // Get all notes from database
+            let notes = db.get_all_notes()
+                .map_err(|e| format!("Failed to get notes from database: {}", e))?;
+            
+            let mut result = format!("✅ Database migration successful!\n");
+            result.push_str(&format!("📊 Found {} notes in database:\n", notes.len()));
+            
+            for note in notes {
+                result.push_str(&format!("  - {} (id: {}, pos: {})\n", 
+                    note.title, 
+                    &note.id[..8],
+                    note.position
+                ));
+            }
+            
+            Ok(result)
+        }
+        Err(e) => {
+            Err(format!("❌ Database migration failed: {}", e))
+        }
+    }
+}

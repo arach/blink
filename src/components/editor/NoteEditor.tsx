@@ -40,6 +40,7 @@ export interface NoteEditorProps {
   // Content
   content: string;
   onContentChange: (content: string) => void;
+  onSave?: () => void;
   
   // Preview mode
   isPreviewMode: boolean;
@@ -70,6 +71,7 @@ export interface NoteEditorProps {
 export function NoteEditor({
   content,
   onContentChange,
+  onSave,
   isPreviewMode,
   onPreviewToggle,
   config,
@@ -102,6 +104,7 @@ export function NoteEditor({
             <CodeMirrorEditor
               value={content}
               onChange={onContentChange}
+              onSave={onSave}
               placeholder={placeholder}
               vimMode={config.vimMode || false}
               fontSize={config.fontSize}

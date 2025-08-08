@@ -28,6 +28,7 @@ interface EditorAreaProps {
     notePaperStyle?: 'none' | 'dotted-grid' | 'lines' | 'ruled';
   };
   onContentChange: (content: string) => void;
+  onSave?: () => void;
   onPreviewToggle: () => void;
 }
 
@@ -40,6 +41,7 @@ export function EditorArea({
   textareaRef,
   editorConfig,
   onContentChange,
+  onSave,
   onPreviewToggle
 }: EditorAreaProps) {
   const { config } = useConfigStore();
@@ -62,10 +64,17 @@ export function EditorArea({
 
   // Header component with mode toggle
   const renderHeader = () => (
-    <div className="flex items-center justify-between px-5 py-3 border-b border-border/10">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-border/10 relative">
       <h2 className="text-lg font-medium text-foreground/90 truncate flex-1">
         {extractTitleFromContent(currentContent) || 'Untitled'}
       </h2>
+      
+      {/* Note ID display */}
+      {selectedNote && (
+        <div className="absolute left-5 top-full mt-1 text-[10px] font-mono text-muted-foreground/50">
+          ID: {selectedNote.id}
+        </div>
+      )}
       
       {/* Mode toggle */}
       <div className="relative flex items-center gap-1 bg-background/40 border border-border/30 rounded-xl">
@@ -167,6 +176,7 @@ export function EditorArea({
         <NoteEditor
           content={currentContent}
           onContentChange={onContentChange}
+          onSave={onSave}
           isPreviewMode={isPreviewMode}
           onPreviewToggle={onPreviewToggle}
           config={noteEditorConfig}

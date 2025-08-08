@@ -16,11 +16,11 @@ mod types;
 mod modules;
 mod services;
 
-// Re-export from modules
+// Re-export from modules  
 pub use modules::{
     logging::*,
     commands::*,
-    storage::{get_notes_directory, get_default_notes_directory, get_configured_notes_directory, 
+    storage::{get_default_notes_directory, get_configured_notes_directory, 
              get_config, update_config, get_detached_windows},
     windows::*,
 };
@@ -644,7 +644,14 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     
     // Add all notes to the menu
     let mut notes_vec: Vec<(&String, &Note)> = notes.iter().collect();
-    notes_vec.sort_by(|a, b| b.1.updated_at.cmp(&a.1.updated_at));
+    notes_vec.sort_by(|a, b| {
+        match (a.1.position, b.1.position) {
+            (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal, // Maintain original order
+        }
+    });
     
     for (note_id, note) in notes_vec.iter() {
         let is_open = detached_windows.values().any(|w| &w.note_id == *note_id);
@@ -984,6 +991,7 @@ pub fn run() {
             update_note,
             delete_note,
             reorder_notes,
+            get_notes_directory,
             import_notes_from_directory,
             import_single_file,
             export_note_to_file,
@@ -1001,6 +1009,7 @@ pub fn run() {
             open_directory_in_finder,
             open_directory_dialog,
             test_emit_new_note,
+            test_database_migration,
             set_window_focus,
             force_main_window_visible,
             debug_webview_state,
@@ -1034,6 +1043,11 @@ pub fn run() {
             get_log_file_path,
             get_recent_logs,
             get_window_state_truth,
+            list_all_windows,
+            create_test_window,
+            test_window_events,
+            force_create_detached_window,
+            cleanup_stale_windows,
             cleanup_destroyed_window,
             force_close_test_window,
             cleanup_stale_hybrid_windows
@@ -1402,7 +1416,7 @@ pub fn run() {
                         .map_err(|e| format!("Failed to create file storage: {}", e))?;
                     
                     // Run migration if needed
-                    let notes_dir = get_notes_directory()?;
+                    let notes_dir = modules::storage::get_notes_directory()?;
                     let json_path = notes_dir.join("notes.json");
                     file_storage.migrate_if_needed(json_path).await?;
                     

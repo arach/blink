@@ -100,6 +100,7 @@ function App() {
     createNewNote,
     selectNote,
     updateNoteContent,
+    saveNoteImmediately,
     deleteNote,
     setCurrentContent,
   } = useNoteManagement({
@@ -337,6 +338,7 @@ function App() {
                     modifiedState.markModified();
                   }
                 }}
+                onSave={saveNoteImmediately}
                 onPreviewToggle={() => setIsPreviewMode(!isPreviewMode)}
               />
             </div>

@@ -252,18 +252,25 @@
    VIM VISUAL MODE - Selection and cursor styling
    ================================================================= */
 
-/* Visual mode - highlight the selection (multiple possible classes) */
-.cm-editor.cm-vim-visual-mode .cm-selectionBackground,
-.cm-editor.cm-vim-visual-mode .cm-selectionMatch,
-.cm-editor.cm-vim-visual-mode .cm-selectedText,
-.cm-editor.cm-vim-visual-mode ::selection {
-  background-color: rgba(139, 92, 246, 0.3) !important;
-}
-
-/* Style the selection layer directly */
+/* Visual mode - Single selection style to avoid duplicates */
 .cm-editor.cm-vim-visual-mode .cm-selectionLayer .cm-selectionBackground {
   background-color: rgba(139, 92, 246, 0.3) !important;
-  mix-blend-mode: multiply;
+  mix-blend-mode: normal !important; /* Don't use multiply to avoid darkening */
+}
+
+/* Hide other selection mechanisms in visual mode to prevent duplicates */
+.cm-editor.cm-vim-visual-mode .cm-selectionMatch,
+.cm-editor.cm-vim-visual-mode .cm-selectedText,
+.cm-editor.cm-vim-visual-mode .cm-selectionBackground:not(.cm-selectionLayer .cm-selectionBackground) {
+  background-color: transparent !important;
+  display: none !important;
+}
+
+/* Native selection - make transparent to avoid conflicts */
+.cm-editor.cm-vim-visual-mode ::selection,
+.cm-editor.cm-vim-visual-mode .cm-line::selection,
+.cm-editor.cm-vim-visual-mode .cm-line *::selection {
+  background-color: transparent !important;
 }
 
 /* Style the fat cursor in visual mode */
@@ -276,15 +283,9 @@
   max-width: 100% !important;
 }
 
-/* Ensure selection is drawn */
+/* Hide regular caret in visual mode */
 .cm-editor.cm-vim-visual-mode .cm-content {
-  caret-color: transparent !important; /* Hide regular caret in visual mode */
-}
-
-/* Force selection visibility */
-.cm-editor.cm-vim-visual-mode .cm-line::selection,
-.cm-editor.cm-vim-visual-mode .cm-line *::selection {
-  background-color: rgba(139, 92, 246, 0.3) !important;
+  caret-color: transparent !important;
 }
 
 @keyframes cursor-visual-edge-pulse {
@@ -370,23 +371,16 @@
   background-color: rgba(59, 130, 246, 0.15) !important; /* Blue with transparency */
 }
 
-/* Visual mode selection - Purple theme */
-.cm-editor.cm-vim-visual-mode .cm-selectionBackground {
-  background-color: rgba(139, 92, 246, 0.25) !important; /* Purple with transparency */
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: 2px;
-}
-
 /* Visual line mode - Full line highlight */
-.cm-editor.cm-vim-visual-line .cm-selectionBackground {
+.cm-editor.cm-vim-visual-line .cm-selectionLayer .cm-selectionBackground {
   background-color: rgba(139, 92, 246, 0.2) !important;
   border-left: 3px solid var(--cursor-visual);
   border-radius: 0;
 }
 
 /* Visual block mode - Block selection */
-.cm-editor.cm-vim-visual-block .cm-selectionBackground {
-  background-color: rgba(139, 92, 246, 0.3) !important;
+.cm-editor.cm-vim-visual-block .cm-selectionLayer .cm-selectionBackground {
+  background-color: rgba(139, 92, 246, 0.35) !important;
   border: 1px solid rgba(139, 92, 246, 0.5);
   border-radius: 1px;
 }
@@ -397,11 +391,12 @@
   border: 1px solid rgba(239, 68, 68, 0.4);
 }
 
-/* Ensure selections are visible over syntax highlighting */
-.cm-vim-visual-mode .cm-selectionLayer,
-.cm-vim-visual-line .cm-selectionLayer,
-.cm-vim-visual-block .cm-selectionLayer {
-  z-index: 50;
+/* Ensure selection layer is properly positioned */
+.cm-editor.cm-vim-visual-mode .cm-selectionLayer,
+.cm-editor.cm-vim-visual-line .cm-selectionLayer,
+.cm-editor.cm-vim-visual-block .cm-selectionLayer {
+  z-index: 2 !important; /* Low z-index to stay behind text but above background */
+  pointer-events: none !important;
 }
 
 /* Insert mode selection (if any) */

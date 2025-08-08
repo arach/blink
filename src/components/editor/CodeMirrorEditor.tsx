@@ -3,7 +3,7 @@ import { EditorView, keymap, ViewUpdate, placeholder, drawSelection } from '@cod
 import { EditorState, Extension, Compartment } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands';
-import { vim, getCM } from '@replit/codemirror-vim';
+import { vim, getCM, Vim } from '@replit/codemirror-vim';
 import { listen } from '@tauri-apps/api/event';
 import { readText } from '@tauri-apps/plugin-clipboard-manager';
 
@@ -289,6 +289,21 @@ export function CodeMirrorEditor({
     });
 
     viewRef.current = view;
+
+    // Define vim :w command for saving
+    if (vimMode && onSave) {
+      Vim.defineEx('write', 'w', function() {
+        console.log('[BLINK] Vim :w command triggered');
+        onSave();
+      });
+      
+      // Also define :wq for save and quit (just save for now)
+      Vim.defineEx('wq', 'wq', function() {
+        console.log('[BLINK] Vim :wq command triggered');
+        onSave();
+        // Note: We don't actually quit since we're in a note editor
+      });
+    }
 
     if (autoFocus) {
       view.focus();
