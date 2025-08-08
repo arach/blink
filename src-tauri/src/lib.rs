@@ -16,11 +16,11 @@ mod types;
 mod modules;
 mod services;
 
-// Re-export from modules
+// Re-export from modules  
 pub use modules::{
     logging::*,
     commands::*,
-    storage::{get_notes_directory, get_default_notes_directory, get_configured_notes_directory, 
+    storage::{get_default_notes_directory, get_configured_notes_directory, 
              get_config, update_config, get_detached_windows},
     windows::*,
 };
@@ -93,7 +93,7 @@ async fn import_notes_from_directory(
         
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
             match parse_markdown_file(&path).await {
-                Ok(mut note) => {
+                Ok(note) => {
                     log_info!("FILE_IMPORT", "Imported note: {} from {}", note.title, path.display());
                     notes_lock.insert(note.id.clone(), note.clone());
                     // Initialize dirty tracking for imported note
@@ -316,8 +316,21 @@ fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
     let frontmatter: NoteFrontmatter = serde_yaml::from_str(frontmatter_str)
         .map_err(|e| format!("Failed to parse frontmatter: {}", e))?;
     
+    // Always generate a unique internal ID for the app
+    // The frontmatter 'id' is treated as a human-readable slug, not a UUID
+    let unique_id = Uuid::new_v4().to_string();
+    
+    // Log if we detect a UUID-like pattern in frontmatter (suggests old/corrupted data)
+    if frontmatter.id.len() == 36 && frontmatter.id.contains('-') {
+        log_warn!("FILE_STORAGE", "Note '{}' has UUID-like frontmatter ID: {}. Using new internal ID: {}", 
+                 frontmatter.title, frontmatter.id, unique_id);
+    } else {
+        log_debug!("FILE_STORAGE", "Note '{}' with slug '{}' assigned internal ID: {}", 
+                  frontmatter.title, frontmatter.id, unique_id);
+    }
+    
     Ok(Note {
-        id: frontmatter.id,
+        id: unique_id,
         title: frontmatter.title,
         content: body.to_string(),
         created_at: frontmatter.created_at,
@@ -328,8 +341,11 @@ fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
 }
 
 async fn write_note_to_file(note: &Note, file_path: &str) -> Result<(), String> {
+    // Generate a human-readable slug from the title for frontmatter
+    let slug = sanitize_filename(&note.title);
+    
     let frontmatter = NoteFrontmatter {
-        id: note.id.clone(),
+        id: slug, // Use slug instead of UUID in frontmatter
         title: note.title.clone(),
         created_at: note.created_at.clone(),
         updated_at: note.updated_at.clone(),
@@ -628,7 +644,14 @@ fn build_app_menu(app: &tauri::AppHandle, detached_windows: &HashMap<String, Det
     
     // Add all notes to the menu
     let mut notes_vec: Vec<(&String, &Note)> = notes.iter().collect();
-    notes_vec.sort_by(|a, b| b.1.updated_at.cmp(&a.1.updated_at));
+    notes_vec.sort_by(|a, b| {
+        match (a.1.position, b.1.position) {
+            (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal, // Maintain original order
+        }
+    });
     
     for (note_id, note) in notes_vec.iter() {
         let is_open = detached_windows.values().any(|w| &w.note_id == *note_id);
@@ -841,6 +864,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin({
             use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
             
@@ -967,6 +991,7 @@ pub fn run() {
             update_note,
             delete_note,
             reorder_notes,
+            get_notes_directory,
             import_notes_from_directory,
             import_single_file,
             export_note_to_file,
@@ -984,6 +1009,7 @@ pub fn run() {
             open_directory_in_finder,
             open_directory_dialog,
             test_emit_new_note,
+            test_database_migration,
             set_window_focus,
             force_main_window_visible,
             debug_webview_state,
@@ -1017,6 +1043,11 @@ pub fn run() {
             get_log_file_path,
             get_recent_logs,
             get_window_state_truth,
+            list_all_windows,
+            create_test_window,
+            test_window_events,
+            force_create_detached_window,
+            cleanup_stale_windows,
             cleanup_destroyed_window,
             force_close_test_window,
             cleanup_stale_hybrid_windows
@@ -1058,6 +1089,15 @@ pub fn run() {
                     log_info!("MENU", "✅ Main window shown and focused");
                 } else {
                     log_error!("MENU", "❌ Main window not found");
+                }
+            }
+            // Handle paste menu item
+            else if menu_id.0 == "59" || menu_id.0 == "paste" {
+                log_info!("MENU", "Paste menu item selected - triggering paste");
+                // For now, just emit an event that the frontend can handle
+                match app.emit("menu-paste", ()) {
+                    Ok(_) => log_info!("MENU", "✅ Paste event emitted"),
+                    Err(e) => log_error!("MENU", "❌ Failed to emit paste event: {}", e),
                 }
             }
             // Handle reload app menu item
@@ -1376,7 +1416,7 @@ pub fn run() {
                         .map_err(|e| format!("Failed to create file storage: {}", e))?;
                     
                     // Run migration if needed
-                    let notes_dir = get_notes_directory()?;
+                    let notes_dir = modules::storage::get_notes_directory()?;
                     let json_path = notes_dir.join("notes.json");
                     file_storage.migrate_if_needed(json_path).await?;
                     

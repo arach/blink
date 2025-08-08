@@ -18,6 +18,7 @@ interface UseNoteManagementReturn {
   createNewNote: () => Promise<void>;
   selectNote: (noteId: string) => void;
   updateNoteContent: (content: string) => void;
+  saveNoteImmediately: () => Promise<void>;
   deleteNote: (noteId: string) => Promise<void>;
   extractTitleFromContent: (content: string) => string;
 
@@ -49,8 +50,18 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
 
   // Real-time sync for selected note
   useNoteSync(selectedNoteId, (updatedNote) => {
+    console.log('[BLINK] [SYNC] Received note update:', {
+      selectedNoteId,
+      updatedNoteId: updatedNote?.id,
+      updatedNoteTitle: updatedNote?.title,
+      contentLength: updatedNote?.content?.length
+    });
+    
     if (updatedNote && selectedNoteId === updatedNote.id) {
+      console.log('[BLINK] [SYNC] Updating current content for note:', selectedNoteId);
       setCurrentContent(updatedNote.content);
+    } else {
+      console.log('[BLINK] [SYNC] Ignoring update - note ID mismatch or no update');
     }
   });
 
@@ -116,7 +127,20 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       });
       
       console.log('[BLINK] Created note:', newNote.id);
-      setNotes(prev => [newNote, ...prev]);
+      // Add the new note to the list - backend already handles positioning
+      setNotes(prev => {
+        const updated = [...prev, newNote];
+        // Sort by position (backend-assigned), with None values at the end
+        return updated.sort((a, b) => {
+          if (a.position !== undefined && b.position !== undefined) {
+            return a.position - b.position;
+          }
+          if (a.position !== undefined) return -1;
+          if (b.position !== undefined) return 1;
+          // Both have no position - maintain original order (don't sort by updated_at)
+          return 0;
+        });
+      });
       setSelectedNoteId(newNote.id);
       setCurrentContent('');
     } catch (error) {
@@ -126,6 +150,12 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
 
   // Select a note
   const selectNote = useCallback((noteId: string) => {
+    console.log('[BLINK] [SELECT] Selecting note:', {
+      noteId,
+      previousSelectedId: selectedNoteId,
+      notesCount: notes.length
+    });
+    
     // Clear any pending save for the previous note
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -134,8 +164,15 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
     
     const note = notes.find(n => n.id === noteId);
     if (note) {
+      console.log('[BLINK] [SELECT] Found note:', {
+        noteId: note.id,
+        title: note.title,
+        contentLength: note.content.length
+      });
       setSelectedNoteId(noteId);
       setCurrentContent(note.content);
+    } else {
+      console.error('[BLINK] [SELECT] Note not found:', noteId);
     }
   }, [notes]);
 
@@ -148,11 +185,16 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
     
     // Extract title and update the note in local state immediately
     const title = extractTitleFromContent(content);
-    setNotes(prev => prev.map(note => 
-      note.id === selectedNoteId 
-        ? { ...note, title, content, updated_at: new Date().toISOString() }
-        : note
-    ));
+    setNotes(prev => {
+      // Update the note without re-sorting to preserve order
+      const updated = prev.map(note => 
+        note.id === selectedNoteId 
+          ? { ...note, title, content, updated_at: new Date().toISOString() }
+          : note
+      );
+      // Don't re-sort here - preserve the original order from the backend
+      return updated;
+    });
 
     // Clear existing timeout
     if (saveTimeoutRef.current) {
@@ -192,6 +234,59 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
       }
     }, 30000); // 30 second save interval
   }, [selectedNoteId, options]);
+
+  // Save note immediately (for Cmd+S)
+  const saveNoteImmediately = useCallback(async () => {
+    if (!selectedNoteId || !currentContent === undefined) return;
+    
+    // Clear any pending debounced save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    
+    console.log('[BLINK] Saving note immediately:', selectedNoteId);
+    
+    // Notify save is starting
+    options?.onSaveStart?.();
+    
+    try {
+      const title = extractTitleFromContent(currentContent);
+      
+      // Update in backend
+      const updatedNote = await invoke<Note>('update_note', {
+        id: selectedNoteId,
+        request: {
+          title,
+          content: currentContent,
+          tags: undefined // Keep existing tags
+        }
+      });
+
+      console.log('[BLINK] Note saved immediately:', updatedNote.id);
+      
+      // Update local state to reflect saved state
+      setNotes(prev => {
+        const updated = prev.map(note => 
+          note.id === selectedNoteId 
+            ? { ...note, title, content: currentContent, updated_at: updatedNote.updated_at }
+            : note
+        );
+        // Don't re-sort here - preserve the original order from the backend
+        return updated;
+      });
+      
+      // Notify save completed
+      options?.onSaveComplete?.();
+      
+      // Notify other windows about the update
+      noteSyncService.noteUpdated(updatedNote);
+      
+    } catch (error) {
+      console.error('[BLINK] Failed to save note immediately:', error);
+      options?.onSaveError?.(error);
+    }
+  }, [selectedNoteId, currentContent, options]);
 
   // Delete a note
   const deleteNote = useCallback(async (noteId: string) => {
@@ -260,6 +355,7 @@ export function useNoteManagement(options?: UseNoteManagementOptions): UseNoteMa
     createNewNote,
     selectNote,
     updateNoteContent,
+    saveNoteImmediately,
     deleteNote,
     extractTitleFromContent,
 

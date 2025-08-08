@@ -19,17 +19,6 @@ interface ContextualNote {
 export default function ContextualFloatingNotes() {
   const [notes, setNotes] = useState<ContextualNote[]>([
     {
-      id: "demo-explanation",
-      title: "Interactive Demo",
-      content:
-        "These notes demonstrate the core functionality:\n\n• Click to collapse/expand\n• Drag to reposition\n• Always stay on top",
-      triggerSection: "demo",
-      color: "bg-blue-50/95",
-      icon: Info,
-      position: { x: 20, y: 25 },
-      isVisible: false,
-    },
-    {
       id: "keyboard-power",
       title: "Keyboard Mastery",
       content: "Pro tip: Memorize ⌘+H, ⌘+N, and ⌘+1-9 for maximum productivity.",
@@ -37,16 +26,6 @@ export default function ContextualFloatingNotes() {
       color: "bg-amber-50/95",
       icon: Lightbulb,
       position: { x: 75, y: 40 },
-      isVisible: false,
-    },
-    {
-      id: "workflow-integration",
-      title: "Workflow Magic",
-      content: "Floating notes integrate seamlessly with your existing workflow - no disruption, just enhancement.",
-      triggerSection: "features",
-      color: "bg-emerald-50/95",
-      icon: Target,
-      position: { x: 15, y: 60 },
       isVisible: false,
     },
     {
@@ -94,7 +73,7 @@ export default function ContextualFloatingNotes() {
     )
 
     // Observe sections
-    const sections = ["demo", "features", "shortcuts", "download"]
+    const sections = ["shortcuts", "download"]
     sections.forEach((sectionId) => {
       const element = document.getElementById(sectionId)
       if (element && observerRef.current) {

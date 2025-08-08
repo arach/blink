@@ -27,22 +27,39 @@ async fn save_note_using_file_storage(
     file_storage.save_note(note).await
 }
 
+/// Get the current notes directory path
+#[tauri::command]
+pub async fn get_notes_directory(config: State<'_, ConfigState>) -> Result<String, String> {
+    let config_lock = config.lock().await;
+    let notes_dir = crate::modules::storage::get_configured_notes_directory(&config_lock)?;
+    Ok(notes_dir.to_string_lossy().to_string())
+}
+
 /// Get all notes, sorted by position (manual ordering)
 #[tauri::command]
 pub async fn get_notes(notes: State<'_, NotesState>) -> Result<Vec<Note>, String> {
+    log_info!("GET_NOTES", "🔍 Frontend requested notes list");
+    
     let notes_lock = notes.lock().await;
     let mut notes_vec: Vec<Note> = notes_lock.values().cloned().collect();
     
+    log_info!("GET_NOTES", "📋 Found {} notes in memory", notes_vec.len());
+    for note in &notes_vec {
+        log_debug!("GET_NOTES", "  - {} ({}) pos={:?}", note.title, &note.id[..8], note.position);
+    }
+    
     // Sort by position (ascending), with None values at the end
+    // For notes without position, maintain original order (don't sort by updated_at)
     notes_vec.sort_by(|a, b| {
         match (a.position, b.position) {
             (Some(pos_a), Some(pos_b)) => pos_a.cmp(&pos_b),
             (Some(_), None) => std::cmp::Ordering::Less,
             (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => b.created_at.cmp(&a.created_at), // Fallback to newest first
+            (None, None) => std::cmp::Ordering::Equal, // Maintain original order
         }
     });
     
+    log_info!("GET_NOTES", "✅ Returning {} notes to frontend (sorted by position)", notes_vec.len());
     Ok(notes_vec)
 }
 
@@ -225,4 +242,40 @@ pub async fn reorder_notes(
     log_info!("NOTES", "Reordered {} notes", note_ids.len());
     
     Ok(())
+}
+
+/// Test database migration (temporary command for testing)
+#[tauri::command]
+pub async fn test_database_migration(
+    config: State<'_, ConfigState>,
+) -> Result<String, String> {
+    use crate::modules::database;
+    
+    let config_lock = config.lock().await;
+    let data_dir = crate::modules::storage::get_configured_notes_directory(&config_lock)?;
+    
+    // Initialize database (will auto-migrate from index.json)
+    match database::initialize_database(&data_dir) {
+        Ok(db) => {
+            // Get all notes from database
+            let notes = db.get_all_notes()
+                .map_err(|e| format!("Failed to get notes from database: {}", e))?;
+            
+            let mut result = format!("✅ Database migration successful!\n");
+            result.push_str(&format!("📊 Found {} notes in database:\n", notes.len()));
+            
+            for note in notes {
+                result.push_str(&format!("  - {} (id: {}, pos: {})\n", 
+                    note.title, 
+                    &note.id[..8],
+                    note.position
+                ));
+            }
+            
+            Ok(result)
+        }
+        Err(e) => {
+            Err(format!("❌ Database migration failed: {}", e))
+        }
+    }
 }

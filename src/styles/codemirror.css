@@ -1,9 +1,16 @@
 /* CodeMirror Custom Styles for Blink */
 
+/* Prevent horizontal overflow from cursor layers */
+.cm-cursorLayer,
+.cm-vimCursorLayer {
+  overflow: hidden !important;
+}
+
 /* Hide default scrollbars and use custom ones */
 .cm-scroller {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--border) / 0.3) transparent;
+  overflow-x: auto !important; /* Allow horizontal scroll only when needed */
 }
 
 .cm-scroller::-webkit-scrollbar {
@@ -59,207 +66,433 @@
   background-position: 60px calc(var(--editor-font-size) * var(--editor-line-height) * 0.5);
 }
 
-/* Vim mode cursor styles - Normal mode block cursor */
-.cm-vim-fat-cursor .cm-cursor-primary {
-  display: inline-block !important;
-  width: 0.8em !important;
-  height: 1.4em !important;
-  background-color: hsl(var(--primary)) !important;
-  border: 2px solid hsl(var(--primary-foreground)) !important;
-  opacity: 1;
-  margin-left: -1px;
-  margin-top: -2px;
-  animation: vim-cursor-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
-              0 0 10px hsl(var(--primary) / 0.6),
-              inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
-  z-index: 10;
+/* =================================================================
+   ENHANCED CURSOR SYSTEM - MODE-AWARE STYLING
+   ================================================================= */
+
+/* Define mode-specific color variables with fallbacks */
+:root {
+  --cursor-normal: #3b82f6;     /* Blue for normal mode */
+  --cursor-insert: #10b981;     /* Green for insert mode */
+  --cursor-visual: #8b5cf6;     /* Purple for visual mode */
+  --cursor-command: #f59e0b;    /* Amber for command mode */
+  --cursor-replace: #ef4444;    /* Red for replace mode */
+  --cursor-operator: #06b6d4;   /* Cyan for operator pending */
 }
 
-/* Force block cursor visibility in vim normal mode */
-.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor {
-  display: inline-block !important;
+/* Fallback cursor colors for dark themes */
+[data-theme="dark"] {
+  --cursor-normal: #60a5fa;     /* Lighter blue for dark mode */
+  --cursor-insert: #34d399;     /* Lighter green for dark mode */
+  --cursor-visual: #a78bfa;     /* Lighter purple for dark mode */
+  --cursor-command: #fbbf24;    /* Lighter amber for dark mode */
+  --cursor-replace: #f87171;    /* Lighter red for dark mode */
+  --cursor-operator: #22d3ee;   /* Lighter cyan for dark mode */
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --cursor-normal: #0066ff;
+    --cursor-insert: #00cc66;
+    --cursor-visual: #9966ff;
+    --cursor-command: #ff9900;
+    --cursor-replace: #ff0000;
+    --cursor-operator: #00ffff;
+  }
+}
+
+/* Base cursor reset - ensure visibility foundation */
+.cm-editor .cm-cursor,
+.cm-editor .cm-cursor-primary {
   visibility: visible !important;
-  width: 0.8em !important;
-  height: 1.4em !important;
-  background-color: hsl(var(--primary)) !important;
-  border: 2px solid hsl(var(--primary-foreground)) !important;
-  opacity: 1;
-  margin-left: -1px;
-  margin-top: -2px;
-  animation: vim-cursor-pulse 1.2s ease-in-out infinite;
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
-              0 0 10px hsl(var(--primary) / 0.6),
-              inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
-  z-index: 10;
+  display: inline-block !important;
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: none;
+  transition: all 0.15s ease-out;
 }
 
-/* Enhanced vim cursor pulse animation */
-@keyframes vim-cursor-pulse {
+/* =================================================================
+   VIM NORMAL MODE - Block cursor (Blue) - AGGRESSIVE OVERRIDES
+   ================================================================= */
+
+/* Normal mode - Simple block cursor */
+.cm-editor.cm-vim-normal-mode .cm-cursor,
+.cm-editor.cm-vim-normal-mode .cm-cursor-primary {
+  border-left: none !important;
+  background-color: #3b82f6 !important;
+  width: 0.8em !important;
+  opacity: 0.8 !important;
+}
+
+/* Insert mode - Thin green cursor */
+.cm-editor.cm-vim-insert-mode .cm-cursor,
+.cm-editor.cm-vim-insert-mode .cm-cursor-primary {
+  border-left: 2px solid #10b981 !important;
+  background: transparent !important;
+  width: auto !important;
+}
+
+@keyframes cursor-normal-strong-pulse {
   0%, 100% { 
     opacity: 1;
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.8), 
-                0 0 10px hsl(var(--primary) / 0.6),
-                inset 0 0 10px hsl(var(--primary-foreground) / 0.3);
+    transform: scale(1) translateZ(0);
+    box-shadow: 
+      0 0 16px #3b82f6,
+      0 0 8px #3b82f6,
+      0 0 4px #3b82f6,
+      inset 0 0 8px rgba(255, 255, 255, 0.2);
   }
   50% { 
     opacity: 0.85;
-    box-shadow: 0 0 30px hsl(var(--primary)), 
-                0 0 15px hsl(var(--primary) / 0.8),
-                inset 0 0 15px hsl(var(--primary-foreground) / 0.5);
+    transform: scale(1.02) translateZ(0);
+    box-shadow: 
+      0 0 24px #3b82f6,
+      0 0 12px #3b82f6,
+      0 0 6px #3b82f6,
+      inset 0 0 12px rgba(255, 255, 255, 0.3);
   }
 }
 
-/* Ensure the cursor-primary is visible */
-.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-cursor-primary {
+@keyframes cursor-normal-pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 
+      0 0 12px var(--cursor-normal),
+      0 0 6px var(--cursor-normal),
+      inset 0 0 6px rgba(255, 255, 255, 0.2);
+  }
+  50% { 
+    opacity: 0.85;
+    transform: scale(1.02);
+    box-shadow: 
+      0 0 18px var(--cursor-normal),
+      0 0 9px var(--cursor-normal),
+      inset 0 0 8px rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* =================================================================
+   VIM INSERT MODE - Thin cursor (Green)
+   ================================================================= */
+.cm-editor.cm-vim-insert-mode .cm-cursor,
+.cm-editor.cm-vim-insert-mode .cm-cursor-primary {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 2px !important;
+  height: 1.3em !important;
+  background: linear-gradient(to bottom, var(--cursor-insert), color-mix(in srgb, var(--cursor-insert) 80%, white)) !important;
+  border: none !important;
+  border-radius: 1px !important;
+  opacity: 1 !important;
+  margin-left: 0 !important;
+  margin-top: -1px !important;
+  box-shadow: 
+    0 0 8px var(--cursor-insert),
+    0 0 4px var(--cursor-insert) !important;
+  animation: cursor-insert-blink 1.2s ease-in-out infinite !important;
+  z-index: 100 !important;
+}
+
+@keyframes cursor-insert-blink {
+  0%, 50% { 
+    opacity: 1;
+    box-shadow: 
+      0 0 8px var(--cursor-insert),
+      0 0 4px var(--cursor-insert);
+  }
+  51%, 100% { 
+    opacity: 0.4;
+    box-shadow: 
+      0 0 4px var(--cursor-insert),
+      0 0 2px var(--cursor-insert);
+  }
+}
+
+/* =================================================================
+   VIM REPLACE MODE - Underline cursor (Red)
+   ================================================================= */
+.cm-editor.cm-vim-replace-mode .cm-cursor,
+.cm-editor.cm-vim-replace-mode .cm-cursor-primary {
   display: inline-block !important;
   visibility: visible !important;
   width: 0.8em !important;
-  height: 1.4em !important;
-  background-color: hsl(var(--primary)) !important;
-  border: 2px solid hsl(var(--primary-foreground)) !important;
-  border-left: none !important;
-  opacity: 1;
-  z-index: 10;
-}
-
-/* Vim insert mode - thin cursor */
-.cm-vim-insert-mode .cm-cursor-primary {
-  width: 2px !important;
-  height: 1.2em !important;
-  background-color: transparent !important;
-  border-left: 2px solid hsl(var(--primary)) !important;
-  opacity: 1;
-  margin-left: 0;
-}
-
-/* Ensure the vim cursor is visible */
-.cm-vim-fat-cursor {
-  position: relative;
-  display: inline-block;
-  width: 0.8em;
-  height: 1.4em;
-  background-color: hsl(var(--primary));
-  border: 2px solid hsl(var(--primary-foreground));
-  opacity: 1;
-  box-shadow: 0 0 20px hsl(var(--primary) / 0.8);
-  z-index: 10;
-}
-
-/* Enable text selection with mouse in vim mode */
-.cm-editor.cm-vim-mode .cm-content {
-  user-select: text !important;
-  -webkit-user-select: text !important;
-}
-
-/* Ensure cursor is always visible */
-.cm-editor .cm-cursor {
-  visibility: visible !important;
-}
-
-/* Make cursor more visible in all states */
-.cm-cursor-primary {
-  visibility: visible !important;
-}
-
-/* Force vim normal mode block cursor with after pseudo-element as fallback */
-.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode) .cm-line {
-  position: relative;
-}
-
-/* Create a visible cursor using the vim fat cursor class */
-.cm-vim-fat-cursor {
-  position: relative;
-  display: inline-block;
-  width: 0.7em;
-  height: 1.2em;
-  background-color: hsl(var(--foreground));
-  margin-left: -1px;
-  opacity: 1;
-  animation: vim-cursor-blink 1s ease-in-out infinite;
-}
-
-/* Ensure vim cursor container is visible */
-.cm-vim-cursor {
-  display: inline-block !important;
-  visibility: visible !important;
-}
-
-/* Override any theme that might hide the cursor */
-.cm-editor .cm-vim-fat-cursor * {
-  visibility: visible !important;
-}
-
-/* Visual mode selection */
-.cm-editor.cm-vim-mode .cm-selectionBackground {
-  background-color: hsl(var(--primary) / 0.3) !important;
-}
-
-/* Visual mode selection - ensure it's visible in focused editor */
-.cm-editor.cm-vim-mode.cm-focused .cm-selectionBackground {
-  background-color: hsl(var(--primary) / 0.4) !important;
-}
-
-/* Visual mode - ensure selected text is visible */
-.cm-vim-visual-mode .cm-selectionBackground {
-  background-color: hsl(var(--primary) / 0.4) !important;
-}
-
-/* Visual mode cursor (should be at the end of selection) */
-.cm-vim-visual-mode .cm-cursor {
-  display: inline-block !important;
-  width: 0.7em !important;
-  height: 1.2em !important;
-  background-color: hsl(var(--foreground)) !important;
-  opacity: 1;
-}
-
-/* Ensure visual mode selections are visible over syntax highlighting */
-.cm-vim-visual-mode .cm-selectionLayer {
-  z-index: 2;
-}
-
-/* Visual line mode */
-.cm-vim-visual-line .cm-selectionBackground {
-  background-color: hsl(var(--primary) / 0.4) !important;
-}
-
-/* Vim command panel */
-.cm-vim-panel {
-  position: fixed !important;
-  bottom: 26px !important; /* Above the status footer */
-  left: 0 !important;
-  right: 0 !important;
-  background-color: hsl(var(--background) / 0.95) !important;
-  border-top: 1px solid hsl(var(--border) / 0.5) !important;
-  padding: 6px 20px !important;
-  font-size: 12px !important;
-  font-family: ui-monospace, monospace !important;
-  color: hsl(var(--foreground)) !important;
-  backdrop-filter: blur(12px) !important;
+  height: 2px !important;
+  background: linear-gradient(to right, var(--cursor-replace), color-mix(in srgb, var(--cursor-replace) 70%, white)) !important;
+  border: none !important;
+  border-radius: 1px !important;
+  opacity: 1 !important;
+  margin-left: 0 !important;
+  margin-top: 1.1em !important;
+  box-shadow: 
+    0 0 8px var(--cursor-replace),
+    0 0 4px var(--cursor-replace) !important;
+  animation: cursor-replace-pulse 1.5s ease-in-out infinite !important;
   z-index: 100 !important;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2) !important;
 }
+
+@keyframes cursor-replace-pulse {
+  0%, 100% { 
+    opacity: 1;
+    box-shadow: 
+      0 0 8px var(--cursor-replace),
+      0 0 4px var(--cursor-replace);
+  }
+  50% { 
+    opacity: 0.7;
+    box-shadow: 
+      0 0 12px var(--cursor-replace),
+      0 0 6px var(--cursor-replace);
+  }
+}
+
+/* =================================================================
+   VIM VISUAL MODE - Selection and cursor styling
+   ================================================================= */
+
+/* Visual mode - Single selection style to avoid duplicates */
+.cm-editor.cm-vim-visual-mode .cm-selectionLayer .cm-selectionBackground {
+  background-color: rgba(139, 92, 246, 0.3) !important;
+  mix-blend-mode: normal !important; /* Don't use multiply to avoid darkening */
+}
+
+/* Hide other selection mechanisms in visual mode to prevent duplicates */
+.cm-editor.cm-vim-visual-mode .cm-selectionMatch,
+.cm-editor.cm-vim-visual-mode .cm-selectedText,
+.cm-editor.cm-vim-visual-mode .cm-selectionBackground:not(.cm-selectionLayer .cm-selectionBackground) {
+  background-color: transparent !important;
+  display: none !important;
+}
+
+/* Native selection - make transparent to avoid conflicts */
+.cm-editor.cm-vim-visual-mode ::selection,
+.cm-editor.cm-vim-visual-mode .cm-line::selection,
+.cm-editor.cm-vim-visual-mode .cm-line *::selection {
+  background-color: transparent !important;
+}
+
+/* Style the fat cursor in visual mode */
+.cm-editor.cm-vim-visual-mode .cm-fat-cursor {
+  background-color: #8b5cf6 !important;
+  color: white !important;
+  border-radius: 2px !important;
+  opacity: 0.9 !important;
+  overflow: hidden !important;
+  max-width: 100% !important;
+}
+
+/* Hide regular caret in visual mode */
+.cm-editor.cm-vim-visual-mode .cm-content {
+  caret-color: transparent !important;
+}
+
+@keyframes cursor-visual-edge-pulse {
+  0%, 100% { 
+    opacity: 1;
+    width: 3px;
+    box-shadow: 
+      0 0 12px #8b5cf6,
+      0 0 6px #8b5cf6;
+  }
+  50% { 
+    opacity: 0.8;
+    width: 4px;
+    box-shadow: 
+      0 0 20px #8b5cf6,
+      0 0 10px #8b5cf6;
+  }
+}
+
+
+
+@keyframes cursor-visual-glow {
+  0%, 100% { 
+    opacity: 0.9;
+    box-shadow: 
+      0 0 12px var(--cursor-visual),
+      0 0 6px var(--cursor-visual),
+      inset 0 0 4px rgba(255, 255, 255, 0.2);
+  }
+  50% { 
+    opacity: 1;
+    box-shadow: 
+      0 0 18px var(--cursor-visual),
+      0 0 9px var(--cursor-visual),
+      inset 0 0 6px rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* =================================================================
+   VIM OPERATOR PENDING MODE - Diamond cursor (Cyan)
+   ================================================================= */
+.cm-editor.cm-vim-operator-pending .cm-cursor,
+.cm-editor.cm-vim-operator-pending .cm-cursor-primary {
+  display: inline-block !important;
+  visibility: visible !important;
+  width: 0.6em !important;
+  height: 0.6em !important;
+  background: linear-gradient(135deg, var(--cursor-operator), color-mix(in srgb, var(--cursor-operator) 70%, white)) !important;
+  border: 2px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 2px !important;
+  opacity: 1 !important;
+  margin-left: 0.1em !important;
+  margin-top: 0.35em !important;
+  transform: rotate(45deg) !important;
+  box-shadow: 
+    0 0 10px var(--cursor-operator),
+    0 0 5px var(--cursor-operator) !important;
+  animation: cursor-operator-spin 2s linear infinite !important;
+  z-index: 100 !important;
+}
+
+@keyframes cursor-operator-spin {
+  0% { 
+    transform: rotate(45deg) scale(1);
+    opacity: 1;
+  }
+  50% { 
+    transform: rotate(225deg) scale(1.1);
+    opacity: 0.8;
+  }
+  100% { 
+    transform: rotate(405deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* =================================================================
+   SELECTION STYLING - Mode-aware
+   ================================================================= */
+
+/* Normal mode selection (when dragging with mouse) */
+.cm-editor.cm-vim-mode:not(.cm-vim-visual-mode) .cm-selectionBackground {
+  background-color: rgba(59, 130, 246, 0.15) !important; /* Blue with transparency */
+}
+
+/* Visual line mode - Full line highlight */
+.cm-editor.cm-vim-visual-line .cm-selectionLayer .cm-selectionBackground {
+  background-color: rgba(139, 92, 246, 0.2) !important;
+  border-left: 3px solid var(--cursor-visual);
+  border-radius: 0;
+}
+
+/* Visual block mode - Block selection */
+.cm-editor.cm-vim-visual-block .cm-selectionLayer .cm-selectionBackground {
+  background-color: rgba(139, 92, 246, 0.35) !important;
+  border: 1px solid rgba(139, 92, 246, 0.5);
+  border-radius: 1px;
+}
+
+/* Replace mode selection */
+.cm-editor.cm-vim-replace-mode .cm-selectionBackground {
+  background-color: rgba(239, 68, 68, 0.2) !important; /* Red with transparency */
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* Ensure selection layer is properly positioned */
+.cm-editor.cm-vim-visual-mode .cm-selectionLayer,
+.cm-editor.cm-vim-visual-line .cm-selectionLayer,
+.cm-editor.cm-vim-visual-block .cm-selectionLayer {
+  z-index: 2 !important; /* Low z-index to stay behind text but above background */
+  pointer-events: none !important;
+}
+
+/* Insert mode selection (if any) */
+.cm-editor.cm-vim-insert-mode .cm-selectionBackground {
+  background-color: rgba(16, 185, 129, 0.15) !important; /* Green with transparency */
+}
+
+/* =================================================================
+   VIM COMMAND PANEL - Enhanced styling
+   ================================================================= */
+.cm-vim-panel {
+  position: absolute !important; /* Use absolute positioning within the editor container */
+  bottom: 0 !important; /* Align to bottom of editor container */
+  left: 0 !important; /* Start from left edge of editor container */
+  right: 0 !important; /* Extend to right edge of editor container */
+  height: 28px !important; /* Very compact height */
+  background: rgba(0, 0, 0, 0.9) !important; /* 90% opaque black background */
+  background-color: rgba(0, 0, 0, 0.9) !important; /* Ensure background is set */
+  background-image: none !important; /* Explicitly remove any gradient */
+  border: none !important; /* Remove all borders first */
+  border-top: 1px solid var(--cursor-command) !important; /* Add back only top border */
+  border-bottom: 0 !important; /* Explicitly no bottom border */
+  border-left: 0 !important; /* No left border */
+  border-right: 0 !important; /* No right border */
+  padding: 0 8px !important; /* Minimal padding for closer to edge */
+  display: flex !important;
+  align-items: center !important; /* Center content vertically */
+  font-size: 13px !important; /* Smaller, more elegant font size */
+  font-family: ui-monospace, monospace !important;
+  font-weight: 300 !important; /* Thin/light weight */
+  color: var(--cursor-command) !important; /* Use the command color directly */
+  z-index: 10000 !important; /* Higher z-index to ensure it's on top */
+  backdrop-filter: none !important; /* No blur effect */
+  box-shadow: none !important; /* No shadow */
+}
+
+/* Remove the hardcoded colon - vim already provides it */
+/* .cm-vim-panel::before - removed to prevent double colon */
 
 /* Vim command line input styling */
 .cm-vim-panel input {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  width: 100%;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  color: var(--cursor-command) !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: 300 !important; /* Thin/light weight to match panel */
+  width: 100% !important;
+  height: 100% !important; /* Fill the panel height */
+  padding: 0 !important; /* Remove default padding */
+  margin: 0 !important; /* Remove default margin */
+  letter-spacing: normal !important; /* Normal letter spacing for smaller text */
 }
 
-/* Search match highlighting */
+/* Command line cursor in panel */
+.cm-vim-panel input:focus {
+  caret-color: var(--cursor-command) !important;
+}
+
+/* =================================================================
+   SEARCH HIGHLIGHTING - Mode-aware
+   ================================================================= */
 .cm-searchMatch {
-  background-color: hsl(var(--primary) / 0.3);
-  outline: 1px solid hsl(var(--primary) / 0.5);
+  background-color: rgba(245, 158, 11, 0.3) !important; /* Amber background */
+  outline: 1px solid var(--cursor-command) !important;
+  border-radius: 3px;
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.4);
 }
 
 .cm-searchMatch.cm-searchMatch-selected {
-  background-color: hsl(var(--primary) / 0.6);
+  background-color: var(--cursor-command) !important;
+  color: #000 !important;
+  font-weight: 600;
+  box-shadow: 0 0 8px var(--cursor-command);
+}
+
+/* =================================================================
+   NON-VIM MODE CURSOR - Standard editor behavior  
+   ================================================================= */
+.cm-editor:not(.cm-vim-mode) .cm-cursor,
+.cm-editor:not(.cm-vim-mode) .cm-cursor-primary {
+  border-left: 2px solid var(--cursor-insert) !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  width: 2px !important;
+  height: 1.3em !important;
+  margin-left: 0 !important;
+  margin-top: -1px !important;
+  box-shadow: 0 0 6px var(--cursor-insert) !important;
+  animation: cursor-standard-blink 1s ease-in-out infinite !important;
+}
+
+@keyframes cursor-standard-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
 }
 
 /* Markdown syntax highlighting */
@@ -351,6 +584,21 @@
   opacity: 1;
 }
 
+/* Ensure cursors remain visible even in focus mode */
+.focus-mode .cm-cursor,
+.focus-mode .cm-cursor-primary,
+.focus-mode .cm-vim-fat-cursor {
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: 9999 !important;
+}
+
+/* Also ensure the line containing cursor stays more visible in focus mode */
+.focus-mode .cm-line:has(.cm-cursor),
+.focus-mode .cm-line:has(.cm-cursor-primary) {
+  opacity: 1 !important;
+}
+
 /* Typewriter mode */
 .cm-content.typewriter-mode {
   padding-top: 50vh !important;
@@ -366,8 +614,61 @@
   box-shadow: none !important;
 }
 
-/* Ensure proper text color */
+/* =================================================================
+   FINAL TEXT AND CARET STYLING - OVERRIDE VIM PLUGIN DEFAULTS
+   ================================================================= */
+
+/* Force override vim plugin's transparent caret */
+.cm-editor.cm-vim-mode .cm-line,
+.cm-editor.cm-vim-mode .cm-content,
+.cm-editor.cm-vim-mode,
+.cm-vim-mode .cm-line,
+.cm-vim-mode .cm-content,
+.cm-vim-mode {
+  caret-color: var(--cursor-normal) !important;
+}
+
 .cm-content {
   color: hsl(var(--foreground));
-  caret-color: hsl(var(--primary));
+  caret-color: var(--cursor-insert) !important; /* Default to insert mode color */
+}
+
+/* Dynamic caret color based on vim mode - VERY HIGH SPECIFICITY */
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode):not(.cm-vim-visual-mode):not(.cm-vim-replace-mode) .cm-content,
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode):not(.cm-vim-visual-mode):not(.cm-vim-replace-mode) .cm-line,
+.cm-editor.cm-vim-mode:not(.cm-vim-insert-mode):not(.cm-vim-visual-mode):not(.cm-vim-replace-mode) * {
+  caret-color: var(--cursor-normal) !important;
+}
+
+.cm-editor.cm-vim-insert-mode .cm-content,
+.cm-editor.cm-vim-insert-mode .cm-line,
+.cm-editor.cm-vim-insert-mode * {
+  caret-color: var(--cursor-insert) !important;
+}
+
+.cm-editor.cm-vim-visual-mode .cm-content,
+.cm-editor.cm-vim-visual-mode .cm-line,
+.cm-editor.cm-vim-visual-mode * {
+  caret-color: var(--cursor-visual) !important;
+}
+
+.cm-editor.cm-vim-replace-mode .cm-content,
+.cm-editor.cm-vim-replace-mode .cm-line,
+.cm-editor.cm-vim-replace-mode * {
+  caret-color: var(--cursor-replace) !important;
+}
+
+.cm-editor.cm-vim-operator-pending .cm-content,
+.cm-editor.cm-vim-operator-pending .cm-line,
+.cm-editor.cm-vim-operator-pending * {
+  caret-color: var(--cursor-operator) !important;
+}
+
+/* Nuclear option - force caret visibility everywhere in vim mode */
+.cm-editor.cm-vim-mode *:not(.cm-vim-insert-mode *) {
+  caret-color: var(--cursor-normal) !important;
+}
+
+.cm-editor.cm-vim-insert-mode * {
+  caret-color: var(--cursor-insert) !important;
 }

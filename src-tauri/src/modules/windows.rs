@@ -515,6 +515,125 @@ pub async fn cleanup_stale_hybrid_windows(
 }
 
 #[tauri::command]
+pub async fn list_all_windows(app: AppHandle) -> Result<Vec<String>, String> {
+    let webview_windows = app.webview_windows();
+    let mut window_list = Vec::new();
+    
+    for (label, window) in webview_windows.iter() {
+        let mut info = format!("{}", label);
+        
+        // Add visibility status
+        if let Ok(visible) = window.is_visible() {
+            info.push_str(if visible { " (visible)" } else { " (hidden)" });
+        }
+        
+        // Add position if available
+        if let Ok(pos) = window.outer_position() {
+            info.push_str(&format!(" at ({}, {})", pos.x, pos.y));
+        }
+        
+        // Add size if available
+        if let Ok(size) = window.inner_size() {
+            info.push_str(&format!(" size {}x{}", size.width, size.height));
+        }
+        
+        window_list.push(info);
+    }
+    
+    log_info!("DEBUG", "Listed {} windows", window_list.len());
+    Ok(window_list)
+}
+
+#[tauri::command]
+pub async fn create_test_window(app: AppHandle) -> Result<(), String> {
+    let test_label = "test-window";
+    
+    // Close existing test window if it exists
+    if let Some(existing) = app.get_webview_window(test_label) {
+        existing.close().map_err(|e| e.to_string())?;
+    }
+    
+    // Create new test window
+    WebviewWindowBuilder::new(
+        &app,
+        test_label,
+        WebviewUrl::App("index.html".into()),
+    )
+    .title("Test Window")
+    .inner_size(400.0, 300.0)
+    .position(200.0, 200.0)
+    .visible(true)
+    .build()
+    .map_err(|e| format!("Failed to create test window: {}", e))?;
+    
+    log_info!("DEBUG", "Test window created");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn test_window_events(app: AppHandle) -> Result<(), String> {
+    log_info!("DEBUG", "Testing window events");
+    
+    // Emit a test event to all windows
+    app.emit("test-event", "Hello from backend!").map_err(|e| e.to_string())?;
+    
+    // Try to trigger various window events
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window.emit("test-window-event", "Direct window event").map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn force_create_detached_window(
+    app: AppHandle,
+    note_id: String,
+    detached_windows: State<'_, DetachedWindowsState>,
+    notes: State<'_, NotesState>,
+) -> Result<(), String> {
+    log_info!("DEBUG", "Force creating detached window for note: {}", note_id);
+    
+    let request = CreateDetachedWindowRequest {
+        note_id: note_id.clone(),
+        x: Some(300.0),
+        y: Some(300.0),
+        width: Some(600.0),
+        height: Some(400.0),
+    };
+    
+    create_detached_window(request, app, detached_windows, notes).await.map(|_| ())
+}
+
+#[tauri::command]
+pub async fn cleanup_stale_windows(
+    app: AppHandle,
+    detached_windows: State<'_, DetachedWindowsState>,
+) -> Result<usize, String> {
+    let mut count = 0;
+    let webview_windows = app.webview_windows();
+    let mut windows_lock = detached_windows.lock().await;
+    
+    // Find windows in state that don't exist in Tauri
+    let stale_windows: Vec<String> = windows_lock.keys()
+        .filter(|label| !webview_windows.contains_key(*label))
+        .cloned()
+        .collect();
+    
+    for label in stale_windows {
+        windows_lock.remove(&label);
+        count += 1;
+        log_info!("DEBUG", "Removed stale window from state: {}", label);
+    }
+    
+    if count > 0 {
+        save_detached_windows_to_disk(&windows_lock).await?;
+    }
+    
+    Ok(count)
+}
+
+#[tauri::command]
 pub async fn force_close_test_window(
     app: AppHandle,
     detached_windows: State<'_, DetachedWindowsState>,

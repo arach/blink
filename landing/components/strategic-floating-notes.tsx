@@ -30,7 +30,7 @@ export default function StrategicFloatingNotes() {
       isCollapsed: false,
       color: "bg-blue-50/90",
       icon: Keyboard,
-      delay: 2000,
+      delay: 3000,
       section: "hero",
     },
     {
@@ -38,73 +38,13 @@ export default function StrategicFloatingNotes() {
       title: "Drag & Drop Magic",
       content:
         "Try dragging the notes above!\n\n• Smooth, responsive movement\n• Stays within bounds\n• Visual feedback on drag",
-      x: 5,
-      y: 45,
+      x: 15,
+      y: 60,
       isCollapsed: false,
       color: "bg-green-50/90",
       icon: MousePointer,
-      delay: 4000,
-      section: "demo",
-    },
-    {
-      id: "collapse-feature",
-      title: "Shadow Mode",
-      content: "Double-click any note to see the collapse feature in action.",
-      x: 75,
-      y: 65,
-      isCollapsed: true,
-      color: "bg-purple-50/90",
-      icon: Layers,
-      delay: 6000,
-      section: "demo",
-    },
-    {
-      id: "speed-tip",
-      title: "Lightning Fast",
-      content: "< 100ms response time means your notes appear instantly when you need them.",
-      x: 10,
-      y: 20,
-      isCollapsed: false,
-      color: "bg-yellow-50/90",
-      icon: Zap,
       delay: 8000,
       section: "features",
-    },
-    {
-      id: "always-on-top",
-      title: "Always Visible",
-      content: "Your notes stay above all other windows - perfect for reference while working.",
-      x: 80,
-      y: 30,
-      isCollapsed: false,
-      color: "bg-indigo-50/90",
-      icon: Eye,
-      delay: 10000,
-      section: "features",
-    },
-    {
-      id: "shortcuts-guide",
-      title: "Master Every Shortcut",
-      content: "⌘+1, ⌘+2, ⌘+3...\n\nAssign shortcuts to your most important notes for instant access.",
-      x: 15,
-      y: 70,
-      isCollapsed: false,
-      color: "bg-rose-50/90",
-      icon: Keyboard,
-      delay: 12000,
-      section: "shortcuts",
-    },
-    {
-      id: "customization",
-      title: "Personalize Everything",
-      content: "• Custom keyboard shortcuts\n• Theme preferences\n• Window behavior settings",
-      x: 70,
-      y: 80,
-      isCollapsed: false,
-      color: "bg-teal-50/90",
-      icon: Settings,
-      delay: 14000,
-      section: "download",
     },
   ])
 
@@ -134,10 +74,10 @@ export default function StrategicFloatingNotes() {
     setTimeout(() => {
       setNotes((prev) =>
         prev.map((note) =>
-          note.id === "collapse-feature" || note.id === "speed-tip" ? { ...note, isCollapsed: true } : note,
+          note.id === "drag-demo" ? { ...note, isCollapsed: true } : note,
         ),
       )
-    }, 16000)
+    }, 12000)
   }, [])
 
   useEffect(() => {

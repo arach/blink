@@ -42,6 +42,7 @@ impl FileStorageManager {
         log_info!("FILE_STORAGE", "Loading notes from file system...");
         
         let mut notes = HashMap::new();
+        let mut duplicate_id_fixes = Vec::new();
         
         // Read all .md files in the notes directory
         let entries = fs::read_dir(&self.notes_dir)
@@ -54,7 +55,22 @@ impl FileStorageManager {
             // Only process .md files
             if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
                 match self.load_note_from_file(&path).await {
-                    Ok(note) => {
+                    Ok(mut note) => {
+                        // Check for duplicate ID
+                        if notes.contains_key(&note.id) {
+                            let old_id = note.id.clone();
+                            let new_id = uuid::Uuid::new_v4().to_string();
+                            
+                            log_error!("FILE_STORAGE", "🚨 DUPLICATE ID DETECTED: {} in file {:?}. Generating new ID: {}", 
+                                old_id, path, new_id);
+                            
+                            note.id = new_id.clone();
+                            note.updated_at = chrono::Utc::now().to_rfc3339();
+                            
+                            // Queue this note for re-saving with the new ID
+                            duplicate_id_fixes.push((path.clone(), note.clone()));
+                        }
+                        
                         log_debug!("FILE_STORAGE", "Loaded note: {} from {:?}", note.id, path);
                         notes.insert(note.id.clone(), note);
                     }
@@ -63,6 +79,100 @@ impl FileStorageManager {
                     }
                 }
             }
+        }
+        
+        // Fix duplicate IDs by re-saving notes with new IDs
+        for (path, note) in duplicate_id_fixes {
+            log_info!("FILE_STORAGE", "🔧 Fixing duplicate ID: re-saving note {} to {:?}", note.id, path);
+            
+            // Save the note with the new ID to its current file
+            let frontmatter = NoteFrontmatter {
+                id: note.id.clone(),
+                title: note.title.clone(),
+                created_at: note.created_at.clone(),
+                updated_at: note.updated_at.clone(),
+                tags: note.tags.clone(),
+                position: note.position,
+            };
+            
+            let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
+                .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
+            
+            let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
+            
+            fs::write(&path, file_content)
+                .map_err(|e| format!("Failed to write fixed note file: {}", e))?;
+            
+            log_info!("FILE_STORAGE", "✅ Fixed duplicate ID for note in {:?}", path);
+        }
+        
+        // Fix position conflicts
+        let mut position_fixes = Vec::new();
+        let mut position_counts = std::collections::HashMap::new();
+        let mut next_available_position = 0;
+        
+        // First pass: count how many notes have each position and find the maximum
+        for note in notes.values() {
+            if let Some(position) = note.position {
+                if position >= 0 {
+                    *position_counts.entry(position).or_insert(0) += 1;
+                    next_available_position = next_available_position.max(position + 1);
+                }
+            }
+        }
+        
+        // Second pass: fix conflicts and assign positions
+        let mut used_positions = std::collections::HashSet::new();
+        
+        for (note_id, note) in notes.iter_mut() {
+            let needs_fix = match note.position {
+                Some(position) if position < 0 => {
+                    log_error!("FILE_STORAGE", "🚨 INVALID POSITION: Note {} has negative position {}", note_id, position);
+                    true
+                }
+                Some(position) if position_counts.get(&position).unwrap_or(&0) > &1 => {
+                    log_error!("FILE_STORAGE", "🚨 POSITION CONFLICT: Note {} has position {} shared with {} other notes", 
+                        note_id, position, position_counts.get(&position).unwrap() - 1);
+                    true
+                }
+                Some(position) if used_positions.contains(&position) => {
+                    log_error!("FILE_STORAGE", "🚨 POSITION CONFLICT: Note {} has position {} that's already been processed", note_id, position);
+                    true
+                }
+                None => {
+                    log_info!("FILE_STORAGE", "Note {} has no position, assigning one", note_id);
+                    true
+                }
+                _ => false
+            };
+            
+            if needs_fix {
+                // Find the next available position
+                while used_positions.contains(&next_available_position) {
+                    next_available_position += 1;
+                }
+                
+                let old_position = note.position;
+                note.position = Some(next_available_position);
+                note.updated_at = chrono::Utc::now().to_rfc3339();
+                used_positions.insert(next_available_position);
+                
+                log_info!("FILE_STORAGE", "🔧 Fixed position for note {}: {:?} -> {}", note_id, old_position, next_available_position);
+                position_fixes.push(note.clone());
+                
+                next_available_position += 1;
+            } else {
+                // Mark this valid position as used
+                if let Some(position) = note.position {
+                    used_positions.insert(position);
+                }
+            }
+        }
+        
+        // Save notes with fixed positions back to disk
+        for note in position_fixes {
+            self.save_note(&note).await?;
+            log_info!("FILE_STORAGE", "✅ Saved position fix for note: {}", note.id);
         }
         
         log_info!("FILE_STORAGE", "Loaded {} notes from file system", notes.len());
@@ -133,8 +243,22 @@ impl FileStorageManager {
     
     /// Save a note to a markdown file
     pub async fn save_note(&self, note: &Note) -> Result<(), String> {
-        let filename = self.sanitize_filename(&note.title);
-        let file_path = self.notes_dir.join(format!("{}.md", filename));
+        // Use ID-based filename to prevent overwrites when title changes
+        // First try to find existing file for this ID
+        let file_path = if let Ok(index) = self.load_notes_index().await {
+            if let Some(entry) = index.notes.get(&note.id) {
+                // Use existing file path from index
+                self.notes_dir.join(&entry.file_path)
+            } else {
+                // New note - use title-based filename
+                let filename = self.sanitize_filename(&note.title);
+                self.notes_dir.join(format!("{}.md", filename))
+            }
+        } else {
+            // Fallback to title-based filename
+            let filename = self.sanitize_filename(&note.title);
+            self.notes_dir.join(format!("{}.md", filename))
+        };
         
         let frontmatter = NoteFrontmatter {
             id: note.id.clone(),
@@ -239,17 +363,20 @@ impl FileStorageManager {
         format!("{:x}", hasher.finalize())
     }
     
-    /// Update notes index for fast lookups
+    /// Update notes index in database
     pub async fn update_notes_index(&self, notes: &HashMap<String, Note>) -> Result<(), String> {
-        let index_file = self.blink_dir.join("index.json");
+        use crate::modules::database;
         
-        let mut index = NotesIndex::default();
+        // Initialize database
+        let db = database::initialize_database(&self.notes_dir)
+            .map_err(|e| format!("Failed to initialize database: {}", e))?;
         
+        // Update each note in the database
         for (_, note) in notes {
             let filename = self.sanitize_filename(&note.title);
             let file_path = format!("{}.md", filename);
             
-            // Compute hash of the full file content (including frontmatter)
+            // Compute hash of the full file content
             let frontmatter = NoteFrontmatter {
                 id: note.id.clone(),
                 title: note.title.clone(),
@@ -264,40 +391,56 @@ impl FileStorageManager {
             let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
             let file_hash = Self::compute_file_hash(&file_content);
             
-            index.notes.insert(note.id.clone(), NoteIndexEntry {
+            // Create database record
+            let note_record = database::NoteRecord {
                 id: note.id.clone(),
                 title: note.title.clone(),
                 file_path,
-                created_at: note.created_at.clone(),
-                updated_at: note.updated_at.clone(),
+                created_at: chrono::DateTime::parse_from_rfc3339(&note.created_at)
+                    .unwrap_or_else(|_| chrono::Utc::now().into())
+                    .with_timezone(&chrono::Utc),
+                updated_at: chrono::DateTime::parse_from_rfc3339(&note.updated_at)
+                    .unwrap_or_else(|_| chrono::Utc::now().into())
+                    .with_timezone(&chrono::Utc),
                 tags: note.tags.clone(),
-                position: note.position,
-                file_hash: Some(file_hash),
-            });
+                position: note.position.unwrap_or(0),
+                file_hash,
+            };
+            
+            // Upsert to database
+            db.upsert_note(&note_record)
+                .map_err(|e| format!("Failed to update database: {}", e))?;
         }
-        
-        let content = serde_json::to_string_pretty(&index)
-            .map_err(|e| format!("Failed to serialize notes index: {}", e))?;
-        
-        fs::write(&index_file, content)
-            .map_err(|e| format!("Failed to write notes index: {}", e))?;
         
         Ok(())
     }
     
-    /// Load notes index
+    /// Load notes index from database
     async fn load_notes_index(&self) -> Result<NotesIndex, String> {
-        let index_file = self.blink_dir.join("index.json");
+        use crate::modules::database;
         
-        if !index_file.exists() {
-            return Ok(NotesIndex::default());
+        // Initialize database
+        let db = database::initialize_database(&self.notes_dir)
+            .map_err(|e| format!("Failed to initialize database: {}", e))?;
+        
+        // Get all notes from database
+        let note_records = db.get_all_notes()
+            .map_err(|e| format!("Failed to load notes from database: {}", e))?;
+        
+        // Convert to index format
+        let mut index = NotesIndex::default();
+        for record in note_records {
+            index.notes.insert(record.id.clone(), NoteIndexEntry {
+                id: record.id.clone(),
+                title: record.title.clone(),
+                file_path: record.file_path.clone(),
+                created_at: record.created_at.to_rfc3339(),
+                updated_at: record.updated_at.to_rfc3339(),
+                tags: record.tags.clone(),
+                position: Some(record.position),
+                file_hash: Some(record.file_hash.clone()),
+            });
         }
-        
-        let content = fs::read_to_string(&index_file)
-            .map_err(|e| format!("Failed to read notes index: {}", e))?;
-        
-        let index: NotesIndex = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse notes index: {}", e))?;
         
         Ok(index)
     }

@@ -40,6 +40,7 @@ export interface NoteEditorProps {
   // Content
   content: string;
   onContentChange: (content: string) => void;
+  onSave?: () => void;
   
   // Preview mode
   isPreviewMode: boolean;
@@ -70,6 +71,7 @@ export interface NoteEditorProps {
 export function NoteEditor({
   content,
   onContentChange,
+  onSave,
   isPreviewMode,
   onPreviewToggle,
   config,
@@ -102,6 +104,7 @@ export function NoteEditor({
             <CodeMirrorEditor
               value={content}
               onChange={onContentChange}
+              onSave={onSave}
               placeholder={placeholder}
               vimMode={config.vimMode || false}
               fontSize={config.fontSize}
@@ -155,12 +158,12 @@ export interface VimModeIndicatorProps {
 
 export function VimModeIndicator({ vimStatus, className = "" }: VimModeIndicatorProps) {
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md ${
+    <div className={`flex items-center gap-2 px-3 py-1 rounded-md ${
       vimStatus.mode === 'INSERT' ? 'bg-green-500/10' : 
       vimStatus.mode === 'VISUAL' ? 'bg-purple-500/10' : 
       'bg-primary/10'
     } ${className}`}>
-      <div className={`w-1.5 h-1.5 rounded-full ${
+      <div className={`w-2 h-2 rounded-full ${
         vimStatus.mode === 'INSERT' ? 'bg-green-500' : 
         vimStatus.mode === 'VISUAL' ? 'bg-purple-500' : 
         'bg-primary'
