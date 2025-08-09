@@ -69,9 +69,9 @@ export function EditorArea({
         {extractTitleFromContent(currentContent) || 'Untitled'}
       </h2>
       
-      {/* Note ID display */}
-      {selectedNote && (
-        <div className="absolute left-5 top-full mt-1 text-[10px] font-mono text-muted-foreground/50">
+      {/* Note ID display - developer mode only */}
+      {config?.advanced?.developerMode && selectedNote && (
+        <div className="absolute right-5 top-full mt-1 text-[10px] font-mono text-muted-foreground/50">
           ID: {selectedNote.id}
         </div>
       )}
