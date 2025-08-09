@@ -42,7 +42,6 @@ impl FileStorageManager {
         log_info!("FILE_STORAGE", "Loading notes from file system...");
         
         let mut notes = HashMap::new();
-        let mut duplicate_id_fixes = Vec::new();
         
         // Read all .md files in the notes directory
         let entries = fs::read_dir(&self.notes_dir)
@@ -55,20 +54,13 @@ impl FileStorageManager {
             // Only process .md files
             if path.is_file() && path.extension().map_or(false, |ext| ext == "md") {
                 match self.load_note_from_file(&path).await {
-                    Ok(mut note) => {
-                        // Check for duplicate ID
+                    Ok(note) => {
+                        // Since ID comes from filename, duplicates shouldn't occur
+                        // The filesystem ensures unique filenames
                         if notes.contains_key(&note.id) {
-                            let old_id = note.id.clone();
-                            let new_id = uuid::Uuid::new_v4().to_string();
-                            
-                            log_error!("FILE_STORAGE", "🚨 DUPLICATE ID DETECTED: {} in file {:?}. Generating new ID: {}", 
-                                old_id, path, new_id);
-                            
-                            note.id = new_id.clone();
-                            note.updated_at = chrono::Utc::now().to_rfc3339();
-                            
-                            // Queue this note for re-saving with the new ID
-                            duplicate_id_fixes.push((path.clone(), note.clone()));
+                            log_error!("FILE_STORAGE", "🚨 Unexpected duplicate ID: {} in file {:?}. Skipping file.", 
+                                note.id, path);
+                            continue;
                         }
                         
                         log_debug!("FILE_STORAGE", "Loaded note: {} from {:?}", note.id, path);
@@ -79,31 +71,6 @@ impl FileStorageManager {
                     }
                 }
             }
-        }
-        
-        // Fix duplicate IDs by re-saving notes with new IDs
-        for (path, note) in duplicate_id_fixes {
-            log_info!("FILE_STORAGE", "🔧 Fixing duplicate ID: re-saving note {} to {:?}", note.id, path);
-            
-            // Save the note with the new ID to its current file
-            let frontmatter = NoteFrontmatter {
-                id: note.id.clone(),
-                title: note.title.clone(),
-                created_at: note.created_at.clone(),
-                updated_at: note.updated_at.clone(),
-                tags: note.tags.clone(),
-                position: note.position,
-            };
-            
-            let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
-                .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
-            
-            let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
-            
-            fs::write(&path, file_content)
-                .map_err(|e| format!("Failed to write fixed note file: {}", e))?;
-            
-            log_info!("FILE_STORAGE", "✅ Fixed duplicate ID for note in {:?}", path);
         }
         
         // Fix position conflicts
@@ -192,88 +159,71 @@ impl FileStorageManager {
         self.parse_markdown_note(&content, path)
     }
     
-    /// Parse markdown content with frontmatter
+    /// Parse pure markdown content
     fn parse_markdown_note(&self, content: &str, path: &Path) -> Result<Note, String> {
-        // Check if file has frontmatter
-        if content.starts_with("---\n") {
-            let parts: Vec<&str> = content.splitn(3, "---\n").collect();
-            if parts.len() >= 3 {
-                // Parse frontmatter
-                let frontmatter: NoteFrontmatter = serde_yaml::from_str(parts[1])
-                    .map_err(|e| format!("Failed to parse frontmatter: {}", e))?;
-                
-                return Ok(Note {
-                    id: frontmatter.id,
-                    title: frontmatter.title,
-                    content: parts[2].to_string(),
-                    created_at: frontmatter.created_at,
-                    updated_at: frontmatter.updated_at,
-                    tags: frontmatter.tags,
-                    position: frontmatter.position,
-                });
-            }
-        }
-        
-        // No frontmatter - generate from filename and content
-        let filename = path.file_stem()
+        // ID is the filename without extension
+        let id = path.file_stem()
             .and_then(|s| s.to_str())
-            .unwrap_or("untitled");
+            .ok_or("Invalid filename")?  
+            .to_string();
         
-        let title = if content.lines().next().unwrap_or("").starts_with('#') {
-            content.lines().next().unwrap_or("")
-                .trim_start_matches('#')
-                .trim()
-                .to_string()
+        // Extract title from first heading or use filename
+        let title = if let Some(first_line) = content.lines().next() {
+            if first_line.starts_with('#') {
+                first_line.trim_start_matches('#').trim().to_string()
+            } else {
+                // If no heading, use first non-empty line or filename
+                content.lines()
+                    .find(|line| !line.trim().is_empty())
+                    .map(|line| line.trim().to_string())
+                    .unwrap_or_else(|| id.replace('-', " ").to_string())
+            }
         } else {
-            filename.to_string()
+            id.replace('-', " ").to_string()
         };
         
-        let now = chrono::Utc::now().to_rfc3339();
-        let id = uuid::Uuid::new_v4().to_string();
+        // For migration: check if this is an old file with frontmatter
+        let actual_content = if content.starts_with("---\n") {
+            // Has frontmatter - extract just the content part for migration
+            let parts: Vec<&str> = content.splitn(3, "---\n").collect();
+            if parts.len() >= 3 {
+                parts[2].to_string()
+            } else {
+                content.to_string()
+            }
+        } else {
+            content.to_string()
+        };
+        
+        // Note: created_at and updated_at should come from database or file metadata
+        // For now, use file modification time if available
+        let metadata = fs::metadata(path).ok();
+        let modified = metadata
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| chrono::DateTime::from_timestamp(d.as_secs() as i64, 0))
+            .flatten()
+            .unwrap_or_else(chrono::Utc::now)
+            .to_rfc3339();
         
         Ok(Note {
             id,
             title,
-            content: content.to_string(),
-            created_at: now.clone(),
-            updated_at: now,
+            content: actual_content,
+            created_at: modified.clone(), // Will be overwritten from DB if exists
+            updated_at: modified,
             tags: vec![],
-            position: None,
+            position: None, // Will be loaded from database
         })
     }
     
     /// Save a note to a markdown file
     pub async fn save_note(&self, note: &Note) -> Result<(), String> {
-        // Use ID-based filename to prevent overwrites when title changes
-        // First try to find existing file for this ID
-        let file_path = if let Ok(index) = self.load_notes_index().await {
-            if let Some(entry) = index.notes.get(&note.id) {
-                // Use existing file path from index
-                self.notes_dir.join(&entry.file_path)
-            } else {
-                // New note - use title-based filename
-                let filename = self.sanitize_filename(&note.title);
-                self.notes_dir.join(format!("{}.md", filename))
-            }
-        } else {
-            // Fallback to title-based filename
-            let filename = self.sanitize_filename(&note.title);
-            self.notes_dir.join(format!("{}.md", filename))
-        };
+        // Use slug ID as filename
+        let file_path = self.notes_dir.join(format!("{}.md", note.id));
         
-        let frontmatter = NoteFrontmatter {
-            id: note.id.clone(),
-            title: note.title.clone(),
-            created_at: note.created_at.clone(),
-            updated_at: note.updated_at.clone(),
-            tags: note.tags.clone(),
-            position: note.position,
-        };
-        
-        let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
-            .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
-        
-        let file_content = format!("---\n{}---\n{}", frontmatter_yaml, note.content);
+        // Write pure markdown content - no frontmatter
+        let file_content = &note.content;
         
         // Compute hash of the content we're about to write
         let content_hash = Self::compute_file_hash(&note.content);

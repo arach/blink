@@ -3,14 +3,12 @@ use crate::modules::file_notes_storage::FileNotesStorage;
 use crate::ModifiedStateTrackerState;
 use crate::modules::storage::{get_configured_notes_directory, save_config_to_disk};
 use crate::ConfigState;
-use crate::types::note::{Note, NoteFrontmatter};
+use crate::types::note::Note;
 use crate::types::window::NotesState;
-use crate::{log_debug, log_error, log_info, log_warn};
-use regex::Regex;
+use crate::{log_debug, log_error, log_info};
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::State;
-use uuid::Uuid;
 
 /// Import notes from a directory
 #[tauri::command]
@@ -131,13 +129,8 @@ pub async fn export_all_notes_to_directory(
     let mut exported_files = Vec::new();
     
     for note in notes_lock.values() {
-        let safe_title = sanitize_filename(&note.title);
-        let file_name = if safe_title.is_empty() {
-            format!("{}.md", note.id)
-        } else {
-            format!("{}.md", safe_title)
-        };
-        
+        // Use the note ID as the filename since it's now a slug
+        let file_name = format!("{}.md", note.id);
         let file_path = dir_path.join(&file_name);
         
         match write_note_to_file(note, file_path.to_str().unwrap()).await {
@@ -234,101 +227,58 @@ async fn parse_markdown_file(path: &Path) -> Result<Note, String> {
     let content = fs::read_to_string(path)
         .map_err(|e| format!("Failed to read file: {}", e))?;
     
-    // Check if file has frontmatter
-    if content.starts_with("---\n") {
-        parse_markdown_with_frontmatter(&content)
+    // ID is the filename without extension
+    let id = path.file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or("Invalid filename")?  
+        .to_string();
+    
+    // Extract title from first heading or use filename
+    let title = if let Some(first_line) = content.lines().next() {
+        if first_line.starts_with('#') {
+            first_line.trim_start_matches('#').trim().to_string()
+        } else {
+            // If no heading, use first non-empty line or filename
+            content.lines()
+                .find(|line| !line.trim().is_empty())
+                .map(|line| line.trim().to_string())
+                .unwrap_or_else(|| id.replace('-', " ").to_string())
+        }
     } else {
-        // Plain markdown file - create note from filename and content
-        let title = path.file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Untitled")
-            .to_string();
-        
-        let now = chrono::Utc::now().to_rfc3339();
-        Ok(Note {
-            id: Uuid::new_v4().to_string(),
-            title,
-            content,
-            created_at: now.clone(),
-            updated_at: now,
-            tags: vec![],
-            position: None,
-        })
-    }
-}
-
-/// Parse markdown content with frontmatter
-fn parse_markdown_with_frontmatter(content: &str) -> Result<Note, String> {
-    let re = Regex::new(r"(?s)^---\n(.*?)\n---\n(.*)$")
-        .map_err(|e| format!("Regex error: {}", e))?;
+        id.replace('-', " ").to_string()
+    };
     
-    let captures = re.captures(content)
-        .ok_or("Invalid frontmatter format")?;
-    
-    let frontmatter_str = captures.get(1)
-        .ok_or("No frontmatter found")?
-        .as_str();
-    
-    let body = captures.get(2)
-        .ok_or("No body found")?
-        .as_str();
-    
-    let frontmatter: NoteFrontmatter = serde_yaml::from_str(frontmatter_str)
-        .map_err(|e| format!("Failed to parse frontmatter: {}", e))?;
-    
-    // Always generate a unique internal ID for the app
-    let unique_id = Uuid::new_v4().to_string();
-    
-    // Log if we detect a UUID-like pattern in frontmatter (suggests old/corrupted data)
-    if frontmatter.id.len() == 36 && frontmatter.id.contains('-') {
-        log_warn!("FILE_STORAGE", "Note '{}' has UUID-like frontmatter ID: {}. Using new internal ID: {}", 
-                 frontmatter.title, frontmatter.id, unique_id);
+    // Handle migration: if content has frontmatter, extract just the body
+    let actual_content = if content.starts_with("---\n") {
+        let parts: Vec<&str> = content.splitn(3, "---\n").collect();
+        if parts.len() >= 3 {
+            parts[2].to_string()
+        } else {
+            content
+        }
     } else {
-        log_debug!("FILE_STORAGE", "Note '{}' with slug '{}' assigned internal ID: {}", 
-                  frontmatter.title, frontmatter.id, unique_id);
-    }
+        content
+    };
     
+    let now = chrono::Utc::now().to_rfc3339();
     Ok(Note {
-        id: unique_id,
-        title: frontmatter.title,
-        content: body.to_string(),
-        created_at: frontmatter.created_at,
-        updated_at: frontmatter.updated_at,
-        tags: frontmatter.tags,
-        position: frontmatter.position,
+        id,
+        title,
+        content: actual_content,
+        created_at: now.clone(),
+        updated_at: now,
+        tags: vec![],
+        position: None,
     })
 }
 
+
 /// Write a note to a markdown file
 async fn write_note_to_file(note: &Note, file_path: &str) -> Result<(), String> {
-    // Generate a human-readable slug from the title for frontmatter
-    let slug = sanitize_filename(&note.title);
-    
-    let frontmatter = NoteFrontmatter {
-        id: slug, // Use slug instead of UUID in frontmatter
-        title: note.title.clone(),
-        created_at: note.created_at.clone(),
-        updated_at: note.updated_at.clone(),
-        tags: note.tags.clone(),
-        position: note.position,
-    };
-    
-    let frontmatter_yaml = serde_yaml::to_string(&frontmatter)
-        .map_err(|e| format!("Failed to serialize frontmatter: {}", e))?;
-    
-    let full_content = format!("---\n{}---\n\n{}", frontmatter_yaml, note.content);
-    
-    fs::write(file_path, full_content)
+    // Write pure markdown content - no frontmatter
+    fs::write(file_path, &note.content)
         .map_err(|e| format!("Failed to write file: {}", e))?;
     
     Ok(())
 }
 
-/// Sanitize a filename by removing invalid characters
-fn sanitize_filename(title: &str) -> String {
-    let re = Regex::new(r"[^a-zA-Z0-9\s\-_]").unwrap();
-    re.replace_all(title, "")
-        .trim()
-        .replace(" ", "-")
-        .to_lowercase()
-}

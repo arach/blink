@@ -9,6 +9,7 @@ mod services;
 mod startup;
 mod state;
 mod types;
+mod utils;
 
 #[cfg(test)]
 mod tests;

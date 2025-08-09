@@ -1,5 +1,5 @@
 use tauri::{State, AppHandle, Emitter};
-use uuid::Uuid;
+use std::collections::HashSet;
 
 use crate::types::{
     note::{Note, CreateNoteRequest, UpdateNoteRequest},
@@ -7,6 +7,7 @@ use crate::types::{
 };
 use crate::modules::file_notes_storage::FileNotesStorage;
 use crate::modules::modified_state_tracker::ModifiedStateTracker;
+use crate::utils::slug::generate_unique_slug;
 use crate::{log_info, log_error, log_debug};
 
 /// Helper function to save all notes using FileNotesStorage
@@ -88,9 +89,13 @@ pub async fn create_note(
         .max()
         .unwrap_or(-1);
     
+    // Generate a unique slug as the ID
+    let existing_ids: HashSet<String> = notes_lock.keys().cloned().collect();
+    let slug = generate_unique_slug(&request.title, &existing_ids);
+    
     let now = chrono::Utc::now().to_rfc3339();
     let note = Note {
-        id: Uuid::new_v4().to_string(),
+        id: slug.clone(),
         title: request.title,
         content: request.content,
         created_at: now.clone(),
