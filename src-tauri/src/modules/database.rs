@@ -13,7 +13,7 @@ pub struct NoteRecord {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub tags: Vec<String>,
-    pub position: i32,
+    pub position: Option<i32>, // Allow NULL positions
     pub file_hash: String,
 }
 
@@ -22,6 +22,78 @@ pub struct NotesDatabase {
 }
 
 impl NotesDatabase {
+    /// Migrate schema to support NULL positions
+    fn migrate_schema(conn: &Connection) -> Result<()> {
+        // Check if position column allows NULL
+        let table_info: Vec<(i32, String, String, i32, Option<String>, i32)> = 
+            conn.prepare("PRAGMA table_info(notes)")?
+                .query_map([], |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+        
+        // Find position column info
+        if let Some((_cid, _name, _type, notnull, _default, _pk)) = 
+            table_info.iter().find(|(_, name, _, _, _, _)| name == "position") {
+            
+            // If position is NOT NULL (notnull=1), we need to migrate
+            if *notnull == 1 {
+                println!("Migrating database schema to allow NULL positions...");
+                
+                // Create new table with correct schema
+                conn.execute(
+                    "CREATE TABLE notes_new (
+                        id TEXT PRIMARY KEY NOT NULL,
+                        title TEXT NOT NULL,
+                        file_path TEXT NOT NULL UNIQUE,
+                        created_at TEXT NOT NULL,
+                        updated_at TEXT NOT NULL,
+                        tags TEXT NOT NULL DEFAULT '[]',
+                        position INTEGER,
+                        file_hash TEXT NOT NULL,
+                        UNIQUE(position)
+                    )",
+                    [],
+                )?;
+                
+                // Copy data, converting position 0 to NULL
+                conn.execute(
+                    "INSERT INTO notes_new SELECT 
+                        id, title, file_path, created_at, updated_at, tags,
+                        CASE WHEN position = 0 THEN NULL ELSE position END,
+                        file_hash
+                     FROM notes",
+                    [],
+                )?;
+                
+                // Drop old table and rename new one
+                conn.execute("DROP TABLE notes", [])?;
+                conn.execute("ALTER TABLE notes_new RENAME TO notes", [])?;
+                
+                // Recreate indexes
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notes_position ON notes(position)",
+                    [],
+                )?;
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at)",
+                    [],
+                )?;
+                
+                println!("Schema migration complete!");
+            }
+        }
+        
+        Ok(())
+    }
+    
     /// Create a new database connection and initialize tables
     pub fn new(db_path: &Path) -> Result<Self> {
         let conn = Connection::open(db_path)?;
@@ -38,7 +110,7 @@ impl NotesDatabase {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 tags TEXT NOT NULL DEFAULT '[]',
-                position INTEGER NOT NULL,
+                position INTEGER,
                 file_hash TEXT NOT NULL,
                 UNIQUE(position)
             )",
@@ -66,10 +138,13 @@ impl NotesDatabase {
             [],
         )?;
         
+        // Check current schema and migrate if needed
+        Self::migrate_schema(&conn)?;
+        
         // Store database version
         conn.execute(
             "INSERT OR REPLACE INTO metadata (key, value, updated_at) VALUES (?1, ?2, ?3)",
-            params!["db_version", "1.0", Utc::now().to_rfc3339()],
+            params!["db_version", "2.0", Utc::now().to_rfc3339()],
         )?;
         
         Ok(Self {
@@ -109,7 +184,7 @@ impl NotesDatabase {
                     ))?
                     .with_timezone(&Utc),
                 tags,
-                position: row.get(6)?,
+                position: row.get::<_, Option<i32>>(6)?,
                 file_hash: row.get(7)?,
             })
         })?
@@ -149,7 +224,7 @@ impl NotesDatabase {
                         ))?
                         .with_timezone(&Utc),
                     tags,
-                    position: row.get(6)?,
+                    position: row.get::<_, Option<i32>>(6)?,
                     file_hash: row.get(7)?,
                 })
             },
@@ -190,7 +265,7 @@ impl NotesDatabase {
     }
     
     /// Update note position
-    pub fn update_position(&self, id: &str, new_position: i32) -> Result<()> {
+    pub fn update_position(&self, id: &str, new_position: Option<i32>) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "UPDATE notes SET position = ?1, updated_at = ?2 WHERE id = ?3",
@@ -253,7 +328,7 @@ impl NotesDatabase {
                             .collect()
                         )
                         .unwrap_or_default(),
-                    position: value["position"].as_i64().unwrap_or(0) as i32,
+                    position: value["position"].as_i64().map(|p| p as i32),
                     file_hash: value["file_hash"].as_str().unwrap_or_default().to_string(),
                 };
                 

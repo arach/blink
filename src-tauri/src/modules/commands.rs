@@ -268,7 +268,7 @@ pub async fn test_database_migration(
                 result.push_str(&format!("  - {} (id: {}, pos: {})\n", 
                     note.title, 
                     &note.id[..8],
-                    note.position
+                    note.position.map_or("None".to_string(), |p| p.to_string())
                 ));
             }
             

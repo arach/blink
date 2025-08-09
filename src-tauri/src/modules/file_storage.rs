@@ -140,8 +140,9 @@ impl FileStorageManager {
                     true
                 }
                 None => {
-                    log_info!("FILE_STORAGE", "Note {} has no position, assigning one", note_id);
-                    true
+                    // None is a valid state - notes without positions are OK
+                    log_debug!("FILE_STORAGE", "Note {} has no position (this is OK)", note_id);
+                    false
                 }
                 _ => false
             };
@@ -403,7 +404,7 @@ impl FileStorageManager {
                     .unwrap_or_else(|_| chrono::Utc::now().into())
                     .with_timezone(&chrono::Utc),
                 tags: note.tags.clone(),
-                position: note.position.unwrap_or(0),
+                position: note.position, // Keep Option<i32> as is
                 file_hash,
             };
             
@@ -437,7 +438,7 @@ impl FileStorageManager {
                 created_at: record.created_at.to_rfc3339(),
                 updated_at: record.updated_at.to_rfc3339(),
                 tags: record.tags.clone(),
-                position: Some(record.position),
+                position: record.position, // Already Option<i32>
                 file_hash: Some(record.file_hash.clone()),
             });
         }

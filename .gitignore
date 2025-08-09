@@ -29,6 +29,9 @@ src-tauri/target/
 # Local data directory
 data/.claude/
 
+# Claude local settings
+.claude/settings.local.json
+
 # Development process management
 .dev-pids/
 *.pid
