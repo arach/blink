@@ -36,3 +36,21 @@ data/.claude/
 .dev-pids/
 *.pid
 *.dev.log
+
+# Backup files
+*.backup
+*_old.*
+*.old
+
+# Test and debug scripts
+test-*.html
+test-*.js
+test-*.sh
+debug-*.sh
+check-*.sh
+
+# Temporary documentation
+DEBUG*.md
+DEBUGGING.md
+manual-test-*.md
+test-*.md
