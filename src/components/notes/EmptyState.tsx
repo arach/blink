@@ -1,4 +1,4 @@
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus } from '../../lib/lucide';
 import { Button } from '../ui/Button';
 import { useNotesStore } from '../../stores/notes-store';
 

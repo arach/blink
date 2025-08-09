@@ -46,7 +46,8 @@ pub async fn get_notes(notes: State<'_, NotesState>) -> Result<Vec<Note>, String
     
     log_info!("GET_NOTES", "📋 Found {} notes in memory", notes_vec.len());
     for note in &notes_vec {
-        log_debug!("GET_NOTES", "  - {} ({}) pos={:?}", note.title, &note.id[..8], note.position);
+        let id_display = if note.id.len() > 8 { &note.id[..8] } else { &note.id };
+        log_debug!("GET_NOTES", "  - {} ({}) pos={:?}", note.title, id_display, note.position);
     }
     
     // Sort by position (ascending), with None values at the end
@@ -270,9 +271,10 @@ pub async fn test_database_migration(
             result.push_str(&format!("📊 Found {} notes in database:\n", notes.len()));
             
             for note in notes {
+                let id_display = if note.id.len() > 8 { &note.id[..8] } else { &note.id };
                 result.push_str(&format!("  - {} (id: {}, pos: {})\n", 
                     note.title, 
-                    &note.id[..8],
+                    id_display,
                     note.position.map_or("None".to_string(), |p| p.to_string())
                 ));
             }

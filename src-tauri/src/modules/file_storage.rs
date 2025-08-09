@@ -161,59 +161,80 @@ impl FileStorageManager {
     
     /// Parse pure markdown content
     fn parse_markdown_note(&self, content: &str, path: &Path) -> Result<Note, String> {
-        // ID is the filename without extension
-        let id = path.file_stem()
-            .and_then(|s| s.to_str())
-            .ok_or("Invalid filename")?  
-            .to_string();
-        
-        // Extract title from first heading or use filename
-        let title = if let Some(first_line) = content.lines().next() {
-            if first_line.starts_with('#') {
-                first_line.trim_start_matches('#').trim().to_string()
-            } else {
-                // If no heading, use first non-empty line or filename
-                content.lines()
-                    .find(|line| !line.trim().is_empty())
-                    .map(|line| line.trim().to_string())
-                    .unwrap_or_else(|| id.replace('-', " ").to_string())
-            }
-        } else {
-            id.replace('-', " ").to_string()
-        };
-        
         // For migration: check if this is an old file with frontmatter
-        let actual_content = if content.starts_with("---\n") {
-            // Has frontmatter - extract just the content part for migration
+        let (actual_content, frontmatter_data) = if content.starts_with("---\n") {
+            // Has frontmatter - extract metadata and content separately
             let parts: Vec<&str> = content.splitn(3, "---\n").collect();
             if parts.len() >= 3 {
-                parts[2].to_string()
+                // Parse the YAML frontmatter to get the actual title and metadata
+                let frontmatter: Option<NoteFrontmatter> = serde_yaml::from_str(parts[1]).ok();
+                (parts[2].to_string(), frontmatter)
             } else {
-                content.to_string()
+                (content.to_string(), None)
             }
         } else {
-            content.to_string()
+            (content.to_string(), None)
         };
         
-        // Note: created_at and updated_at should come from database or file metadata
-        // For now, use file modification time if available
-        let metadata = fs::metadata(path).ok();
-        let modified = metadata
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| chrono::DateTime::from_timestamp(d.as_secs() as i64, 0))
-            .flatten()
-            .unwrap_or_else(chrono::Utc::now)
-            .to_rfc3339();
+        // Use frontmatter data if available, otherwise generate from filename
+        let id = if let Some(ref fm) = frontmatter_data {
+            // For migration: use the slug from title, not the UUID
+            self.sanitize_filename(&fm.title)
+        } else {
+            // New format: ID is the filename without extension
+            path.file_stem()
+                .and_then(|s| s.to_str())
+                .ok_or("Invalid filename")?  
+                .to_string()
+        };
+        
+        // Get title from frontmatter or extract from content
+        let title = if let Some(ref fm) = frontmatter_data {
+            fm.title.clone()
+        } else {
+            // Extract from first heading or first line
+            if let Some(first_line) = actual_content.lines().next() {
+                if first_line.starts_with('#') {
+                    first_line.trim_start_matches('#').trim().to_string()
+                } else if !first_line.trim().is_empty() {
+                    first_line.trim().to_string()
+                } else {
+                    // Find first non-empty line
+                    actual_content.lines()
+                        .find(|line| !line.trim().is_empty())
+                        .map(|line| line.trim().to_string())
+                        .unwrap_or_else(|| id.replace('-', " ").to_string())
+                }
+            } else {
+                id.replace('-', " ").to_string()
+            }
+        };
+        
+        // Get timestamps and metadata
+        let (created_at, updated_at, tags, position) = if let Some(fm) = frontmatter_data {
+            // Use frontmatter data for migration
+            (fm.created_at, fm.updated_at, fm.tags, fm.position)
+        } else {
+            // For new files without frontmatter, use file metadata
+            let metadata = fs::metadata(path).ok();
+            let modified = metadata
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| chrono::DateTime::from_timestamp(d.as_secs() as i64, 0))
+                .flatten()
+                .unwrap_or_else(chrono::Utc::now)
+                .to_rfc3339();
+            (modified.clone(), modified, vec![], None)
+        };
         
         Ok(Note {
             id,
             title,
             content: actual_content,
-            created_at: modified.clone(), // Will be overwritten from DB if exists
-            updated_at: modified,
-            tags: vec![],
-            position: None, // Will be loaded from database
+            created_at,
+            updated_at,
+            tags,
+            position,
         })
     }
     

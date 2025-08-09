@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Trash2 } from '../../lib/lucide';
 import { useNotes, useDeleteNote } from '../../hooks/use-notes';
 import { useNotesStore } from '../../stores/notes-store';
 import { Button } from '../ui/Button';
