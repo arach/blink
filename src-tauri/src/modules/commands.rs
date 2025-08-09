@@ -1,5 +1,5 @@
 use tauri::{State, AppHandle, Emitter};
-use uuid::Uuid;
+use std::collections::HashSet;
 
 use crate::types::{
     note::{Note, CreateNoteRequest, UpdateNoteRequest},
@@ -7,6 +7,7 @@ use crate::types::{
 };
 use crate::modules::file_notes_storage::FileNotesStorage;
 use crate::modules::modified_state_tracker::ModifiedStateTracker;
+use crate::utils::{generate_unique_slug, uuid_from_slug};
 use crate::{log_info, log_error, log_debug};
 
 /// Helper function to save all notes using FileNotesStorage
@@ -45,7 +46,8 @@ pub async fn get_notes(notes: State<'_, NotesState>) -> Result<Vec<Note>, String
     
     log_info!("GET_NOTES", "📋 Found {} notes in memory", notes_vec.len());
     for note in &notes_vec {
-        log_debug!("GET_NOTES", "  - {} ({}) pos={:?}", note.title, &note.id[..8], note.position);
+        let id_display = if note.id.len() > 8 { &note.id[..8] } else { &note.id };
+        log_debug!("GET_NOTES", "  - {} ({}) pos={:?}", note.title, id_display, note.position);
     }
     
     // Sort by position (ascending), with None values at the end
@@ -88,9 +90,20 @@ pub async fn create_note(
         .max()
         .unwrap_or(-1);
     
+    // Generate a unique slug for the filename based on title
+    // Check existing files to ensure uniqueness
+    let existing_slugs: HashSet<String> = notes_lock.values()
+        .map(|n| crate::utils::generate_slug(&n.title))
+        .collect();
+    let slug = generate_unique_slug(&request.title, &existing_slugs);
+    
+    // Generate a deterministic UUID from the slug
+    // This UUID will change if the slug changes (when title changes)
+    let id = uuid_from_slug(&slug);
+    
     let now = chrono::Utc::now().to_rfc3339();
     let note = Note {
-        id: Uuid::new_v4().to_string(),
+        id: id.clone(),
         title: request.title,
         content: request.content,
         created_at: now.clone(),
@@ -265,9 +278,10 @@ pub async fn test_database_migration(
             result.push_str(&format!("📊 Found {} notes in database:\n", notes.len()));
             
             for note in notes {
+                let id_display = if note.id.len() > 8 { &note.id[..8] } else { &note.id };
                 result.push_str(&format!("  - {} (id: {}, pos: {})\n", 
                     note.title, 
-                    &note.id[..8],
+                    id_display,
                     note.position.map_or("None".to_string(), |p| p.to_string())
                 ));
             }

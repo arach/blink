@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Tag } from 'lucide-react';
+import { Save, Tag } from '../../lib/lucide';
 import { useNote, useUpdateNote, useCreateNote } from '../../hooks/use-notes';
 import { useNotesStore } from '../../stores/notes-store';
 import { Button } from '../ui/Button';

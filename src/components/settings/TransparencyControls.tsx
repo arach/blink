@@ -1,7 +1,7 @@
 import { Slider } from '../ui/Slider';
 import { Button } from '../ui/Button';
 import { useWindowTransparency } from '../../hooks/use-window-transparency';
-import { Eye, EyeOff, Pin, PinOff } from 'lucide-react';
+import { Eye, EyeOff, Pin, PinOff } from '../../lib/lucide';
 
 export const TransparencyControls = () => {
   const { opacity, isTransparent, alwaysOnTop, updateOpacity, toggleAlwaysOnTop } = useWindowTransparency();

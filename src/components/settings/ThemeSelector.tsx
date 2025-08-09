@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { applyTheme, getAllThemes, getThemeById } from '../../types/theme';
 import { useConfigStore } from '../../stores/config-store';
-import { Palette } from 'lucide-react';
+import { Palette } from '../../lib/lucide';
 
 interface ThemeSelectorProps {
   onSave?: () => void;

@@ -1,4 +1,4 @@
-import { Palette, Eye, Focus, Keyboard, Pin, Folder, FolderOpen } from 'lucide-react';
+import { Palette, Eye, Focus, Keyboard, Pin, Folder, FolderOpen } from '../../lib/lucide';
 import { useState, useEffect } from 'react';
 import { notesApi } from '../../services/tauri-api';
 

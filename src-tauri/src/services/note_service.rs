@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -7,6 +7,7 @@ use crate::types::{
     note::{Note, CreateNoteRequest, UpdateNoteRequest},
     config::AppConfig,
 };
+use crate::utils::slug::generate_unique_slug;
 use crate::{log_info, log_error};
 
 /// Service for managing notes with file-based storage
@@ -67,12 +68,20 @@ impl NoteService {
     
     /// Create a new note
     pub async fn create_note(&self, request: CreateNoteRequest) -> Result<Note, String> {
+        // Generate unique slug from title
+        let cache = self.notes_cache.lock().await;
+        let existing_ids: HashSet<String> = cache.keys().cloned().collect();
+        drop(cache); // Release lock early
+        
+        let slug = generate_unique_slug(&request.title, &existing_ids);
+        let now = chrono::Utc::now().to_rfc3339();
+        
         let note = Note {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: slug.clone(),
             title: request.title,
             content: request.content,
-            created_at: chrono::Utc::now().to_rfc3339(),
-            updated_at: chrono::Utc::now().to_rfc3339(),
+            created_at: now.clone(),
+            updated_at: now,
             tags: request.tags,
             position: None,
         };
@@ -85,7 +94,7 @@ impl NoteService {
         let mut cache = self.notes_cache.lock().await;
         cache.insert(note.id.clone(), note.clone());
         
-        log_info!("NOTE_SERVICE", "Created new note: {}", note.id);
+        log_info!("NOTE_SERVICE", "Created new note: {} ({})", note.title, note.id);
         
         Ok(note)
     }
