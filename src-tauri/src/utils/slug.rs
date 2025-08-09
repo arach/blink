@@ -1,21 +1,37 @@
 use std::collections::HashSet;
 
-/// Generate a slug from a title
-/// Converts to lowercase, replaces spaces with hyphens, removes special characters
+/// Generate a slug from a title with explicit rules:
+/// 1. Convert to lowercase
+/// 2. Replace spaces with single hyphen
+/// 3. Replace multiple consecutive spaces with single hyphen
+/// 4. Allow only: a-z, 0-9, hyphen, underscore
+/// 5. Replace any other character with hyphen
+/// 6. Collapse multiple consecutive hyphens into one
+/// 7. Trim hyphens from start and end
 pub fn generate_slug(title: &str) -> String {
-    title
+    let slug = title
+        .trim()
         .to_lowercase()
         .chars()
         .map(|c| match c {
-            'a'..='z' | '0'..='9' | '-' | '_' => c,
-            ' ' => '-',
-            _ => '-',
+            'a'..='z' | '0'..='9' => c,
+            ' ' | '-' | '_' => '-',  // spaces and special chars become hyphens
+            _ => '-',  // any other character becomes hyphen
         })
-        .collect::<String>()
+        .collect::<String>();
+    
+    // Collapse multiple hyphens and trim
+    let parts: Vec<&str> = slug
         .split('-')
         .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join("-")
+        .collect();
+    
+    if parts.is_empty() {
+        // If title was all special characters, generate a default
+        "untitled".to_string()
+    } else {
+        parts.join("-")
+    }
 }
 
 /// Generate a unique slug by appending a number if needed

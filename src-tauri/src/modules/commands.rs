@@ -7,7 +7,7 @@ use crate::types::{
 };
 use crate::modules::file_notes_storage::FileNotesStorage;
 use crate::modules::modified_state_tracker::ModifiedStateTracker;
-use crate::utils::slug::generate_unique_slug;
+use crate::utils::{generate_unique_slug, uuid_from_slug};
 use crate::{log_info, log_error, log_debug};
 
 /// Helper function to save all notes using FileNotesStorage
@@ -90,13 +90,20 @@ pub async fn create_note(
         .max()
         .unwrap_or(-1);
     
-    // Generate a unique slug as the ID
-    let existing_ids: HashSet<String> = notes_lock.keys().cloned().collect();
-    let slug = generate_unique_slug(&request.title, &existing_ids);
+    // Generate a unique slug for the filename based on title
+    // Check existing files to ensure uniqueness
+    let existing_slugs: HashSet<String> = notes_lock.values()
+        .map(|n| crate::utils::generate_slug(&n.title))
+        .collect();
+    let slug = generate_unique_slug(&request.title, &existing_slugs);
+    
+    // Generate a deterministic UUID from the slug
+    // This UUID will change if the slug changes (when title changes)
+    let id = uuid_from_slug(&slug);
     
     let now = chrono::Utc::now().to_rfc3339();
     let note = Note {
-        id: slug.clone(),
+        id: id.clone(),
         title: request.title,
         content: request.content,
         created_at: now.clone(),
