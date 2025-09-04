@@ -103,7 +103,3 @@ Principles:
 ## License
 
 MIT
-
----
-
-Blink is building toward a world where your notes don’t just store your thoughts—they actively think with you, make connections, and evolve your understanding.
