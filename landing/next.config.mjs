@@ -9,13 +9,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Only use basePath and assetPrefix for production build/export
+  // Production build configuration for static export
   ...(process.env.NODE_ENV === 'production' && {
     output: 'export',
     trailingSlash: true,
     distDir: 'out',
-    basePath: '/blink',
-    assetPrefix: '/blink/',
+    // Removed basePath and assetPrefix since we're using custom domain blink.arach.dev
   }),
 }
 
