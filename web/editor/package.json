@@ -1,6 +1,6 @@
 {
   "name": "blink-editor",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Vanilla CodeMirror 6 editor surface for Blink v2 native panels (WKWebView host).",
