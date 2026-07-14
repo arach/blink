@@ -13,6 +13,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var saveTasks: [String: Task<Void, Never>] = [:]
     private var isTerminating = false
     private var blinkHidden = false
+    private lazy var focusOverlay = FocusOverlay()
     private let log = HudLogger(category: "blink.panels")
 
     private static let openNotesKey = "blink.openNotes"
@@ -88,13 +89,20 @@ final class PanelManager: NSObject, NSWindowDelegate {
         let persistMode = { (newMode: String) in
             UserDefaults.standard.set(newMode, forKey: ConfigKeys.noteMode(note.id))
         }
-        // Flips from the webview (double-click, ⌘⇧P): update the toggle + persist.
-        panel.editor.onModeChanged = { [weak panel] newMode in
+        // Flips from the webview (double-click): update the toggle + persist.
+        panel.editor.onModeChanged = { [weak self, weak panel] newMode in
             panel?.reflectMode(newMode)
             persistMode(newMode)
+            self?.updateFocusOverlay()
         }
-        // Flips from the titlebar toggle: persist (panel already reflected it).
-        panel.onUserModeChange = persistMode
+        // Flips from native chrome (toggle click, ⌘⇧P): persist.
+        panel.onUserModeChange = { [weak self] newMode in
+            persistMode(newMode)
+            self?.updateFocusOverlay()
+        }
+        panel.onFocusModeChange = { [weak self] in
+            self?.updateFocusOverlay()
+        }
 
         panel.makeKeyAndOrderFront(nil)
         if mode == "edit" {
@@ -103,6 +111,27 @@ final class PanelManager: NSObject, NSWindowDelegate {
             panel.makeFirstResponder(panel.editor.webView)
         }
         persistOpenList()
+        updateFocusOverlay()
+    }
+
+    /// Focus overlay is active exactly when the key window is a panel with
+    /// focus mode on (edit or read) and the blink hasn't hidden everything.
+    private func updateFocusOverlay() {
+        if !blinkHidden,
+           let keyPanel = panels.values.first(where: { $0.isKeyWindow }),
+           keyPanel.focusEnabled {
+            focusOverlay.show(behind: keyPanel)
+        } else {
+            focusOverlay.hide()
+        }
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        updateFocusOverlay()
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        updateFocusOverlay()
     }
 
     /// The blink: see every note, then none. Hides/shows all open panels
@@ -118,6 +147,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
             }
         }
         log.info("[BLINK] blink toggled", metadata: ["hidden": "\(blinkHidden)"])
+        updateFocusOverlay()
     }
 
     /// Quit is imminent: stop treating window closes as the user closing notes.
@@ -172,6 +202,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         if !isTerminating {
             persistOpenList()
             Task { await flush(noteID: id) }
+            updateFocusOverlay()
         }
     }
 

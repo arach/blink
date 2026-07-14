@@ -24,7 +24,7 @@ final class NotePanel: NSPanel {
     /// writing gets a focused, higher-contrast surface.
     private let tintLayer = NSView()
     private static let readTint: CGFloat = 0.18
-    private static let editTint: CGFloat = 0.42
+    private static let editTint: CGFloat = 0.28  // subtle — the FocusOverlay dims the surroundings instead
 
     init(noteID: String, initialContent: String, title: String) {
         self.noteID = noteID
@@ -85,9 +85,11 @@ final class NotePanel: NSPanel {
         // Always-visible mode control: ✎/◧ segments, bottom-right, active
         // segment lit — you can always SEE which mode a panel is in.
         let toggle = NSHostingView(
-            rootView: ModeToggle(state: modeState) { [weak self] mode in
-                self?.selectMode(mode)
-            }
+            rootView: ModeToggle(
+                state: modeState,
+                onSelect: { [weak self] mode in self?.selectMode(mode) },
+                onFocus: { [weak self] in self?.toggleFocus() }
+            )
         )
         toggle.translatesAutoresizingMaskIntoConstraints = false
         glass.addSubview(toggle)
@@ -113,15 +115,32 @@ final class NotePanel: NSPanel {
     /// Nonactivating panels must opt in to becoming key so the editor can type.
     override var canBecomeKey: Bool { true }
 
-    /// ⌘⇧P flips mode natively — reliable even when the webview never had
-    /// key focus (the in-webview keymap only works after a click into it).
+    /// ⌘⇧P flips mode and ⌘. toggles focus — handled natively so they work
+    /// even when the webview never had key focus.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command, .shift],
-           event.charactersIgnoringModifiers?.lowercased() == "p" {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        if flags == [.command, .shift], key == "p" {
             selectMode(currentMode == "edit" ? "read" : "edit")
             return true
         }
+        if flags == [.command], key == "." {
+            toggleFocus()
+            return true
+        }
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// Focus mode: quiet everything around this panel (works in edit or read).
+    var focusEnabled: Bool { modeState.focus }
+
+    /// Fired when focus mode flips so the manager can update the overlay.
+    var onFocusModeChange: (() -> Void)?
+
+    func toggleFocus() {
+        modeState.focus.toggle()
+        if modeState.focus { makeKey() }
+        onFocusModeChange?()
     }
 
     // MARK: - Mode
@@ -151,21 +170,39 @@ final class NotePanel: NSPanel {
     }
 }
 
-/// Observable mode for the SwiftUI toggle overlay.
+/// Observable mode + focus state for the SwiftUI toggle overlay.
 @MainActor
 final class PanelModeState: ObservableObject {
     @Published var mode: String = "edit"
+    @Published var focus: Bool = false
 }
 
-/// Two-segment ✎/◧ control; the active segment is lit.
+/// ✎/◧ mode segments plus a ☾ focus segment; active segments are lit.
 private struct ModeToggle: View {
     @ObservedObject var state: PanelModeState
     var onSelect: (String) -> Void
+    var onFocus: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 2) {
             segment(icon: "pencil", mode: "edit", help: "Edit (⌘⇧P)")
             segment(icon: "book", mode: "read", help: "Read (⌘⇧P)")
+            Rectangle()
+                .fill(.white.opacity(0.15))
+                .frame(width: 1, height: 12)
+                .padding(.horizontal, 1)
+            Button(action: onFocus) {
+                Image(systemName: "moon")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(state.focus ? .white : .white.opacity(0.4))
+                    .frame(width: 22, height: 18)
+                    .background(
+                        state.focus ? Color.white.opacity(0.18) : .clear,
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
+            }
+            .buttonStyle(.plain)
+            .help("Focus — quiet everything else (⌘.)")
         }
         .padding(2)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
