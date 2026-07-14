@@ -57,10 +57,19 @@ export default function HeroSection() {
           </Button>
         </div>
 
+        {/* The real thing: a borderless note floating on the desktop */}
+        <div className="mb-16 max-w-5xl mx-auto">
+          <img
+            src="/hero-desk.png"
+            alt="A Blink note floating over the desktop — borderless dark glass, edge-to-edge markdown"
+            className="w-full rounded-2xl shadow-2xl ring-1 ring-slate-900/10"
+          />
+        </div>
+
         {/* Key features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
           {[
-            { label: "Keyboard Shortcuts", value: ["⌘", "+", "H"] },
+            { label: "New Note, Anywhere", value: ["⌃⌥⇧⌘", "N"] },
             { label: "Always on Top", value: ["Stays Visible"] },
             { label: "Instant Access", value: ["< 100ms"] },
           ].map((item, index) => (
