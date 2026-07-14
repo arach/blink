@@ -131,6 +131,11 @@ struct SettingsView: View {
                         badge: { KeyCap(chord(store.config.hotkeys.focus)) }
                     )
                     HudSettingsRow(
+                        icon: "grid",
+                        title: "Grid overlay",
+                        badge: { KeyCap(chord(store.config.hotkeys.grid)) }
+                    )
+                    HudSettingsRow(
                         icon: "xmark.square",
                         title: "Close panel",
                         subtitle: "⎋ steps down: leaves edit, then drops focus",

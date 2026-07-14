@@ -105,7 +105,12 @@ final class PanelManager: NSObject, NSWindowDelegate {
             return
         }
 
-        let panel = NotePanel(noteID: note.id, initialContent: note.content, title: note.title)
+        // Sheet: per-note frontmatter override > config default.
+        let sheet = note.extraFrontmatterValue(for: "sheet")
+            ?? BlinkConfigStore.shared.config.panel.sheet
+        let panel = NotePanel(
+            noteID: note.id, initialContent: note.content, title: note.title, sheet: sheet
+        )
         panel.delegate = self
         panels[note.id] = panel
         panelContent[note.id] = note.content
@@ -174,6 +179,20 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         updateFocusOverlay()
+    }
+
+    // MARK: - Read surface for overlays (grid, constellation)
+
+    /// Snapshot of open panels by note id.
+    var openPanelsByID: [String: NotePanel] { panels }
+
+    /// The panel that currently has key focus, if any.
+    var keyNotePanel: NotePanel? { panels.values.first { $0.isKeyWindow } }
+
+    /// Grid/constellation overlay toggle (Hyper+G). Implemented by the
+    /// grid-overlay initiative; the hotkey is already wired.
+    func toggleGridOverlay() {
+        log.info("[BLINK] grid overlay not yet implemented")
     }
 
     /// Hot-apply a config change to every live surface.

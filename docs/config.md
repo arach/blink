@@ -35,10 +35,13 @@ Rules:
     // binding kept — a bad edit never leaves the app unreachable.
     "newNote": "hyper+n",       // global — create a note from anywhere
     "blink": "hyper+b",         // global — show all notes / hide all
+    "grid": "hyper+g",          // global — grid/constellation overlay
     "toggleMode": "cmd+shift+p",// per-panel — flip read/edit
     "focus": "cmd+."            // per-panel — quiet everything else
   },
   "panel": {
+    "sheet": "glass",           // sheet template: "glass" | "card" | "dotted" | "bracket" | "marginalia"
+                                // per-note override: a `sheet:` frontmatter key in the note file
     "material": "hud",          // glass material: "hud" | "underWindow" | "popover" | "sidebar" | "menu"
     "cornerRadius": 12,
     "tintRead": 0.18,           // 0–1 black tint over the glass in read mode (contrast floor)

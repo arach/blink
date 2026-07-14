@@ -147,6 +147,25 @@ struct FrontmatterTests {
         #expect(lines[7] == "---")
     }
 
+    @Test("extraFrontmatterValue reads foreign scalar keys")
+    func extraValueLookup() throws {
+        let raw = """
+        ---
+        id: keeper
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        sheet: dotted
+        x-meta:
+          sheet: nested-should-not-match
+        ---
+        body
+        """
+        let note = try Frontmatter.decode(raw)
+        #expect(note.extraFrontmatterValue(for: "sheet") == "dotted")
+        #expect(note.extraFrontmatterValue(for: "missing") == nil)
+        #expect(note.extraFrontmatterValue(for: "x-meta") == nil)
+    }
+
     @Test("Indented lines never shadow Blink's own keys")
     func indentedKnownKeyIsNotOurs() throws {
         let raw = """

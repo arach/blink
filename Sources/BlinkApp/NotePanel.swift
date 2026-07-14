@@ -10,6 +10,10 @@ import WebKit
 final class NotePanel: NSPanel {
     let noteID: String
     let editor: EditorWebView
+    /// The sheet template this panel renders (config default or per-note
+    /// frontmatter override) — resolved by PanelManager at open time.
+    /// ("sheetTemplate", not "sheet" — NSWindow already owns `sheet: Bool`.)
+    private(set) var sheetTemplate: String
 
     /// Fired for user-initiated mode flips from the native toggle or ⌘⇧P
     /// (JS-side flips arrive via the bridge's modeChanged instead).
@@ -32,9 +36,10 @@ final class NotePanel: NSPanel {
     private var focusGlyphView: NSView?
     private var isHovered = false
 
-    init(noteID: String, initialContent: String, title: String) {
+    init(noteID: String, initialContent: String, title: String, sheet: String = "glass") {
         self.noteID = noteID
         self.editor = EditorWebView()
+        self.sheetTemplate = sheet
 
         let theme = BlinkConfigStore.shared.config
         self.readTint = theme.panel.tintRead

@@ -118,6 +118,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         registerGlobalHotkey(id: 2, chord: config.hotkeys.blink, name: "blink") { [weak self] in
             self?.panelManager.toggleBlink()
         }
+        registerGlobalHotkey(id: 3, chord: config.hotkeys.grid, name: "grid") { [weak self] in
+            self?.panelManager.toggleGridOverlay()
+        }
         if let chord = KeyChord.parse(config.hotkeys.newNote) {
             statusItem?.button?.toolTip = "Blink — \(chord.display) for a new note"
         }

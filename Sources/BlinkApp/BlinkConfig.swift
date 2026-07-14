@@ -27,6 +27,7 @@ struct BlinkConfig: Codable, Equatable {
     struct Hotkeys: Codable, Equatable {
         var newNote: String = "hyper+n"
         var blink: String = "hyper+b"
+        var grid: String = "hyper+g"
         var toggleMode: String = "cmd+shift+p"
         var focus: String = "cmd+."
 
@@ -35,12 +36,17 @@ struct BlinkConfig: Codable, Equatable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             newNote = try c.decodeIfPresent(String.self, forKey: .newNote) ?? "hyper+n"
             blink = try c.decodeIfPresent(String.self, forKey: .blink) ?? "hyper+b"
+            grid = try c.decodeIfPresent(String.self, forKey: .grid) ?? "hyper+g"
             toggleMode = try c.decodeIfPresent(String.self, forKey: .toggleMode) ?? "cmd+shift+p"
             focus = try c.decodeIfPresent(String.self, forKey: .focus) ?? "cmd+."
         }
     }
 
     struct Panel: Codable, Equatable {
+        /// Sheet template — the note's whole visual identity, drawn by the web
+        /// layer: "glass" | "card" | "dotted" | "bracket" | "marginalia".
+        /// Per-note override via a `sheet:` frontmatter key.
+        var sheet: String = "glass"
         var material: String = "hud"  // hud | underWindow | popover | sidebar | menu
         var cornerRadius: Double = 12
         var tintRead: Double = 0.18
@@ -52,6 +58,7 @@ struct BlinkConfig: Codable, Equatable {
         init() {}
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
+            sheet = try c.decodeIfPresent(String.self, forKey: .sheet) ?? "glass"
             material = try c.decodeIfPresent(String.self, forKey: .material) ?? "hud"
             cornerRadius = try c.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 12
             tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead) ?? 0.18

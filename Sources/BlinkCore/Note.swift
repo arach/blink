@@ -38,6 +38,21 @@ public struct Note: Equatable, Sendable, Codable {
         Note.extractTitle(from: content)
     }
 
+    /// Read a scalar value from the note's foreign frontmatter lines
+    /// (`extraFrontmatter`) — e.g. `sheet: dotted` or `source: agent://x`.
+    /// Only top-level (unindented) `key: value` lines match.
+    public func extraFrontmatterValue(for key: String) -> String? {
+        for line in extraFrontmatter {
+            guard !line.hasPrefix(" "), !line.hasPrefix("\t"),
+                  let colon = line.firstIndex(of: ":"),
+                  line[line.startIndex..<colon].trimmingCharacters(in: .whitespaces) == key
+            else { continue }
+            let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            return value.isEmpty ? nil : value
+        }
+        return nil
+    }
+
     /// Extract a display title from markdown content.
     ///
     /// Rules (ported from v1 `extractTitleFromContent`, extended per the v2 spec):
