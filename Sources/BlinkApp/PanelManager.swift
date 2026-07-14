@@ -77,12 +77,20 @@ final class PanelManager: NSObject, NSWindowDelegate {
             ?? UserDefaults.standard.string(forKey: ConfigKeys.noteMode(note.id))
             ?? ConfigStore.shared.defaultMode
         panel.editor.setMode(mode)
+        panel.reflectMode(mode)
         panel.editor.onReady = { [weak panel] in
             if mode == "edit" { panel?.editor.focus() }
         }
-        panel.editor.onModeChanged = { newMode in
+        let persistMode = { (newMode: String) in
             UserDefaults.standard.set(newMode, forKey: ConfigKeys.noteMode(note.id))
         }
+        // Flips from the webview (double-click, ⌘⇧P): update the toggle + persist.
+        panel.editor.onModeChanged = { [weak panel] newMode in
+            panel?.reflectMode(newMode)
+            persistMode(newMode)
+        }
+        // Flips from the titlebar toggle: persist (panel already reflected it).
+        panel.onUserModeChange = persistMode
 
         panel.makeKeyAndOrderFront(nil)
         persistOpenList()
