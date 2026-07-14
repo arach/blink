@@ -93,6 +93,11 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.onUserModeChange = persistMode
 
         panel.makeKeyAndOrderFront(nil)
+        if mode == "edit" {
+            // Give the webview native key focus so typing and shortcuts work
+            // immediately (JS focus alone doesn't set the first responder).
+            panel.makeFirstResponder(panel.editor.webView)
+        }
         persistOpenList()
     }
 

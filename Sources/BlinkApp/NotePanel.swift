@@ -1,21 +1,22 @@
 import AppKit
 import BlinkCore
+import SwiftUI
 import WebKit
 
 /// A floating glass panel that IS a note — Blink's atomic unit.
-/// Glass material + a transparent CodeMirror webview; chrome is minimal.
+/// Glass material + a transparent CodeMirror/reader webview; chrome is minimal.
 /// Geometry persists via frame autosave (full spatial state lands in M3).
 @MainActor
 final class NotePanel: NSPanel {
     let noteID: String
     let editor: EditorWebView
 
-    /// Fired for user-initiated mode flips from the titlebar toggle (JS-side
-    /// flips arrive via the bridge's modeChanged instead).
+    /// Fired for user-initiated mode flips from the native toggle or ⌘⇧P
+    /// (JS-side flips arrive via the bridge's modeChanged instead).
     var onUserModeChange: ((String) -> Void)?
 
-    private(set) var currentMode = "edit"
-    private var modeButton: NSButton?
+    let modeState = PanelModeState()
+    var currentMode: String { modeState.mode }
 
     init(noteID: String, initialContent: String, title: String) {
         self.noteID = noteID
@@ -60,6 +61,21 @@ final class NotePanel: NSPanel {
             webView.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
         ])
+
+        // Always-visible mode control: ✎/◧ segments, bottom-right, active
+        // segment lit — you can always SEE which mode a panel is in.
+        let toggle = NSHostingView(
+            rootView: ModeToggle(state: modeState) { [weak self] mode in
+                self?.selectMode(mode)
+            }
+        )
+        toggle.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(toggle)
+        NSLayoutConstraint.activate([
+            toggle.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -8),
+            toggle.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -8),
+        ])
+
         contentView = glass
 
         // Restore remembered geometry (or cascade near center on first open).
@@ -69,8 +85,6 @@ final class NotePanel: NSPanel {
         }
         setFrameAutosaveName(autosaveName)
 
-        addModeToggleAccessory()
-
         editor.load()
         editor.setContent(initialContent)
         // Focus-on-ready and initial mode are owned by PanelManager (mode-aware).
@@ -79,57 +93,73 @@ final class NotePanel: NSPanel {
     /// Nonactivating panels must opt in to becoming key so the editor can type.
     override var canBecomeKey: Bool { true }
 
-    // MARK: - Edit/read mode toggle (titlebar accessory, Hudson Canvas pattern)
+    /// ⌘⇧P flips mode natively — reliable even when the webview never had
+    /// key focus (the in-webview keymap only works after a click into it).
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command, .shift],
+           event.charactersIgnoringModifiers?.lowercased() == "p" {
+            selectMode(currentMode == "edit" ? "read" : "edit")
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
 
-    /// Reflect a mode in the toggle without emitting a change (used for the
-    /// initial mode and for flips that originated in the webview).
+    // MARK: - Mode
+
+    /// Reflect a mode in the toggle without emitting a change (initial mode,
+    /// or flips that originated in the webview).
     func reflectMode(_ mode: String) {
-        currentMode = mode
-        let toRead = mode == "edit"
-        modeButton?.image = NSImage(
-            systemSymbolName: toRead ? "book" : "pencil",
-            accessibilityDescription: toRead ? "Read" : "Edit"
-        )
-        modeButton?.toolTip = toRead ? "Read (⌘⇧P)" : "Edit (⌘⇧P)"
+        modeState.mode = mode
     }
 
-    private func addModeToggleAccessory() {
-        let button = NSButton(
-            image: NSImage(systemSymbolName: "book", accessibilityDescription: "Read") ?? NSImage(),
-            target: self,
-            action: #selector(toggleModeClicked)
-        )
-        button.isBordered = false
-        button.imagePosition = .imageOnly
-        button.contentTintColor = .secondaryLabelColor
-        button.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = NSView()
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(button)
-        NSLayoutConstraint.activate([
-            button.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-            button.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.heightAnchor.constraint(equalToConstant: 24),
-            container.widthAnchor.constraint(equalToConstant: 30),
-        ])
-
-        let accessory = NSTitlebarAccessoryViewController()
-        accessory.layoutAttribute = .trailing
-        accessory.view = container
-        addTitlebarAccessoryViewController(accessory)
-        modeButton = button
-        reflectMode(currentMode)
-    }
-
-    @objc private func toggleModeClicked() {
-        let newMode = currentMode == "edit" ? "read" : "edit"
-        editor.setMode(newMode)
-        reflectMode(newMode)
-        if newMode == "edit" {
+    /// User-initiated mode change from native chrome (toggle click or ⌘⇧P).
+    func selectMode(_ mode: String) {
+        guard mode != modeState.mode else { return }
+        editor.setMode(mode)
+        reflectMode(mode)
+        if mode == "edit" {
             makeKey()
+            makeFirstResponder(editor.webView)
             editor.focus()
         }
-        onUserModeChange?(newMode)
+        onUserModeChange?(mode)
+    }
+}
+
+/// Observable mode for the SwiftUI toggle overlay.
+@MainActor
+final class PanelModeState: ObservableObject {
+    @Published var mode: String = "edit"
+}
+
+/// Two-segment ✎/◧ control; the active segment is lit.
+private struct ModeToggle: View {
+    @ObservedObject var state: PanelModeState
+    var onSelect: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            segment(icon: "pencil", mode: "edit", help: "Edit (⌘⇧P)")
+            segment(icon: "book", mode: "read", help: "Read (⌘⇧P)")
+        }
+        .padding(2)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func segment(icon: String, mode: String, help: String) -> some View {
+        Button {
+            onSelect(mode)
+        } label: {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(state.mode == mode ? .white : .white.opacity(0.4))
+                .frame(width: 22, height: 18)
+                .background(
+                    state.mode == mode ? Color.white.opacity(0.18) : .clear,
+                    in: RoundedRectangle(cornerRadius: 4)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 }
