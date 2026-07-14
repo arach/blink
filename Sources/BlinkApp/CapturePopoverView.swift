@@ -1,3 +1,4 @@
+import AppKit
 import BlinkCore
 import SwiftUI
 
@@ -78,11 +79,18 @@ struct CapturePopoverView: View {
                 emptyState("No matches — ↵ to create “\(trimmedQuery)”.")
             } else {
                 ForEach(filtered, id: \.id) { note in
-                    NoteRow(note: note) {
-                        open(note)
-                    } onDelete: {
-                        delete(note)
-                    }
+                    NoteRow(
+                        note: note,
+                        onOpen: { open(note) },
+                        onCopyMarkdown: { copyToPasteboard(note.content) },
+                        onCopyPath: {
+                            copyToPasteboard(
+                                AppDelegate.notesDirectory()
+                                    .appendingPathComponent("\(note.id).md").path
+                            )
+                        },
+                        onDelete: { delete(note) }
+                    )
                 }
             }
         }
@@ -142,11 +150,18 @@ struct CapturePopoverView: View {
     private func delete(_ note: Note) {
         Task { await model.deleteNote(id: note.id) }
     }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+    }
 }
 
 private struct NoteRow: View {
     let note: Note
     var onOpen: () -> Void
+    var onCopyMarkdown: () -> Void
+    var onCopyPath: () -> Void
     var onDelete: () -> Void
 
     @State private var hovered = false
@@ -173,6 +188,9 @@ private struct NoteRow: View {
         .onTapGesture { onOpen() }
         .contextMenu {
             Button("Open as Panel") { onOpen() }
+            Divider()
+            Button("Copy as Markdown") { onCopyMarkdown() }
+            Button("Copy Path") { onCopyPath() }
             Divider()
             Button("Delete", role: .destructive) { onDelete() }
         }

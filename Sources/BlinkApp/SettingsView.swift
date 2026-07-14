@@ -27,6 +27,18 @@ struct SettingsView: View {
         )
     }
 
+    private var launchAtLogin: Binding<Bool> {
+        Binding(
+            get: { store.config.behavior.launchAtLogin },
+            set: { value in store.update { $0.behavior.launchAtLogin = value } }
+        )
+    }
+
+    /// Pretty form of a config chord string ("hyper+n" → "⌃⌥⇧⌘N").
+    private func chord(_ raw: String) -> String {
+        KeyChord.parse(raw)?.display ?? raw
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: HudSpacing.xl) {
@@ -63,6 +75,16 @@ struct SettingsView: View {
                             .labelsHidden()
                             .controlSize(.small)
                     }
+                    HudSettingsControlRow(
+                        title: "Launch at login",
+                        subtitle: "Start Blink when you sign in",
+                        icon: "power"
+                    ) {
+                        Toggle("", isOn: launchAtLogin)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                            .controlSize(.small)
+                    }
                 }
 
                 HudSettingsSection("Editor") {
@@ -87,10 +109,33 @@ struct SettingsView: View {
                 }
 
                 HudSettingsSection("Shortcuts") {
-                    HudSettingsRow(icon: "plus.square", title: "New note", badge: { KeyCap("⌃⌥⇧⌘N") })
-                    HudSettingsRow(icon: "eye", title: "Blink — all notes / none", badge: { KeyCap("⌃⌥⇧⌘B") })
-                    HudSettingsRow(icon: "book.closed", title: "Flip read / edit", badge: { KeyCap("⌘⇧P") })
-                    HudSettingsRow(icon: "circle.dashed", title: "Focus", badge: { KeyCap("⌘.") })
+                    HudSettingsRow(
+                        icon: "plus.square",
+                        title: "New note",
+                        subtitle: "Rebind any of these in the config file's hotkeys section",
+                        badge: { KeyCap(chord(store.config.hotkeys.newNote)) }
+                    )
+                    HudSettingsRow(
+                        icon: "eye",
+                        title: "Blink — all notes / none",
+                        badge: { KeyCap(chord(store.config.hotkeys.blink)) }
+                    )
+                    HudSettingsRow(
+                        icon: "book.closed",
+                        title: "Flip read / edit",
+                        badge: { KeyCap(chord(store.config.hotkeys.toggleMode)) }
+                    )
+                    HudSettingsRow(
+                        icon: "circle.dashed",
+                        title: "Focus",
+                        badge: { KeyCap(chord(store.config.hotkeys.focus)) }
+                    )
+                    HudSettingsRow(
+                        icon: "xmark.square",
+                        title: "Close panel",
+                        subtitle: "⎋ steps down: leaves edit, then drops focus",
+                        badge: { KeyCap("⌘W") }
+                    )
                     HudSettingsRow(
                         icon: "command",
                         title: "Command palette",
@@ -101,7 +146,7 @@ struct SettingsView: View {
             }
             .padding(HudSpacing.xl)
         }
-        .frame(width: 460, height: 560)
+        .frame(width: 460, height: 640)
     }
 }
 
