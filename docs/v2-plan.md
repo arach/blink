@@ -10,7 +10,7 @@
 | Codebase | **New app, new repo** — v1 is a donor of lessons and spec, not code |
 | Stack | Native Swift/AppKit shell + WKWebView editor surfaces, built on HudsonKit |
 | Surface set | **Triad only at v2.0**: menubar popover + command palette + floating note panels. No Library window; add later only if genuinely missed |
-| Repo strategy | Fresh standalone repo depending on `hudsonkit-xcframework`; transplant Scout's HotkeyManager + AppDelegate/status-item patterns |
+| Repo strategy | *(revised 2026-07-14)* v2 lives at the root of the existing `arach/blink` repo; v1 archived under `archive/v1` (tag `v1-final`). Hudson consumed as a source path dep on the sibling `../hudson` checkout (Scout convention; `BLINK_HUDSON_SOURCE=git` to override) — unlocks HudsonVoice for M4. Scout's HotkeyManager + AppDelegate/status-item patterns transplanted |
 | Spatial feel | Free placement (panels go exactly where you put them) + opt-in 3×3 grid chords via Hyper+B overlay. No magnetism |
 | Overflow | The palette is the overflow: only opened notes are panels; everything else lives in popover recents + palette search. "Gather panels" command in polish milestone |
 
@@ -20,7 +20,7 @@
 - **Dictation target:** focused panel's caret; if no panel is focused, spawn a new capture panel. Audio + partials retained until the transcript is committed to disk.
 - **Menubar-only app** (`LSUIElement`) — no dock icon, consistent with triad-only. Revisit if a Library window ever ships.
 - **Editor bundle is vanilla CodeMirror 6, no React.** v1 needed React for app chrome; in v2 the chrome is native, so each panel loads a small static CM6 bundle. Faster per-panel startup, tiny bridge surface.
-- **Working repo name:** `blink-native` (product name stays "Blink"; rename is cheap).
+- **Repo:** ~~working name `blink-native`~~ *(revised)* — v2 is the root of `arach/blink`; the product and the repo share the name.
 
 ## Architecture
 

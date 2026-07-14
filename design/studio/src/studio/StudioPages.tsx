@@ -284,8 +284,8 @@ function DecisionsPage({ page }: { page: BlinkStudioPage }) {
       "Menubar popover + command palette + floating panels. No Library window at v2.0 — add later only if genuinely missed.",
     ],
     [
-      "Fresh repo + Scout transplants",
-      "Standalone repo on hudsonkit-xcframework; HotkeyManager and status-item patterns copied from Scout, not forked.",
+      "One repo, v1 archived",
+      "v2 lives at the root of arach/blink; v1 (Tauri) under archive/v1, tag v1-final. Hudson via source path dep on ../hudson (Scout convention); HotkeyManager + status-item patterns transplanted from Scout.",
     ],
     [
       "Free placement",
@@ -302,7 +302,7 @@ function DecisionsPage({ page }: { page: BlinkStudioPage }) {
     ["dictation target", "focused panel's caret; if none, a new capture panel. Audio kept until transcript committed"],
     ["app presence", "LSUIElement menubar-only, no dock icon"],
     ["editor bundle", "vanilla CodeMirror 6, no React — chrome is native now"],
-    ["working name", "blink-native (product stays 'Blink')"],
+    ["repo", "arach/blink root — v1 archived at archive/v1 (tag v1-final)"],
   ];
 
   return (

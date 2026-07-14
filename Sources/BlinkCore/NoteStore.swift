@@ -1,0 +1,112 @@
+import Foundation
+
+public extension Notification.Name {
+    /// Posted after a note is created. `userInfo["id"]` holds the note id.
+    static let blinkNoteCreated = Notification.Name("blink.note.created")
+    /// Posted after a note is updated. `userInfo["id"]` holds the note id.
+    static let blinkNoteUpdated = Notification.Name("blink.note.updated")
+    /// Posted after a note is deleted. `userInfo["id"]` holds the note id.
+    static let blinkNoteDeleted = Notification.Name("blink.note.deleted")
+}
+
+/// The single source of truth for notes. Owns the in-memory index and coordinates
+/// persistence through a `NoteFileStore`. An actor so concurrent callers cannot
+/// corrupt the index; value types crossing the boundary are `Sendable`.
+///
+/// After each mutation it posts a notification (on the injected center,
+/// `.default` in the app) so UI and other windows can react.
+public actor NoteStore {
+    private let fileStore: NoteFileStore
+    private var notes: [String: Note] = [:]
+    private let clock: @Sendable () -> Date
+    private let notificationCenter: NotificationCenter
+
+    public init(fileStore: NoteFileStore, notificationCenter: NotificationCenter = .default) {
+        self.fileStore = fileStore
+        self.clock = { Date() }
+        self.notificationCenter = notificationCenter
+    }
+
+    /// Testing hook: inject a clock so `createdAt`/`updatedAt` are controllable.
+    init(
+        fileStore: NoteFileStore,
+        notificationCenter: NotificationCenter = .default,
+        clock: @escaping @Sendable () -> Date
+    ) {
+        self.fileStore = fileStore
+        self.clock = clock
+        self.notificationCenter = notificationCenter
+    }
+
+    /// Read the directory into memory. Returns all notes sorted `updatedAt` desc.
+    @discardableResult
+    public func load() throws -> [Note] {
+        let loaded = try fileStore.loadAll()
+        notes = Dictionary(uniqueKeysWithValues: loaded.map { ($0.id, $0) })
+        return all()
+    }
+
+    /// Create a new note from raw markdown content. Assigns a unique slug id and
+    /// stamps timestamps, then persists.
+    @discardableResult
+    public func create(content: String) throws -> Note {
+        let base = Slug.generate(from: Note.extractTitle(from: content))
+        let id = Slug.unique(base, existing: Set(notes.keys))
+        let now = clock()
+        let note = Note(
+            id: id,
+            content: content,
+            createdAt: now,
+            updatedAt: now,
+            tags: [],
+            pinned: false
+        )
+        try fileStore.save(note)
+        notes[id] = note
+        post(.blinkNoteCreated, id: id)
+        return note
+    }
+
+    /// Replace a note's content and bump `updatedAt`. Throws if `id` is unknown.
+    @discardableResult
+    public func update(id: String, content: String) throws -> Note {
+        guard var note = notes[id] else {
+            throw NoteFileStoreError.noteNotFound(id: id)
+        }
+        note.content = content
+        note.updatedAt = clock()
+        try fileStore.save(note)
+        notes[id] = note
+        post(.blinkNoteUpdated, id: id)
+        return note
+    }
+
+    /// Delete a note by id. Throws if `id` is unknown.
+    public func delete(id: String) throws {
+        guard notes[id] != nil else {
+            throw NoteFileStoreError.noteNotFound(id: id)
+        }
+        try fileStore.delete(id: id)
+        notes[id] = nil
+        post(.blinkNoteDeleted, id: id)
+    }
+
+    /// Look up a note by id.
+    public func note(id: String) -> Note? {
+        notes[id]
+    }
+
+    /// All notes, sorted by `updatedAt` descending (ties broken by id for stability).
+    public func all() -> [Note] {
+        notes.values.sorted { lhs, rhs in
+            if lhs.updatedAt != rhs.updatedAt {
+                return lhs.updatedAt > rhs.updatedAt
+            }
+            return lhs.id < rhs.id
+        }
+    }
+
+    private func post(_ name: Notification.Name, id: String) {
+        notificationCenter.post(name: name, object: nil, userInfo: ["id": id])
+    }
+}

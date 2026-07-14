@@ -1,58 +1,28 @@
+# Build artifacts
+.build/
+.swiftpm/
+dist/
+out/
+*.xcodeproj
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+
 # Logs
 logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# OS / editor
+.DS_Store
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 
-# Tauri
-src-tauri/target/
-
-# Local data directory
+# Local state
+.claude/settings.local.json
+.openscout/project.json
 data/.claude/
 
-# Claude local settings
-.claude/settings.local.json
-
-# Development process management
-.dev-pids/
-*.pid
-*.dev.log
-
-# Backup files
-*.backup
-*_old.*
-*.old
-
-# Test and debug scripts
-test-*.html
-test-*.js
-test-*.sh
-debug-*.sh
-check-*.sh
-
-# Temporary documentation
-DEBUG*.md
-DEBUGGING.md
-manual-test-*.md
-test-*.md
-# OpenScout local state
-.openscout/project.json
+# Rust build artifacts (archived v1)
+archive/v1/src-tauri/target/

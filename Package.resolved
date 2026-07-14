@@ -1,0 +1,15 @@
+{
+  "originHash" : "676f6a38b325a7f2a44c492adb64f4edbe83fac57fba55d30737aba4bac0dffa",
+  "pins" : [
+    {
+      "identity" : "vox",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arach/vox.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "20f28ad3401fc8cd45b21f6603191a584a725054"
+      }
+    }
+  ],
+  "version" : 3
+}
