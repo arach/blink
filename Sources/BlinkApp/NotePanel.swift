@@ -18,6 +18,14 @@ final class NotePanel: NSPanel {
     let modeState = PanelModeState()
     var currentMode: String { modeState.mode }
 
+    /// Guaranteed-contrast tint between glass and content. Baseline keeps the
+    /// panel legible over pale backgrounds without sampling the screen (which
+    /// would need Screen Recording permission); edit mode darkens further so
+    /// writing gets a focused, higher-contrast surface.
+    private let tintLayer = NSView()
+    private static let readTint: CGFloat = 0.18
+    private static let editTint: CGFloat = 0.42
+
     init(noteID: String, initialContent: String, title: String) {
         self.noteID = noteID
         self.editor = EditorWebView()
@@ -51,6 +59,18 @@ final class NotePanel: NSPanel {
         glass.wantsLayer = true
         glass.layer?.cornerRadius = 12
         glass.layer?.masksToBounds = true
+
+        tintLayer.wantsLayer = true
+        tintLayer.layer?.backgroundColor = NSColor.black.cgColor
+        tintLayer.alphaValue = Self.readTint
+        tintLayer.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(tintLayer)
+        NSLayoutConstraint.activate([
+            tintLayer.topAnchor.constraint(equalTo: glass.topAnchor),
+            tintLayer.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+            tintLayer.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            tintLayer.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+        ])
 
         let webView = editor.webView
         webView.translatesAutoresizingMaskIntoConstraints = false
@@ -107,9 +127,14 @@ final class NotePanel: NSPanel {
     // MARK: - Mode
 
     /// Reflect a mode in the toggle without emitting a change (initial mode,
-    /// or flips that originated in the webview).
+    /// or flips that originated in the webview). Also drives the focus tint:
+    /// editing gets a darker, calmer surface; reading stays airy.
     func reflectMode(_ mode: String) {
         modeState.mode = mode
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            tintLayer.animator().alphaValue = mode == "edit" ? Self.editTint : Self.readTint
+        }
     }
 
     /// User-initiated mode change from native chrome (toggle click or ⌘⇧P).
