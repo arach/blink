@@ -61,7 +61,7 @@ final class NotePanel: NSPanel {
 
         editor.load()
         editor.setContent(initialContent)
-        editor.onReady = { [weak self] in self?.editor.focus() }
+        // Focus-on-ready and initial mode are owned by PanelManager (mode-aware).
     }
 
     /// Nonactivating panels must opt in to becoming key so the editor can type.

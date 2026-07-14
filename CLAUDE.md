@@ -49,6 +49,14 @@ swift test                   # BlinkCore tests
 
 ## Conventions
 
+- **Before building anything new, survey the ecosystem first**: check HudsonKit
+  (`../hudson/packages/native/apple/HudsonKit`) for primitives to reuse, and
+  lattices / talkie / scout (`../lattices`, `../talkie`, `../openscout`) for
+  working patterns to transplant. Blink hand-rolls only what none of them have —
+  and anything generic built here should be shaped for upstreaming to HudsonKit.
+  (Precedent: HotkeyManager came from Scout via Lattices; settings use
+  HudSettingsSection/Row; glass, palette, and observability are all Hudson.)
+
 - Log prefix `[BLINK]` via HudLogger (HudsonObservability).
 - Hyper = ⌃⌥⇧⌘. Global hotkeys via Carbon RegisterEventHotKey.
 - User-visible name is "Blink".

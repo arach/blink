@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var contextMenu: NSMenu!
     private var panelManager: PanelManager!
     private var model: AppModel!
+    private var settingsWindow: NSWindow?
     private let log = HudLogger(category: "blink.app")
 
     static func notesDirectory() -> URL {
@@ -110,9 +111,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
         popover.appearance = NSAppearance(named: .darkAqua)
         let host = NSHostingController(
-            rootView: CapturePopoverView(model: model) { [weak self] in
-                self?.popover?.performClose(nil)
-            }
+            rootView: CapturePopoverView(
+                model: model,
+                dismiss: { [weak self] in self?.popover?.performClose(nil) },
+                openSettings: { [weak self] in
+                    self?.popover?.performClose(nil)
+                    self?.openSettings()
+                }
+            )
         )
         host.sizingOptions = .preferredContentSize
         popover.contentViewController = host
@@ -129,6 +135,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(.separator())
 
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
+
         let quitItem = NSMenuItem(title: "Quit Blink", action: #selector(menuQuit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
@@ -140,7 +152,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         newNote()
     }
 
+    @objc private func menuSettings() {
+        openSettings()
+    }
+
     @objc private func menuQuit() {
         NSApp.terminate(nil)
+    }
+
+    private func openSettings() {
+        if settingsWindow == nil {
+            let host = NSHostingController(
+                rootView: SettingsView(config: .shared, notesDirectory: Self.notesDirectory())
+            )
+            let window = NSWindow(contentViewController: host)
+            window.title = "Blink Settings"
+            window.styleMask = [.titled, .closable]
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.isReleasedWhenClosed = false
+            window.setFrameAutosaveName("blink.settings")
+            if window.frame.origin == .zero { window.center() }
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 }

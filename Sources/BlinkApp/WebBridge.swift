@@ -15,9 +15,11 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     var onReady: (() -> Void)?
     var onContentChanged: ((String) -> Void)?
     var onSaveRequested: (() -> Void)?
+    var onModeChanged: ((String) -> Void)?
 
     private var isReady = false
     private var pendingContent: String?
+    private var pendingMode: String?
     private let log = HudLogger(category: "blink.bridge")
 
     override init() {
@@ -37,6 +39,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         onReady = nil
         onContentChanged = nil
         onSaveRequested = nil
+        onModeChanged = nil
     }
 
     /// Locate the built editor bundle: app Resources first (run-app.sh copies it),
@@ -77,6 +80,15 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         evaluate("window.blink.focus()")
     }
 
+    /// Programmatic mode switch (edit/read) — never echoes modeChanged.
+    func setMode(_ mode: String) {
+        guard isReady else {
+            pendingMode = mode
+            return
+        }
+        evaluate("window.blink.setMode(\(Self.jsString(mode)))")
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(
@@ -95,6 +107,10 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
                 pendingContent = nil
                 setContent(pending)
             }
+            if let mode = pendingMode {
+                pendingMode = nil
+                setMode(mode)
+            }
             onReady?()
         case "contentChanged":
             if let text = body["text"] as? String {
@@ -102,6 +118,10 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             }
         case "saveRequested":
             onSaveRequested?()
+        case "modeChanged":
+            if let mode = body["mode"] as? String {
+                onModeChanged?(mode)
+            }
         default:
             log.info("[BLINK] unknown bridge message", metadata: ["type": type])
         }

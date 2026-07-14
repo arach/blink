@@ -7,6 +7,7 @@ import SwiftUI
 struct CapturePopoverView: View {
     @ObservedObject var model: AppModel
     var dismiss: () -> Void
+    var openSettings: () -> Void
 
     @State private var query = ""
     @FocusState private var fieldFocused: Bool
@@ -95,10 +96,13 @@ struct CapturePopoverView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
             Spacer()
-            Image(systemName: "gearshape")
-                .font(.system(size: 11))
-                .foregroundStyle(.quaternary)
-                .help("Settings — later")
+            Button(action: openSettings) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .help("Settings")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

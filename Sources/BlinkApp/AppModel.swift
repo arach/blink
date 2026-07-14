@@ -44,7 +44,8 @@ final class AppModel: ObservableObject {
     func createNote(content: String = "") async {
         do {
             let note = try await store.create(content: content)
-            panelManager.openPanel(for: note)
+            // New notes always open in edit — you just created it to type.
+            panelManager.openPanel(for: note, initialMode: "edit")
         } catch {
             log.error("[BLINK] create failed", metadata: ["error": "\(error)"])
         }

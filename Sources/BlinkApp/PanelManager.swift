@@ -31,6 +31,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
             log.error("[BLINK] failed to load notes", metadata: ["error": "\(error)"])
             return
         }
+        guard ConfigStore.shared.restoreSession else {
+            log.info("[BLINK] session restore disabled in settings")
+            return
+        }
         let openIDs = UserDefaults.standard.stringArray(forKey: Self.openNotesKey) ?? []
         for id in openIDs {
             if let note = await store.note(id: id) {
@@ -50,7 +54,8 @@ final class PanelManager: NSObject, NSWindowDelegate {
     }
 
     /// One panel per note: if it's already open, focus it.
-    func openPanel(for note: Note) {
+    /// `initialMode` overrides mode resolution (new notes pass "edit").
+    func openPanel(for note: Note, initialMode: String? = nil) {
         if let existing = panels[note.id] {
             existing.makeKeyAndOrderFront(nil)
             return
@@ -65,6 +70,18 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
         panel.editor.onSaveRequested = { [weak self] in
             Task { await self?.flush(noteID: note.id) }
+        }
+
+        // Mode: explicit (new notes open in edit) > per-note memory > default.
+        let mode = initialMode
+            ?? UserDefaults.standard.string(forKey: ConfigKeys.noteMode(note.id))
+            ?? ConfigStore.shared.defaultMode
+        panel.editor.setMode(mode)
+        panel.editor.onReady = { [weak panel] in
+            if mode == "edit" { panel?.editor.focus() }
+        }
+        panel.editor.onModeChanged = { newMode in
+            UserDefaults.standard.set(newMode, forKey: ConfigKeys.noteMode(note.id))
         }
 
         panel.makeKeyAndOrderFront(nil)
