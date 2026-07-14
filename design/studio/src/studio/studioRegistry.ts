@@ -48,6 +48,16 @@ export const pages: readonly BlinkStudioPage[] = [
     source: ["docs/functionality-v1.md"],
   },
   {
+    href: "/studio/foundations/notes-representation",
+    label: "Notes representation",
+    bucket: "foundations",
+    surface: "doc",
+    status: "open",
+    blurb:
+      "The bigger conversation: files as truth, a disposable .blink/ cache, JSON index, and the agent surface (conventions → CLI → MCP). Annotate to decide.",
+    source: ["docs/notes-representation.md"],
+  },
+  {
     href: "/studio/plans/v2-plan",
     label: "Build plan (M0–M5)",
     bucket: "plans",

@@ -32,6 +32,7 @@ type RenderContext = StudioHudsonRenderContext<Bucket, Surface, Status>;
 /** Doc pages render the real files from blink/docs via /api/docs. */
 const DOC_PAGES: Record<string, string> = {
   "/studio/foundations/functionality-v1": "functionality-v1",
+  "/studio/foundations/notes-representation": "notes-representation",
   "/studio/plans/v2-plan": "v2-plan",
   "/studio/plans/ui-map": "ui-map",
 };

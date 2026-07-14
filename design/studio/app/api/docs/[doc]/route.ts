@@ -9,6 +9,8 @@ const DOCS: Record<string, string> = {
   'v2-plan': 'v2-plan.md',
   'ui-map': 'v2-ui-map.md',
   'functionality-v1': 'functionality-v1.md',
+  'notes-representation': 'notes-representation.md',
+  'config': 'config.md',
 };
 
 const DOCS_DIR = join(process.cwd(), '..', '..', 'docs');
