@@ -10,6 +10,10 @@ public struct Note: Equatable, Sendable, Codable {
     public var updatedAt: Date
     public var tags: [String]
     public var pinned: Bool
+    /// Frontmatter lines Blink does not own (agent- or tool-authored keys like
+    /// `source:` or `x-*:`), kept verbatim in their original order so a
+    /// decode → edit → encode cycle never destroys another tool's metadata.
+    public var extraFrontmatter: [String]
 
     public init(
         id: String,
@@ -17,7 +21,8 @@ public struct Note: Equatable, Sendable, Codable {
         createdAt: Date,
         updatedAt: Date,
         tags: [String] = [],
-        pinned: Bool = false
+        pinned: Bool = false,
+        extraFrontmatter: [String] = []
     ) {
         self.id = id
         self.content = content
@@ -25,6 +30,7 @@ public struct Note: Equatable, Sendable, Codable {
         self.updatedAt = updatedAt
         self.tags = tags
         self.pinned = pinned
+        self.extraFrontmatter = extraFrontmatter
     }
 
     /// The display title, derived from the content.

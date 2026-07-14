@@ -72,13 +72,14 @@ Codec contract worth knowing before we extend it:
 | `created` / `updated` | always, ISO-8601 w/ fractional seconds | required; tolerates no-fraction form |
 | `tags` | always (`[]` when empty) | defaults `[]` |
 | `pinned` | always (`false` when unset) | defaults `false` |
-| *unknown keys* | — | **silently ignored** |
+| *unknown keys* | verbatim, after Blink's fields | preserved in order (`Note.extraFrontmatter`) |
 
-That last row is the most important line in this whole document. Unknown frontmatter keys
-survive decode but **do not survive re-encode** — `encode` rebuilds the block from the six
-known fields. So today, if an agent writes `source: web-clipper` into a note's
-frontmatter, the next in-app edit **erases it**. This is a latent data-loss bug the moment
-anything external starts writing frontmatter. Flagged in Open Questions.
+> **Fixed** (was the headline finding of this doc's first draft): unknown keys used to be
+> silently dropped on re-encode — an agent writing `source: web-clipper` into a note's
+> frontmatter would have it erased by the next in-app edit. The codec now carries unknown
+> header lines (including nested blocks and blank lines) verbatim through the round-trip,
+> and `NoteStore.update` re-reads all metadata from disk before a content save, so an
+> agent editing frontmatter while the note is open in a panel is never clobbered either.
 
 ### Tier 2 — Device state (UserDefaults, today)
 
@@ -227,9 +228,9 @@ Concretely:
 
 - **Notes:** unchanged. Frontmattered `.md`, one per note, atomic writes, title/graph edges
   derived from content. This part is already right.
-- **Frontmatter:** fix the unknown-key erasure (§1) — the codec must **preserve unknown
-  keys** through a round-trip so external writers can annotate notes without the app
-  clobbering them. This is a prerequisite for the agent surface being safe.
+- **Frontmatter:** ~~fix the unknown-key erasure (§1)~~ **done** — the codec preserves
+  unknown keys through the round-trip, and content saves merge against on-disk metadata.
+  The prerequisite for a safe agent surface is met.
 - **Index:** `.blink/index.json`, derived, deletable. Holds per-note `{id, title, tags,
   pinned, created, updated, size, outboundLinks[]}` plus a reverse `backlinks` map and a
   content-search structure (start with a token/substring map; graduate to real FTS only when
@@ -272,10 +273,10 @@ design.
 
 Real decisions for the owner, not rhetorical:
 
-1. **Frontmatter unknown-key preservation — do we fix it now?** Today re-encode erases any
-   key that isn't one of the six known ones. The agent surface is unsafe until this changes.
-   Preserve-and-passthrough, or a reserved `x-`/`meta:` namespace agents write into? (My
-   vote: preserve everything, it's the least surprising and most portable.)
+1. ~~**Frontmatter unknown-key preservation — do we fix it now?**~~ **Resolved: fixed,
+   preserve-everything.** The codec carries unknown header lines verbatim through the
+   round-trip, and content saves merge against on-disk metadata (`NoteStore.update`),
+   covered by tests. No reserved namespace needed — agents may write any key.
 
 2. **Do tags stay in frontmatter, or become derived from `#hashtags` in content?** Right now
    tags are an explicit frontmatter array. Obsidian-style inline `#tags` would make the

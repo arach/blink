@@ -52,6 +52,35 @@ struct NoteStoreTests {
         #expect(all.first { $0.id == created.id }?.content == "# Doc\nchanged")
     }
 
+    @Test("content save never clobbers metadata an agent wrote to disk")
+    func externalFrontmatterSurvivesContentSave() async throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let created = try await store.create(content: "# Doc\noriginal")
+
+        // An agent edits the file on disk while the note is "open": adds its
+        // own key and sets Blink-owned metadata. The in-memory copy is stale.
+        let fileStore = NoteFileStore(directory: dir)
+        var external = try fileStore.load(id: created.id)
+        external.extraFrontmatter = ["source: agent://claude"]
+        external.tags = ["inbox"]
+        external.pinned = true
+        try fileStore.save(external)
+
+        // The editor's next keystroke save must merge, not clobber.
+        let saved = try await store.update(id: created.id, content: "# Doc\nchanged")
+        #expect(saved.content == "# Doc\nchanged")
+        #expect(saved.extraFrontmatter == ["source: agent://claude"])
+        #expect(saved.tags == ["inbox"])
+        #expect(saved.pinned == true)
+
+        let onDisk = try fileStore.load(id: created.id)
+        #expect(onDisk.extraFrontmatter == ["source: agent://claude"])
+        #expect(onDisk.tags == ["inbox"])
+        #expect(onDisk.pinned == true)
+    }
+
     @Test("update of unknown id throws")
     func updateUnknownThrows() async throws {
         let (store, dir) = tempStore()

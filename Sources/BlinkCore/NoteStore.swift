@@ -68,10 +68,21 @@ public actor NoteStore {
     }
 
     /// Replace a note's content and bump `updatedAt`. Throws if `id` is unknown.
+    ///
+    /// Content is the only field this API owns. All other metadata (tags,
+    /// pinned, createdAt, extra frontmatter) is re-read from disk at save time,
+    /// so an agent editing the file's frontmatter while the note is open in a
+    /// panel is never clobbered by the editor's next keystroke save.
     @discardableResult
     public func update(id: String, content: String) throws -> Note {
         guard var note = notes[id] else {
             throw NoteFileStoreError.noteNotFound(id: id)
+        }
+        if let onDisk = try? fileStore.load(id: id) {
+            note.tags = onDisk.tags
+            note.pinned = onDisk.pinned
+            note.createdAt = onDisk.createdAt
+            note.extraFrontmatter = onDisk.extraFrontmatter
         }
         note.content = content
         note.updatedAt = clock()

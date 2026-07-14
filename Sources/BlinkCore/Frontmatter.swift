@@ -34,6 +34,12 @@ public enum FrontmatterError: Error, Equatable, Sendable {
 ///   newline is not part of the content. `decode` strips exactly one leading
 ///   newline after the closing delimiter; `encode` writes exactly one. Round-trips
 ///   are therefore byte-exact for the content, including any trailing newlines.
+/// - Header lines Blink does not own — unknown keys, their indented continuation
+///   lines, blank lines — are preserved *verbatim and in order* through the
+///   round-trip (`Note.extraFrontmatter`), emitted after Blink's own fields.
+///   Agents may stamp their own keys into a note without Blink erasing them.
+///   Known keys are only recognized at the top level (unindented); Blink itself
+///   always writes the inline forms (`tags: [a, b]`).
 public enum Frontmatter {
     // A fresh formatter per call: ISO8601DateFormatter is not Sendable, so it
     // cannot be a shared static under strict concurrency.
@@ -53,6 +59,7 @@ public enum Frontmatter {
         lines.append("updated: \(dateFormatter.string(from: note.updatedAt))")
         lines.append("tags: [\(note.tags.joined(separator: ", "))]")
         lines.append("pinned: \(note.pinned)")
+        lines.append(contentsOf: note.extraFrontmatter)
         lines.append("---")
 
         // Join header, then exactly one newline, then content verbatim.
@@ -88,10 +95,23 @@ public enum Frontmatter {
         var updatedRaw: String?
         var tags: [String] = []
         var pinned = false
+        var extra: [String] = []
 
-        for rawLine in header.split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = String(rawLine)
-            guard let colon = line.firstIndex(of: ":") else { continue }
+        // The header ends with the newline before the closing "---"; drop the
+        // phantom empty element that trailing newline produces on split.
+        var headerLines = header.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        if header.hasSuffix("\n") || header.isEmpty {
+            headerLines = Array(headerLines.dropLast())
+        }
+
+        for line in headerLines {
+            // Blink's own keys are only recognized at the top level: an indented
+            // line is a continuation of someone else's block, never ours.
+            let isIndented = line.hasPrefix(" ") || line.hasPrefix("\t")
+            guard !isIndented, let colon = line.firstIndex(of: ":") else {
+                extra.append(line)
+                continue
+            }
             let key = String(line[line.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
             let value = String(line[line.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
             switch key {
@@ -106,7 +126,7 @@ public enum Frontmatter {
             case "pinned":
                 pinned = (value.lowercased() == "true")
             default:
-                break // unknown keys ignored
+                extra.append(line) // not ours — preserve verbatim
             }
         }
 
@@ -126,7 +146,8 @@ public enum Frontmatter {
             createdAt: createdAt,
             updatedAt: updatedAt,
             tags: tags,
-            pinned: pinned
+            pinned: pinned,
+            extraFrontmatter: extra
         )
     }
 

@@ -77,7 +77,7 @@ struct FrontmatterTests {
         }
     }
 
-    @Test("Unknown keys are ignored")
+    @Test("Unknown keys are preserved verbatim, in order")
     func unknownKeys() throws {
         let raw = """
         ---
@@ -92,6 +92,76 @@ struct FrontmatterTests {
         let decoded = try Frontmatter.decode(raw)
         #expect(decoded.id == "keeper")
         #expect(decoded.content == "body")
+        #expect(decoded.extraFrontmatter == ["color: blue", "position: 42"])
+    }
+
+    @Test("Unknown keys survive a decode → encode round-trip")
+    func unknownKeysRoundTrip() throws {
+        let raw = """
+        ---
+        id: keeper
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        source: agent://claude
+        x-review: pending
+        ---
+        body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        let reEncoded = Frontmatter.encode(decoded)
+        #expect(reEncoded.contains("source: agent://claude"))
+        #expect(reEncoded.contains("x-review: pending"))
+        // And they survive a second trip identically.
+        let again = try Frontmatter.decode(reEncoded)
+        #expect(again.extraFrontmatter == decoded.extraFrontmatter)
+        #expect(again.content == "body")
+    }
+
+    @Test("Unknown nested blocks are preserved line-for-line")
+    func nestedUnknownBlock() throws {
+        let raw = """
+        ---
+        id: keeper
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        x-meta:
+          device: phone
+          app: shortcuts
+        ---
+        body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.extraFrontmatter == ["x-meta:", "  device: phone", "  app: shortcuts"])
+        let again = try Frontmatter.decode(Frontmatter.encode(decoded))
+        #expect(again.extraFrontmatter == decoded.extraFrontmatter)
+    }
+
+    @Test("Extra lines are emitted after Blink's fields, before the closing delimiter")
+    func extraLinesPosition() {
+        let note = sampleNote(content: "c")
+        var withExtra = note
+        withExtra.extraFrontmatter = ["origin: import"]
+        let lines = Frontmatter.encode(withExtra).split(separator: "\n").map(String.init)
+        #expect(lines[5].hasPrefix("pinned: "))
+        #expect(lines[6] == "origin: import")
+        #expect(lines[7] == "---")
+    }
+
+    @Test("Indented lines never shadow Blink's own keys")
+    func indentedKnownKeyIsNotOurs() throws {
+        let raw = """
+        ---
+        id: keeper
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        x-block:
+          pinned: true
+        ---
+        body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.pinned == false)
+        #expect(decoded.extraFrontmatter == ["x-block:", "  pinned: true"])
     }
 
     @Test("Missing tags and pinned default to [] and false")
