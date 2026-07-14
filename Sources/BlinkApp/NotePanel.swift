@@ -64,7 +64,12 @@ final class NotePanel: NSPanel {
                 x: 0, y: 0,
                 width: theme.panel.defaultWidth, height: theme.panel.defaultHeight
             ),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
+            // Truly borderless: no titlebar, no reserved band — the note is a
+            // page, not an OS window. `.resizable` keeps native edge-resizing;
+            // dragging moves to an invisible strip along the top edge; close
+            // lives on the hover ✕ and ⌘W (close(), not performClose — there is
+            // no close button to simulate).
+            styleMask: [.borderless, .resizable, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -73,15 +78,7 @@ final class NotePanel: NSPanel {
         level = .floating
         hidesOnDeactivate = false
         isMovableByWindowBackground = true
-        titlebarAppearsTransparent = true
-        // Chromeless for every sheet: the note is a page, not an OS window.
-        // Keep the `.titled` styleMask (drag/resize machinery rides on it) but
-        // hide the title and the standard traffic-light buttons. Close now
-        // lives on the hover chrome (the top-left ✕) and ⌘W.
-        titleVisibility = .hidden
-        standardWindowButton(.closeButton)?.isHidden = true
-        standardWindowButton(.miniaturizeButton)?.isHidden = true
-        standardWindowButton(.zoomButton)?.isHidden = true
+        // Title never renders (borderless) but names the window for AX/scripts.
         self.title = title
         isOpaque = false
         backgroundColor = .clear
@@ -133,15 +130,31 @@ final class NotePanel: NSPanel {
         webView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 28),
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
-        // Chrome is earned: both controls fade in on hover.
-        // Mode pill (✎/◧) lives top-right in the title bar as an accessory;
-        // the focus ring sits alone bottom-right — deliberately not a peer.
+        // Invisible drag strip along the top edge: the webview consumes clicks
+        // everywhere, so this is the panel's move gesture (the old titlebar's
+        // one useful job, kept without its reserved band). Sits under the
+        // corner chrome in z so ✕/pill clicks win; height matches the editor's
+        // top padding so the first text line stays clickable.
+        let drag = DragHandle()
+        drag.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(drag)
+        NSLayoutConstraint.activate([
+            drag.topAnchor.constraint(equalTo: container.topAnchor),
+            drag.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            drag.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            drag.heightAnchor.constraint(equalToConstant: 16),
+        ])
+
+        // Chrome is earned: controls fade in on hover, floating IN the former
+        // title area — top corners, over the content, no reserved band.
+        // Mode pill (✎/◧) top-right; the focus ring sits alone bottom-right —
+        // deliberately not a peer.
         let pill = NSHostingView(
             rootView: ModeToggle(state: modeState) { [weak self] mode in
                 self?.selectMode(mode)
@@ -152,18 +165,16 @@ final class NotePanel: NSPanel {
         container.addSubview(pill)
         NSLayoutConstraint.activate([
             pill.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-            // Just below the 28px title strip: reliable rendering and clicks
-            // (the titlebar's drag region eats hits inside the strip itself).
-            pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 32),
+            pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
         ])
         modePillView = pill
 
-        // Close glyph (✕) mirrors the mode pill: hover-earned, top-LEFT, same
-        // 32pt offset below the top edge. The traffic-light close is gone, so
-        // this (and ⌘W) is how a note is dismissed. performClose flushes saves.
+        // Close glyph (✕) mirrors the mode pill: hover-earned, top-LEFT, in the
+        // title area. This (and ⌘W) is how a note is dismissed — close(), which
+        // still runs the windowWillClose flush path.
         let closeHost = NSHostingView(
             rootView: CloseGlyph { [weak self] in
-                self?.performClose(nil)
+                self?.close()
             }
         )
         closeHost.translatesAutoresizingMaskIntoConstraints = false
@@ -171,7 +182,7 @@ final class NotePanel: NSPanel {
         container.addSubview(closeHost)
         NSLayoutConstraint.activate([
             closeHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
-            closeHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 32),
+            closeHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
         ])
         closeButtonView = closeHost
 
@@ -251,7 +262,8 @@ final class NotePanel: NSPanel {
         }
     }
 
-    /// Nonactivating panels must opt in to becoming key so the editor can type.
+    /// Nonactivating borderless panels must opt in to becoming key so the
+    /// editor can type.
     override var canBecomeKey: Bool { true }
 
     /// Mode flip (⌘⇧P) and focus (⌘.) — chords come from config so they follow
@@ -270,7 +282,7 @@ final class NotePanel: NSPanel {
         }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags == [.command], event.charactersIgnoringModifiers?.lowercased() == "w" {
-            performClose(nil)
+            close()  // borderless: performClose would beep (no close button)
             return true
         }
         return super.performKeyEquivalent(with: event)
@@ -622,6 +634,15 @@ private struct FocusGlyph: View {
         }
         .buttonStyle(.plain)
         .help("Focus — quiet everything else (⌘.)")
+    }
+}
+
+/// Invisible top-edge strip that moves the window — the webview eats clicks
+/// everywhere else, so this is the drag surface (the titlebar's ghost, minus
+/// the band).
+private final class DragHandle: NSView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
     }
 }
 
