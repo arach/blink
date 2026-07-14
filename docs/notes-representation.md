@@ -194,10 +194,13 @@ order of arrival:
    `.md` in a known dir; `config.json` is the read/write control surface; `.blink/` is
    derived and safe to ignore or delete. An agent that can read files and speak Markdown is
    already a Blink client. Zero new code. **Ships with M-nothing — it already exists.**
-2. **A `blink` CLI (next).** `blink new`, `blink ls`, `blink cat <id>`, `blink search <q>`,
-   `blink link <a> <b>`. Wraps `BlinkCore` so agents get atomic writes, correct slug
-   assignment, and index-backed search **without reimplementing the codec** or racing the
-   app. This is the point where "write a note" becomes safe for a non-GUI caller.
+   Now made real: the app watches the Notes directory and reconciles external writes live
+   (`NoteStore.reconcile`), so file edits reach the popover and open panels within a second.
+2. **A `blink` CLI — shipped.** `blink ls / cat / new / search / rm / path`, `--json`
+   everywhere (see `docs/cli.md`). Wraps `BlinkCore` so agents get atomic writes and
+   correct slug assignment **without reimplementing the codec** — and the app no longer
+   races anyone: it watches the Notes directory and reconciles external changes live into
+   the popover and open panels. `blink link <a> <b>` waits for the index (§3.2).
 3. **An MCP server (later, only if earned).** Structured tools over the same `BlinkCore`
    the CLI uses. Justified when agents need conversational, typed, multi-step interaction —
    not before. The CLI is a hard dependency's worth of value on its own; MCP is a face on
@@ -240,7 +243,7 @@ Concretely:
 - **Config:** `config.json` at the Blink home root — the agent-first, hot-reloaded control
   surface already landing. Root-level (not in `.blink/`) because it's a *user/agent* surface,
   not a derived cache.
-- **Agent surface:** documented conventions now → `blink` CLI next → MCP later.
+- **Agent surface:** documented conventions ✓ → `blink` CLI ✓ (`docs/cli.md`) → MCP later.
 - **Embeddings:** slot reserved at `.blink/embeddings/`, not built.
 
 ### File layout — the Blink home directory

@@ -14,12 +14,15 @@ edit it; port lessons, not code.
   `~/Library/Application Support/Blink/config.json` and Blink hot-applies it.
   Agents configure the app through this file, not the GUI.
 - Notes representation (design conversation): `docs/notes-representation.md`
+- Notes CLI (agent-first): `docs/cli.md` — `blink ls/cat/new/search/rm/path`
+  over the same files; the app reconciles external writes live.
 
 ## Commands
 
 ```sh
 swift build                  # needs ../hudson checkout (BLINK_HUDSON_SOURCE=git for GitHub)
 swift test                   # BlinkCore tests
+swift build --product blink  # the notes CLI (docs/cli.md)
 (cd web/editor && bun install && bun run build)   # editor bundle
 ./scripts/run-app.sh --debug --restart            # bundle dist/Blink.app + launch
 ```
@@ -32,8 +35,11 @@ swift test                   # BlinkCore tests
   PanelManager (one panel per note, save policy), NotePanel (glass NSPanel),
   WebBridge (WKScriptMessageHandler ↔ editor bundle).
 - `Sources/BlinkCore` — pure Swift, no AppKit: Note model, slug + UUIDv5
-  identity (v1-compatible), minimal YAML frontmatter codec, atomic file store,
-  NoteStore actor posting NotificationCenter events (created/updated/deleted).
+  identity (v1-compatible), minimal YAML frontmatter codec (preserves foreign
+  keys verbatim), atomic file store, NoteStore actor posting NotificationCenter
+  events (created/updated/deleted) + `reconcile()` for external writers.
+- `Sources/BlinkCLI` — the `blink` CLI (swift-argument-parser) over BlinkCore;
+  `BlinkPaths` (BLINK_HOME override) keeps app and CLI agreeing on locations.
 - `web/editor` — vanilla CodeMirror 6 (no React), single-file dist/editor.html,
   four-message bridge: ready · contentChanged (user events ONLY) ·
   saveRequested → native; setContent/getContent/focus ← native.

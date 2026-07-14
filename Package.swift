@@ -13,10 +13,12 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "BlinkApp", targets: ["BlinkApp"]),
+        .executable(name: "blink", targets: ["BlinkCLI"]),
         .library(name: "BlinkCore", targets: ["BlinkCore"]),
     ],
     dependencies: [
-        hudsonDependency
+        hudsonDependency,
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
     ],
     targets: [
         .executableTarget(
@@ -28,6 +30,14 @@ let package = Package(
                 .product(name: "HudsonObservability", package: "hudson"),
             ],
             path: "Sources/BlinkApp"
+        ),
+        .executableTarget(
+            name: "BlinkCLI",
+            dependencies: [
+                "BlinkCore",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            path: "Sources/BlinkCLI"
         ),
         .target(
             name: "BlinkCore",
