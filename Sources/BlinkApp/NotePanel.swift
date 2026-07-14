@@ -38,6 +38,9 @@ final class NotePanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         minSize = NSSize(width: 260, height: 120)
+        // Blink's glass is dark regardless of system appearance — the editor
+        // typography (white on transparent) and the studies assume it.
+        appearance = NSAppearance(named: .darkAqua)
 
         // Glass under a transparent editor.
         let glass = NSVisualEffectView()
