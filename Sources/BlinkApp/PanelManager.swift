@@ -18,6 +18,8 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var isTerminating = false
     private var blinkHidden = false
     private lazy var focusOverlay = FocusOverlay()
+    private var gridOverlay: GridOverlay?
+    private var mostRecentKeyPanelID: String?
     private let log = HudLogger(category: "blink.panels")
 
     private static let openNotesKey = "blink.openNotes"
@@ -101,6 +103,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         // next Hyper+B should hide everything again.
         blinkHidden = false
         if let existing = panels[note.id] {
+            mostRecentKeyPanelID = note.id
             existing.makeKeyAndOrderFront(nil)
             return
         }
@@ -155,6 +158,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
 
         panel.makeKeyAndOrderFront(nil)
+        mostRecentKeyPanelID = note.id
         if mode == "edit" {
             // Give the webview native key focus so typing and shortcuts work
             // immediately (JS focus alone doesn't set the first responder).
@@ -162,12 +166,14 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
         persistOpenList()
         updateFocusOverlay()
+        gridOverlay?.refresh()
     }
 
     /// Focus overlay is active exactly when the key window is a panel with
     /// focus mode on (edit or read) and the blink hasn't hidden everything.
     private func updateFocusOverlay() {
-        if !blinkHidden,
+        if gridOverlay?.isVisible != true,
+           !blinkHidden,
            let keyPanel = panels.values.first(where: { $0.isKeyWindow }),
            keyPanel.focusEnabled {
             focusOverlay.show(behind: keyPanel)
@@ -177,6 +183,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
     }
 
     func windowDidBecomeKey(_ notification: Notification) {
+        if let panel = notification.object as? NotePanel {
+            mostRecentKeyPanelID = panel.noteID
+        }
         updateFocusOverlay()
     }
 
@@ -192,10 +201,34 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// The panel that currently has key focus, if any.
     var keyNotePanel: NotePanel? { panels.values.first { $0.isKeyWindow } }
 
-    /// Grid/constellation overlay toggle (Hyper+G). Implemented by the
-    /// grid-overlay initiative; the hotkey is already wired.
+    /// Turn the desk into one drawn page. The overlay owns its scoped key
+    /// registrations; this manager supplies the live panel set and remembers
+    /// which panel should move after Blink (or another app) takes key focus.
     func toggleGridOverlay() {
-        log.info("[BLINK] grid overlay not yet implemented")
+        if gridOverlay == nil {
+            gridOverlay = GridOverlay(
+                store: store,
+                panels: { [weak self] in self?.openPanelsByID ?? [:] },
+                placementPanel: { [weak self] in self?.placementPanel },
+                onHide: { [weak self] in self?.updateFocusOverlay() }
+            )
+        }
+        if gridOverlay?.isVisible == false {
+            focusOverlay.hide()
+        }
+        gridOverlay?.toggle()
+        log.info(
+            "[BLINK] grid overlay toggled",
+            metadata: ["visible": "\(gridOverlay?.isVisible == true)"]
+        )
+    }
+
+    private var placementPanel: NotePanel? {
+        keyNotePanel
+            ?? mostRecentKeyPanelID.flatMap { panels[$0] }
+            ?? NSApp.orderedWindows.compactMap { $0 as? NotePanel }.first { panel in
+                panels[panel.noteID] === panel
+            }
     }
 
     /// Hot-apply a config change to every live surface.
@@ -227,6 +260,8 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// and persists an EMPTY open-notes list — killing session restore.
     func prepareForTermination() {
         isTerminating = true
+        gridOverlay?.hide()
+        focusOverlay.hide()
     }
 
     /// Flush every pending save. Called before quit.
@@ -272,6 +307,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.editor.teardown()
         panels[id] = nil
         panelContent[id] = nil
+        if mostRecentKeyPanelID == id {
+            mostRecentKeyPanelID = nil
+        }
+        gridOverlay?.refresh()
         if !isTerminating {
             persistOpenList()
             Task { await flush(noteID: id) }
