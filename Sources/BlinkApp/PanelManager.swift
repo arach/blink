@@ -10,6 +10,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private let store: NoteStore
     private var panels: [String: NotePanel] = [:]
     private var pendingText: [String: String] = [:]
+    /// What each open panel currently displays — the tell between "our own
+    /// save came back around" and a genuine external edit to push in.
+    private var panelContent: [String: String] = [:]
+    private var observers: [NSObjectProtocol] = []
     private var saveTasks: [String: Task<Void, Never>] = [:]
     private var isTerminating = false
     private var blinkHidden = false
@@ -55,6 +59,41 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panels[id]?.close()
     }
 
+    /// React to store notifications so *external* writers (the blink CLI, an
+    /// agent editing files) reach open panels live. In-app mutations flow
+    /// through here too but no-op: our own save leaves panelContent equal to
+    /// the store, and in-app deletes already closed the panel.
+    func startObservingStore() {
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: .blinkNoteUpdated, object: nil, queue: .main
+            ) { [weak self] notification in
+                guard let id = notification.userInfo?["id"] as? String else { return }
+                Task { @MainActor in await self?.applyExternalUpdate(id: id) }
+            }
+        )
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: .blinkNoteDeleted, object: nil, queue: .main
+            ) { [weak self] notification in
+                guard let id = notification.userInfo?["id"] as? String else { return }
+                Task { @MainActor in self?.handleNoteDeleted(id: id) }
+            }
+        )
+    }
+
+    /// Push an externally changed note into its open panel — unless the user
+    /// has unsaved edits in flight, in which case the user wins (their next
+    /// flush merges metadata from disk either way).
+    private func applyExternalUpdate(id: String) async {
+        guard let panel = panels[id], pendingText[id] == nil else { return }
+        guard let note = await store.note(id: id), note.content != panelContent[id] else { return }
+        panelContent[id] = note.content
+        panel.editor.setContent(note.content)  // programmatic — never echoes
+        if panel.title != note.title { panel.title = note.title }
+        log.info("[BLINK] external edit applied to open panel", metadata: ["id": id])
+    }
+
     /// One panel per note: if it's already open, focus it.
     /// `initialMode` overrides mode resolution (new notes pass "edit").
     func openPanel(for note: Note, initialMode: String? = nil) {
@@ -69,8 +108,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
         let panel = NotePanel(noteID: note.id, initialContent: note.content, title: note.title)
         panel.delegate = self
         panels[note.id] = panel
+        panelContent[note.id] = note.content
 
         panel.editor.onContentChanged = { [weak self] text in
+            self?.panelContent[note.id] = text
             self?.scheduleSave(noteID: note.id, text: text)
         }
         panel.editor.onSaveRequested = { [weak self] in
@@ -208,6 +249,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         let id = panel.noteID
         panel.editor.teardown()
         panels[id] = nil
+        panelContent[id] = nil
         if !isTerminating {
             persistOpenList()
             Task { await flush(noteID: id) }

@@ -53,13 +53,15 @@ public actor NoteStore {
         let base = Slug.generate(from: Note.extractTitle(from: content))
         let id = Slug.unique(base, existing: Set(notes.keys))
         let now = clock()
-        let note = Note(
-            id: id,
-            content: content,
-            createdAt: now,
-            updatedAt: now,
-            tags: [],
-            pinned: false
+        let note = normalized(
+            Note(
+                id: id,
+                content: content,
+                createdAt: now,
+                updatedAt: now,
+                tags: [],
+                pinned: false
+            )
         )
         try fileStore.save(note)
         notes[id] = note
@@ -86,6 +88,7 @@ public actor NoteStore {
         }
         note.content = content
         note.updatedAt = clock()
+        note = normalized(note)
         try fileStore.save(note)
         notes[id] = note
         post(.blinkNoteUpdated, id: id)
@@ -102,6 +105,54 @@ public actor NoteStore {
         post(.blinkNoteDeleted, id: id)
     }
 
+    /// The difference between the on-disk directory and the in-memory index,
+    /// as note ids. Returned by `reconcile()` so callers can log or react.
+    public struct ReconcileDiff: Equatable, Sendable {
+        public var created: [String] = []
+        public var updated: [String] = []
+        public var deleted: [String] = []
+        public var isEmpty: Bool { created.isEmpty && updated.isEmpty && deleted.isEmpty }
+    }
+
+    /// Re-scan the directory and reconcile the in-memory index with it,
+    /// posting created/updated/deleted notifications for every difference.
+    /// This is what makes the filesystem a real API: any external writer
+    /// (the `blink` CLI, an agent, a sync tool) becomes visible to every UI
+    /// surface the moment the app notices the change.
+    ///
+    /// Files that fail to decode are skipped, not treated as deletions — a
+    /// malformed foreign file must never cascade into closing panels.
+    @discardableResult
+    public func reconcile() -> ReconcileDiff {
+        let onDisk = Dictionary(
+            fileStore.loadAllLenient().map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let present = fileStore.existingIDs()
+        var diff = ReconcileDiff()
+
+        for (id, note) in onDisk {
+            if let known = notes[id] {
+                if known != note { diff.updated.append(id) }
+            } else {
+                diff.created.append(id)
+            }
+            notes[id] = note
+        }
+        // Deleted = the file is gone. A present-but-undecodable file keeps its
+        // in-memory version untouched (it may be foreign, or mid-rewrite).
+        diff.deleted = notes.keys.filter { !present.contains($0) }
+        for id in diff.deleted { notes[id] = nil }
+
+        diff.created.sort()
+        diff.updated.sort()
+        diff.deleted.sort()
+        for id in diff.created { post(.blinkNoteCreated, id: id) }
+        for id in diff.updated { post(.blinkNoteUpdated, id: id) }
+        for id in diff.deleted { post(.blinkNoteDeleted, id: id) }
+        return diff
+    }
+
     /// Look up a note by id.
     public func note(id: String) -> Note? {
         notes[id]
@@ -115,6 +166,14 @@ public actor NoteStore {
             }
             return lhs.id < rhs.id
         }
+    }
+
+    /// Round-trip a note through the codec so the in-memory version is always
+    /// identical to what decoding its own file yields (ISO8601 truncates dates
+    /// to milliseconds). Without this, `reconcile` would see every note the
+    /// app itself created as "externally updated".
+    private func normalized(_ note: Note) -> Note {
+        (try? Frontmatter.decode(Frontmatter.encode(note))) ?? note
     }
 
     private func post(_ name: Notification.Name, id: String) {

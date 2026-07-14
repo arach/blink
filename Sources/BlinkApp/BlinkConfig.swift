@@ -1,4 +1,5 @@
 import AppKit
+import BlinkCore
 import Foundation
 import HudsonObservability
 
@@ -184,10 +185,9 @@ final class BlinkConfigStore: ObservableObject {
     }
 
     private init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Blink", isDirectory: true)
+        let dir = BlinkPaths.home()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        fileURL = dir.appendingPathComponent("config.json")
+        fileURL = BlinkPaths.config()
 
         if let loaded = Self.load(from: fileURL) {
             config = loaded

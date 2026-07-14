@@ -76,6 +76,45 @@ public struct NoteFileStore: Sendable {
         return notes
     }
 
+    /// Like `loadAll`, but skips files that fail to read or decode instead of
+    /// throwing. For reconciling with a live directory other processes write
+    /// to: a foreign or malformed file must never take down the whole scan.
+    public func loadAllLenient() -> [Note] {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var notes: [Note] = []
+        for url in entries {
+            let name = url.lastPathComponent
+            guard name.hasSuffix(".md"), !name.hasPrefix(".") else { continue }
+            guard let contents = try? String(contentsOf: url, encoding: .utf8),
+                  let note = try? Frontmatter.decode(contents)
+            else { continue }
+            notes.append(note)
+        }
+        return notes
+    }
+
+    /// The ids of every `.md` file currently present — decodable or not.
+    /// Lets `reconcile` tell "file deleted" apart from "file unreadable".
+    public func existingIDs() -> Set<String> {
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        return Set(
+            entries.compactMap { url in
+                let name = url.lastPathComponent
+                guard name.hasSuffix(".md"), !name.hasPrefix(".") else { return nil }
+                return String(name.dropLast(3))
+            }
+        )
+    }
+
     /// Load a single note by id.
     public func load(id: String) throws -> Note {
         let target = url(for: id)

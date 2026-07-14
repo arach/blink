@@ -9,16 +9,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover?
     private var contextMenu: NSMenu!
+    private var store: NoteStore!
     private var panelManager: PanelManager!
     private var model: AppModel!
     private var settingsWindow: NSWindow?
+    private var notesWatcher: DirectoryWatcher?
     private let log = HudLogger(category: "blink.app")
 
     static func notesDirectory() -> URL {
-        let appSupport = FileManager.default.urls(
-            for: .applicationSupportDirectory, in: .userDomainMask
-        )[0]
-        return appSupport.appendingPathComponent("Blink/Notes", isDirectory: true)
+        BlinkPaths.notes()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,9 +25,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         log.info("[BLINK] booted", metadata: ["milestone": "M1"])
         NSApp.setActivationPolicy(.accessory)
 
-        let store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
+        store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
+        panelManager.startObservingStore()
+
+        // The filesystem is the API: external writers (the blink CLI, agents)
+        // touch the Notes directory; reconcile diffs disk against memory and
+        // posts the same notifications in-app mutations do, so the popover and
+        // open panels pick external changes up live.
+        notesWatcher = DirectoryWatcher(directory: Self.notesDirectory()) { [weak self] in
+            guard let self else { return }
+            Task {
+                let diff = await self.store.reconcile()
+                if !diff.isEmpty {
+                    self.log.info(
+                        "[BLINK] external changes reconciled",
+                        metadata: [
+                            "created": "\(diff.created.count)",
+                            "updated": "\(diff.updated.count)",
+                            "deleted": "\(diff.deleted.count)",
+                        ]
+                    )
+                }
+            }
+        }
 
         // Agent-first config: hot-apply file edits to every live surface.
         BlinkConfigStore.shared.onChange = { [weak self] config in

@@ -81,6 +81,73 @@ struct NoteStoreTests {
         #expect(onDisk.pinned == true)
     }
 
+    @Test("reconcile diffs external creates, edits, and deletes")
+    func reconcileDiffsExternalChanges() async throws {
+        let (store, dir, center) = tempStoreWithCenter()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let kept = try await store.create(content: "# Kept\nstays")
+        let edited = try await store.create(content: "# Edited\nbefore")
+        let removed = try await store.create(content: "# Removed\ngoes away")
+
+        // External writer: one new file, one edit, one delete.
+        let fileStore = NoteFileStore(directory: dir)
+        let now = Date()
+        try fileStore.save(
+            Note(id: "cli-born", content: "# CLI born\n", createdAt: now, updatedAt: now)
+        )
+        var change = try fileStore.load(id: edited.id)
+        change.content = "# Edited\nafter"
+        try fileStore.save(change)
+        try fileStore.delete(id: removed.id)
+
+        // Collect notifications posted by reconcile.
+        let events = NotificationLog()
+        let names: [Notification.Name] = [.blinkNoteCreated, .blinkNoteUpdated, .blinkNoteDeleted]
+        let observers = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: nil) { note in
+                let id = note.userInfo?["id"] as? String ?? "?"
+                let kind = name.rawValue.split(separator: ".").last.map(String.init) ?? "?"
+                events.append("\(kind):\(id)")
+            }
+        }
+        defer { observers.forEach(center.removeObserver) }
+
+        let diff = await store.reconcile()
+        #expect(diff.created == ["cli-born"])
+        #expect(diff.updated == [edited.id])
+        #expect(diff.deleted == [removed.id])
+
+        #expect(await store.note(id: "cli-born") != nil)
+        #expect(await store.note(id: edited.id)?.content == "# Edited\nafter")
+        #expect(await store.note(id: removed.id) == nil)
+        #expect(await store.note(id: kept.id)?.content == "# Kept\nstays")
+
+        #expect(events.all.sorted() == [
+            "created:cli-born", "deleted:\(removed.id)", "updated:\(edited.id)",
+        ])
+
+        // A second reconcile with nothing changed is silent.
+        let second = await store.reconcile()
+        #expect(second.isEmpty)
+    }
+
+    @Test("reconcile treats an unreadable file as untouched, not deleted")
+    func reconcileSkipsMalformedFiles() async throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let note = try await store.create(content: "# Fragile\nbody")
+
+        // An external writer mangles the file (no frontmatter at all).
+        let fileURL = dir.appendingPathComponent("\(note.id).md")
+        try "not frontmatter".write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let diff = await store.reconcile()
+        #expect(diff.isEmpty)
+        #expect(await store.note(id: note.id)?.content == "# Fragile\nbody")
+    }
+
     @Test("update of unknown id throws")
     func updateUnknownThrows() async throws {
         let (store, dir) = tempStore()
@@ -176,6 +243,20 @@ struct NoteStoreTests {
 }
 
 /// Thread-safe holder so notification observers can hand a value back to the test.
+/// Thread-safe multi-event collector for reconcile's notification bursts.
+final class NotificationLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [String] = []
+    func append(_ s: String) {
+        lock.lock(); defer { lock.unlock() }
+        items.append(s)
+    }
+    var all: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return items
+    }
+}
+
 final class NotificationBox: @unchecked Sendable {
     private let lock = NSLock()
     private var _value: String?
