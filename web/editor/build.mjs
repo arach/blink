@@ -79,6 +79,25 @@ const PAGE_CSS = `
 
   /* Rules + table borders */
   --blink-rule: rgba(255, 255, 255, 0.15);
+
+  /* ---------------------------------------------------------------------------
+   * Sheet templates (Ink). A note's whole visual identity is drawn here and
+   * selected via body[data-sheet="…"]; see the sheet blocks below. These vars
+   * are the sheet-level knobs (themable like every other --blink-*).
+   * ------------------------------------------------------------------------- */
+
+  /* Legibility floor for FLAT sheets (dotted/bracket/marginalia): ink lands
+   * directly on the user's wallpaper, which can be any color, so every glyph
+   * gets a dark halo. White ink + this halo must survive a white wallpaper.
+   * Themes can tune it (e.g. lighten for a dark-only setup). */
+  --blink-halo: 0 0 1px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 12px rgba(0, 0, 0, 0.45);
+
+  /* card sheet: warm dark paper + printed-feeling serif for the reader. */
+  --blink-card-bg: #1c1917;
+  --blink-card-serif: Charter, Georgia, "Times New Roman", "Iowan Old Style", serif;
+
+  /* Frame ink for flat sheets (dotted outline, corner brackets, margin rule). */
+  --blink-frame: rgba(255, 255, 255, 0.85);
 }
 * { box-sizing: border-box; }
 html, body {
@@ -237,6 +256,149 @@ html, body {
   font-style: italic;
   font-size: var(--blink-font-size);
 }
+
+/* ===========================================================================
+ * SHEET TEMPLATES (Ink)
+ *
+ * A note's visual identity is a "sheet", chosen via body[data-sheet="…"]. The
+ * native panel is an invisible carrier: for GLASS/CARD it keeps its glass
+ * material; for the FLAT sheets (dotted/bracket/marginalia) native hides the
+ * glass entirely and this layer paints everything on a transparent page.
+ *
+ * Both surfaces (editor + reader) must honor the sheet, so sheet chrome is
+ * drawn on body::before / body::after (which cover #editor and #reader alike),
+ * and text styling targets the shared type layers.
+ *
+ * The default (glass) matches the original look byte-for-byte: transparent
+ * page, no frame, no halo. Everything below is additive per non-glass sheet.
+ * =========================================================================== */
+
+/* --- card: an index card. Near-opaque warm dark paper with a subtle grain,
+ *     printed-feeling serif type for the reader, generous padding. Native glass
+ *     stays on behind it, but the paper is nearly opaque so it reads as its own
+ *     surface. No halo (the paper supplies contrast). ------------------------ */
+body[data-sheet="card"] {
+  background:
+    /* faint grain: two offset radial fields, cheap and asset-free */
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.018) 0, transparent 55%),
+    radial-gradient(circle at 80% 70%, rgba(0, 0, 0, 0.05) 0, transparent 55%),
+    var(--blink-card-bg);
+}
+/* Grain overlay: a tiled inline SVG turbulence, very low opacity. */
+body[data-sheet="card"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body[data-sheet="card"] #editor,
+body[data-sheet="card"] .blink-reader {
+  /* Sit above the grain overlay. */
+  position: relative;
+  z-index: 1;
+}
+/* Generous padding for the printed feel. */
+body[data-sheet="card"] {
+  --blink-pad-x: 28px;
+  --blink-pad-y: 24px;
+}
+/* Printed-feeling reader type (Charter/Georgia). The editor stays in the
+ * system font — writing markdown source in a serif reads oddly. */
+body[data-sheet="card"] .blink-reader {
+  font-family: var(--blink-card-serif);
+}
+body[data-sheet="card"] .blink-reader h1,
+body[data-sheet="card"] .blink-reader h2,
+body[data-sheet="card"] .blink-reader h3,
+body[data-sheet="card"] .blink-reader h4,
+body[data-sheet="card"] .blink-reader h5,
+body[data-sheet="card"] .blink-reader h6,
+body[data-sheet="card"] .blink-reader blockquote,
+body[data-sheet="card"] .blink-reader-empty {
+  font-family: var(--blink-card-serif);
+}
+
+/* --- FLAT sheets: transparent page, ink on the wallpaper. Shared halo so white
+ *     ink survives any wallpaper. The frame chrome gets a faint dark duplicate
+ *     beneath it (drop-shadow) for the same reason. ------------------------- */
+body[data-sheet="dotted"],
+body[data-sheet="bracket"],
+body[data-sheet="marginalia"] {
+  background: transparent;
+}
+/* Text halo across editor and reader type layers. text-shadow on the content
+ * layers reaches every glyph without touching layout. */
+body[data-sheet="dotted"] .cm-content,
+body[data-sheet="dotted"] .blink-reader,
+body[data-sheet="bracket"] .cm-content,
+body[data-sheet="bracket"] .blink-reader,
+body[data-sheet="marginalia"] .cm-content,
+body[data-sheet="marginalia"] .blink-reader {
+  text-shadow: var(--blink-halo);
+}
+
+/* --- dotted: a cut-out. A 1.5px dotted outline inset ~4px with ~8px radius,
+ *     drawn on body::before so it frames both surfaces. --------------------- */
+body[data-sheet="dotted"]::before {
+  content: "";
+  position: fixed;
+  inset: 4px;
+  border: 1.5px dotted var(--blink-frame);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 2;
+  /* faint dark duplicate beneath the outline so it survives a light wallpaper */
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+}
+
+/* --- bracket: architect's framing. Four corner brackets (~18px arms, 2px
+ *     stroke) via an inline SVG on body::before; text floats free. ---------- */
+body[data-sheet="bracket"]::before {
+  content: "";
+  position: fixed;
+  inset: 4px;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+  background-image:
+    /* top-left */
+    linear-gradient(to right, var(--blink-frame) 2px, transparent 2px),
+    linear-gradient(to bottom, var(--blink-frame) 2px, transparent 2px),
+    /* top-right */
+    linear-gradient(to left, var(--blink-frame) 2px, transparent 2px),
+    linear-gradient(to bottom, var(--blink-frame) 2px, transparent 2px),
+    /* bottom-left */
+    linear-gradient(to right, var(--blink-frame) 2px, transparent 2px),
+    linear-gradient(to top, var(--blink-frame) 2px, transparent 2px),
+    /* bottom-right */
+    linear-gradient(to left, var(--blink-frame) 2px, transparent 2px),
+    linear-gradient(to top, var(--blink-frame) 2px, transparent 2px);
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  background-position:
+    top left, top left,
+    top right, top right,
+    bottom left, bottom left,
+    bottom right, bottom right;
+}
+
+/* --- marginalia: barest. A single 2px vertical rule down the left edge; text
+ *     hangs off it. ---------------------------------------------------------- */
+body[data-sheet="marginalia"]::before {
+  content: "";
+  position: fixed;
+  top: 8px;
+  bottom: 8px;
+  left: 10px;
+  width: 2px;
+  background: var(--blink-frame);
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(1px 0 1px rgba(0, 0, 0, 0.7));
+}
 `.trim();
 
 function htmlTemplate({ css, js }) {
@@ -314,6 +476,20 @@ async function main() {
     throw new Error("Output is missing the empty-note placeholder styles");
   }
 
+  // Sheet templates (Ink): every sheet must have a data-sheet CSS block, the
+  // flat sheets must carry the text halo, and window.blink.setSheet must exist.
+  for (const sheet of ["card", "dotted", "bracket", "marginalia"]) {
+    if (!new RegExp(`\\[data-sheet="${sheet}"\\]`).test(html)) {
+      throw new Error(`Output is missing the "${sheet}" sheet CSS block`);
+    }
+  }
+  if (!/var\(--blink-halo\)/.test(html)) {
+    throw new Error("Output is missing the flat-sheet text halo (--blink-halo)");
+  }
+  if (!/setSheet/.test(html)) {
+    throw new Error("Bundle is missing window.blink.setSheet");
+  }
+
   // Theming guardrails. The runtime theme contract is load-bearing (native code
   // is being built against exactly this), so verify the bundle statically.
   //
@@ -341,6 +517,7 @@ async function main() {
     "--blink-quote-text",
     "--blink-quote-border",
     "--blink-rule",
+    "--blink-halo",
   ];
   const rootMatch = html.match(/:root\s*\{([^}]*)\}/);
   if (!rootMatch) {

@@ -32,11 +32,15 @@ final class NotePanel: NSPanel {
     /// via config.json.
     private let tintLayer = NSView()
     private let glassView = NSVisualEffectView()
+    /// Plain root content view; the glass material is a sibling behind the
+    /// content so flat sheets can hide the glass without hiding the webview.
+    private let container = NSView()
     private var readTint: CGFloat
     private var editTint: CGFloat
 
     private var modePillView: NSView?
     private var focusGlyphView: NSView?
+    private var closeButtonView: NSView?
     private var isHovered = false
 
     init(
@@ -70,7 +74,14 @@ final class NotePanel: NSPanel {
         hidesOnDeactivate = false
         isMovableByWindowBackground = true
         titlebarAppearsTransparent = true
-        titleVisibility = .visible
+        // Chromeless for every sheet: the note is a page, not an OS window.
+        // Keep the `.titled` styleMask (drag/resize machinery rides on it) but
+        // hide the title and the standard traffic-light buttons. Close now
+        // lives on the hover chrome (the top-left ✕) and ⌘W.
+        titleVisibility = .hidden
+        standardWindowButton(.closeButton)?.isHidden = true
+        standardWindowButton(.miniaturizeButton)?.isHidden = true
+        standardWindowButton(.zoomButton)?.isHidden = true
         self.title = title
         isOpaque = false
         backgroundColor = .clear
@@ -79,36 +90,53 @@ final class NotePanel: NSPanel {
         // typography (white on transparent) and the studies assume it.
         appearance = NSAppearance(named: .darkAqua)
 
-        // Glass under a transparent editor.
+        // Plain container is the contentView; the glass material is a sibling
+        // BEHIND the content, not the content root. This lets flat sheets hide
+        // the glass (and tint) independently while the webView and hover chrome
+        // stay live — hiding the visual-effect view would take its subviews
+        // with it, so it must never be an ancestor of the content.
         let glass = glassView
+        let container = self.container
+        container.wantsLayer = true
+        container.layer?.cornerRadius = theme.panel.cornerRadius
+        container.layer?.masksToBounds = true
+
         glass.material = theme.panel.visualEffectMaterial
         glass.blendingMode = .behindWindow
         glass.state = .active
         glass.wantsLayer = true
         glass.layer?.cornerRadius = theme.panel.cornerRadius
         glass.layer?.masksToBounds = true
+        glass.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(glass)
+        NSLayoutConstraint.activate([
+            glass.topAnchor.constraint(equalTo: container.topAnchor),
+            glass.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            glass.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            glass.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+        ])
         hasShadow = theme.panel.shadow
 
         tintLayer.wantsLayer = true
         tintLayer.layer?.backgroundColor = NSColor.black.cgColor
         tintLayer.alphaValue = readTint
         tintLayer.translatesAutoresizingMaskIntoConstraints = false
-        glass.addSubview(tintLayer)
+        container.addSubview(tintLayer)
         NSLayoutConstraint.activate([
-            tintLayer.topAnchor.constraint(equalTo: glass.topAnchor),
-            tintLayer.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
-            tintLayer.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
-            tintLayer.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+            tintLayer.topAnchor.constraint(equalTo: container.topAnchor),
+            tintLayer.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            tintLayer.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            tintLayer.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         let webView = editor.webView
         webView.translatesAutoresizingMaskIntoConstraints = false
-        glass.addSubview(webView)
+        container.addSubview(webView)
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: glass.topAnchor, constant: 28),
-            webView.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
-            webView.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
+            webView.topAnchor.constraint(equalTo: container.topAnchor, constant: 28),
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
         ])
 
         // Chrome is earned: both controls fade in on hover.
@@ -121,14 +149,31 @@ final class NotePanel: NSPanel {
         )
         pill.translatesAutoresizingMaskIntoConstraints = false
         pill.alphaValue = 0
-        glass.addSubview(pill)
+        container.addSubview(pill)
         NSLayoutConstraint.activate([
-            pill.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -8),
+            pill.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
             // Just below the 28px title strip: reliable rendering and clicks
             // (the titlebar's drag region eats hits inside the strip itself).
-            pill.topAnchor.constraint(equalTo: glass.topAnchor, constant: 32),
+            pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 32),
         ])
         modePillView = pill
+
+        // Close glyph (✕) mirrors the mode pill: hover-earned, top-LEFT, same
+        // 32pt offset below the top edge. The traffic-light close is gone, so
+        // this (and ⌘W) is how a note is dismissed. performClose flushes saves.
+        let closeHost = NSHostingView(
+            rootView: CloseGlyph { [weak self] in
+                self?.performClose(nil)
+            }
+        )
+        closeHost.translatesAutoresizingMaskIntoConstraints = false
+        closeHost.alphaValue = 0
+        container.addSubview(closeHost)
+        NSLayoutConstraint.activate([
+            closeHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
+            closeHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 32),
+        ])
+        closeButtonView = closeHost
 
         let focusHost = NSHostingView(
             rootView: FocusGlyph(state: modeState) { [weak self] in
@@ -137,14 +182,14 @@ final class NotePanel: NSPanel {
         )
         focusHost.translatesAutoresizingMaskIntoConstraints = false
         focusHost.alphaValue = 0
-        glass.addSubview(focusHost)
+        container.addSubview(focusHost)
         NSLayoutConstraint.activate([
-            focusHost.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -9),
-            focusHost.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -8),
+            focusHost.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -9),
+            focusHost.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -8),
         ])
         focusGlyphView = focusHost
 
-        glass.addTrackingArea(
+        container.addTrackingArea(
             NSTrackingArea(
                 rect: .zero,
                 options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
@@ -152,7 +197,7 @@ final class NotePanel: NSPanel {
             )
         )
 
-        contentView = glass
+        contentView = container
 
         // Restore remembered geometry (or cascade near center on first open).
         let autosaveName = "blink.note.\(noteID)"
@@ -161,9 +206,49 @@ final class NotePanel: NSPanel {
         }
         setFrameAutosaveName(autosaveName)
 
+        // Derive the panel's surface from the sheet template: glass-visible for
+        // glass/card, fully flat (no glass, no shadow) for the cut-out sheets.
+        applySheetAppearance(theme)
+
         editor.load()
         editor.setContent(initialContent)
+        editor.setSheet(sheetTemplate)
         // Focus-on-ready and initial mode are owned by PanelManager (mode-aware).
+    }
+
+    /// True for the flat sheets that put ink straight on the wallpaper —
+    /// no native glass, no window shadow (a shadow under a transparent
+    /// rectangle reads as a ghost box).
+    private static func isFlatSheet(_ name: String) -> Bool {
+        switch name {
+        case "dotted", "bracket", "marginalia": true
+        default: false  // glass, card, and any unknown name fall back to glass
+        }
+    }
+
+    /// Reconcile the native surface with `sheetTemplate`.
+    ///
+    /// - glass/card: the glass material and tint stay ON (card draws its own
+    ///   near-opaque paper in the web layer, but the glass behind it is cheap
+    ///   and harmless). Corner radius + shadow come from config.
+    /// - dotted/bracket/marginalia: hide the glass and tint layers entirely and
+    ///   drop the window shadow — the web layer paints everything on a fully
+    ///   transparent page.
+    private func applySheetAppearance(_ config: BlinkConfig) {
+        let flat = Self.isFlatSheet(sheetTemplate)
+        glassView.isHidden = flat
+        tintLayer.isHidden = flat
+        if flat {
+            hasShadow = false
+            // No rounded clip over a transparent page — the sheet's own frame
+            // (drawn by the web layer) defines the shape.
+            container.layer?.cornerRadius = 0
+        } else {
+            glassView.material = config.panel.visualEffectMaterial
+            glassView.layer?.cornerRadius = config.panel.cornerRadius
+            container.layer?.cornerRadius = config.panel.cornerRadius
+            hasShadow = config.panel.shadow
+        }
     }
 
     /// Nonactivating panels must opt in to becoming key so the editor can type.
@@ -229,6 +314,7 @@ final class NotePanel: NSPanel {
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.15
             modePillView?.animator().alphaValue = isHovered ? 1 : 0
+            closeButtonView?.animator().alphaValue = isHovered ? 1 : 0
             // Active focus leaves a faint trace so the state stays legible.
             focusGlyphView?.animator().alphaValue = isHovered ? 1 : (modeState.focus ? 0.35 : 0)
         }
@@ -237,10 +323,13 @@ final class NotePanel: NSPanel {
     // MARK: - Mode
 
     /// Reflect a mode in the toggle without emitting a change (initial mode,
-    /// or flips that originated in the webview). Also drives the focus tint:
-    /// editing gets a darker, calmer surface; reading stays airy.
+    /// or flips that originated in the webview). On glass sheets it also drives
+    /// the focus tint: editing gets a darker, calmer surface; reading stays
+    /// airy. Flat sheets have no tint layer, so the flip is a no-op there
+    /// (their mode contrast comes from the sheet's own CSS if needed).
     func reflectMode(_ mode: String) {
         modeState.mode = mode
+        guard !Self.isFlatSheet(sheetTemplate) else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             tintLayer.animator().alphaValue = mode == "edit" ? editTint : readTint
@@ -251,10 +340,21 @@ final class NotePanel: NSPanel {
     func applyTheme(_ config: BlinkConfig) {
         readTint = config.panel.tintRead
         editTint = config.panel.tintEdit
-        glassView.material = config.panel.visualEffectMaterial
-        glassView.layer?.cornerRadius = config.panel.cornerRadius
-        hasShadow = config.panel.shadow
-        tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
+
+        // Live sheet adoption: a config sheet change reaches every panel EXCEPT
+        // those pinned by a per-note `sheet:` frontmatter key (those never
+        // change on reload). `sheetTemplate` is private(set) — mutate it here.
+        if !sheetIsPerNote, config.panel.sheet != sheetTemplate {
+            sheetTemplate = config.panel.sheet
+            editor.setSheet(sheetTemplate)
+        }
+
+        // Re-derive the native surface (glass vs flat, material, radius, shadow)
+        // for the current sheet, then set the mode tint only where it applies.
+        applySheetAppearance(config)
+        if !Self.isFlatSheet(sheetTemplate) {
+            tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
+        }
         editor.setTheme(config.editorThemeVars)
     }
 
@@ -325,5 +425,23 @@ private struct FocusGlyph: View {
         }
         .buttonStyle(.plain)
         .help("Focus — quiet everything else (⌘.)")
+    }
+}
+
+/// The close glyph: a small ✕ alone in the top-left corner, mirroring the mode
+/// pill top-right. Hover-revealed. Replaces the hidden traffic-light close.
+private struct CloseGlyph: View {
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.55))
+                .frame(width: 18, height: 18)
+                .background(.white.opacity(0.08), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Close (⌘W)")
     }
 }

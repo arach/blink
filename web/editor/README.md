@@ -48,6 +48,7 @@ logs to the console.
 | `getMode` | `() => "edit" \| "read"` | Current surface. |
 | `setTheme` | `(vars: Record<string, string>) => void` | Apply theme overrides. For each entry, `document.documentElement.style.setProperty(key, value)` — keys arrive as **full** var names (e.g. `"--blink-font-size": "14px"`). Unknown keys are set anyway (harmless). Calling with `{}` is a no-op. No echo message. |
 | `resetTheme` | `() => void` | Remove all inline `--blink-*` properties from `:root`, restoring the stylesheet defaults. No echo message. |
+| `setSheet` | `(name: string) => void` | Select the sheet template — the note's whole visual identity (see **Sheet templates** below). Sets `data-sheet` on `<body>`. **Idempotent**; unknown names fall back to `"glass"`. No echo message (same no-echo discipline as `setContent`/`setMode`/`setTheme`). |
 
 ### JS -> native: `postMessage`
 
@@ -100,6 +101,45 @@ this pass).
 The build guardrails statically verify the `:root` block declares all of these
 variables, that no raw accent literal (`rgba(158,203,255,…)`) survives outside
 those defaults, and that `setTheme`/`resetTheme` exist in the bundle.
+
+## Sheet templates
+
+A note's whole visual identity is a **sheet**, drawn by the web layer. The
+native panel is an invisible carrier. A sheet is selected via `data-sheet` on
+`<body>` (set by `window.blink.setSheet(name)`, or configured natively from the
+`panel.sheet` config field / a per-note `sheet:` frontmatter key). The per-sheet
+CSS lives in `build.mjs` `PAGE_CSS`, keyed off that attribute; `src/sheet.ts`
+owns the name set and the idempotent, validated DOM write.
+
+| Sheet | Surface | Look |
+| --- | --- | --- |
+| `glass` | native glass ON | The default — transparent editor over the native glass panel. **Byte-for-byte the original look**; zero visual change for existing users. |
+| `card` | native glass ON | An index card: near-opaque warm dark paper (`--blink-card-bg`, `#1c1917`) with a subtle asset-free grain, printed-feeling serif reader type (`--blink-card-serif`, Charter/Georgia), generous padding. |
+| `dotted` | **flat** (glass OFF) | A cut-out: transparent page, a 1.5px dotted outline inset ~4px with ~8px radius, ink text. |
+| `bracket` | **flat** (glass OFF) | Architect's framing: transparent, four corner brackets (~18px arms, 2px stroke); text floats free. |
+| `marginalia` | **flat** (glass OFF) | Barest: transparent, a single 2px vertical rule down the left edge; text hangs off it. |
+
+Both surfaces (editor **and** reader) honor the sheet — writing on a dotted
+cut-out looks the same as reading one.
+
+### Legibility floor (flat sheets)
+
+The three **flat** sheets (`dotted`/`bracket`/`marginalia`) put ink directly on
+the user's wallpaper, which can be any color. So every flat sheet's text carries
+a dark halo, exposed as a themable CSS var:
+
+```
+--blink-halo: 0 0 1px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.7), 0 0 12px rgba(0,0,0,.45);
+```
+
+White ink + this halo must survive a **white** wallpaper. The frame chrome
+(dotted outline / corner brackets / margin rule) additionally gets a faint dark
+`drop-shadow` beneath it for the same reason. All existing `--blink-*` vars keep
+working inside every sheet; `--blink-frame` tints the flat-sheet chrome.
+
+The build guardrails verify each non-glass sheet has a `data-sheet` CSS block,
+that the flat-sheet halo (`var(--blink-halo)`) is present, and that
+`setSheet` exists in the bundle.
 
 ## Read mode interactions
 

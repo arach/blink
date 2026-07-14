@@ -21,6 +21,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     private var pendingContent: String?
     private var pendingMode: String?
     private var pendingTheme: [String: String]?
+    private var pendingSheet: String?
     private let log = HudLogger(category: "blink.bridge")
 
     override init() {
@@ -90,6 +91,17 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         evaluate("window.blink.setMode(\(Self.jsString(mode)))")
     }
 
+    /// Select the sheet template (the note's whole visual identity, drawn by
+    /// the web layer). Never echoes contentChanged. Guarded so an older bundle
+    /// without setSheet is a no-op rather than an error.
+    func setSheet(_ name: String) {
+        guard isReady else {
+            pendingSheet = name
+            return
+        }
+        evaluate("window.blink.setSheet && window.blink.setSheet(\(Self.jsString(name)))")
+    }
+
     /// Push CSS variables to the bundle (theming). Guarded so an older bundle
     /// without setTheme is a no-op rather than an error.
     func setTheme(_ vars: [String: String]) {
@@ -128,6 +140,10 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             if let theme = pendingTheme {
                 pendingTheme = nil
                 setTheme(theme)
+            }
+            if let sheet = pendingSheet {
+                pendingSheet = nil
+                setSheet(sheet)
             }
             onReady?()
         case "contentChanged":

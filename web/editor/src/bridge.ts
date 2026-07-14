@@ -1,6 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import type { Transaction } from "@codemirror/state";
+import { applySheet } from "./sheet";
 
 /**
  * Native bridge for the Blink v2 editor.
@@ -52,6 +53,13 @@ export interface BlinkGlobal {
    * stylesheet defaults. No echo message is posted.
    */
   resetTheme(): void;
+  /**
+   * Select the sheet template — the note's whole visual identity, drawn by the
+   * web layer. Sets `data-sheet` on `<body>`. Idempotent; unknown names fall
+   * back to `"glass"`. No echo message is posted (same no-echo discipline as
+   * setContent/setMode/setTheme).
+   */
+  setSheet(name: string): void;
 }
 
 /** Minimal shape of the WKWebView message handler we depend on. */
@@ -215,6 +223,10 @@ export function installBlinkGlobal(
       for (const name of toRemove) {
         root.removeProperty(name);
       }
+    },
+
+    setSheet(name: string): void {
+      applySheet(name);
     },
   };
 

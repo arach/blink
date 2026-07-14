@@ -24,6 +24,7 @@ import {
 } from "./bridge";
 import type { Mode, ModeController } from "./bridge";
 import { Reader } from "./reader";
+import { applySheet, DEFAULT_SHEET } from "./sheet";
 
 /**
  * Blink v2 editor entry point.
@@ -50,6 +51,11 @@ function mount(): void {
     throw new Error("[BLINK] #reader mount point not found");
   }
   const reader = new Reader(readerEl);
+
+  // Establish a default sheet before native pushes its choice (which lands via
+  // window.blink.setSheet after `ready`). Keeps the page well-defined if it ever
+  // runs without a native host.
+  applySheet(DEFAULT_SHEET);
 
   // The mode state machine. `mode` starts in "edit". `flip` is the single
   // internal transition; `postEcho` decides whether native is told (only for
