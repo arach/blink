@@ -7,16 +7,17 @@ arrange on screen. Native Swift/AppKit bones on
 floating panels — no main window; the desktop is the workspace.
 
 This is **v2**, a from-scratch native rewrite. The original Tauri + React app
-lives in [`archive/v1`](archive/v1/ARCHIVE.md) (tag `v1-final`).
+remains available at the [`v1-final`](https://github.com/arach/blink/tree/v1-final)
+tag.
 
 ## Build & run
 
 ```sh
-swift build                 # requires a sibling ../hudson checkout
-swift test                  # BlinkCore unit tests
+swift build                 # app + CLI; requires a sibling ../hudson checkout
 (cd web/editor && bun install && bun run build)   # editor bundle (once)
-./scripts/run-app.sh        # assemble dist/Blink.app and launch (menubar-only)
-./scripts/run-app.sh --debug --restart
+./scripts/run-app.sh --debug --restart            # assemble + launch dist/Blink.app
+swift build --product blink                       # notes CLI; see docs/cli.md
+swift test                                        # BlinkCore unit tests
 ```
 
 Set `BLINK_HUDSON_SOURCE=git` to resolve HudsonKit from GitHub instead of the
@@ -28,12 +29,10 @@ sibling checkout.
   Carbon hotkeys (Hyper+N), AppModel, PanelManager, WebBridge, NotePanel
 - `Sources/BlinkCore` — pure Swift: Note model, slug/UUIDv5 identity,
   frontmatter codec, atomic file store, NoteStore actor
+- `Sources/BlinkCLI` — agent-friendly CLI over the same notes on disk
 - `web/editor` — vanilla CodeMirror 6 bundle hosted by note panels
-- `docs/` — [v2 plan (M0–M5)](docs/v2-plan.md) ·
-  [UI map](docs/v2-ui-map.md) · [v1 spec / scope contract](docs/functionality-v1.md)
-- `design/studio` — Blink Studio: live UI studies (`bun dev` → :3060/studio)
+- `docs/` — [CLI](docs/cli.md) and [configuration](docs/config.md) reference
 - `landing/` — marketing site (GitHub Pages deploys `landing/out`)
-- `archive/v1` — the Tauri-era app
 
 ## Notes on disk
 
@@ -41,3 +40,7 @@ One markdown file per note in `~/Library/Application Support/Blink/Notes/`,
 metadata in YAML frontmatter — local-first, human-readable, no side database.
 All writes are atomic (temp + fsync + rename); saves flush on panel close and
 app quit.
+
+Blink's other agent-first surface is
+[`config.json`](docs/config.md): behavior, hotkeys, panel appearance, and editor
+theme are file-backed and hot-applied while the app is running.
