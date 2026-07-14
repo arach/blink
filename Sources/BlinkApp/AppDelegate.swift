@@ -28,9 +28,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
+
+        // Agent-first config: hot-apply file edits to every live surface.
+        BlinkConfigStore.shared.onChange = { [weak self] config in
+            self?.panelManager.applyTheme(config)
+        }
+
         Task {
             await panelManager.restoreSession()
             await model.start()
+            panelManager.applyTheme(BlinkConfigStore.shared.config)
         }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -172,7 +179,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func openSettings() {
         if settingsWindow == nil {
             let host = NSHostingController(
-                rootView: SettingsView(config: .shared, notesDirectory: Self.notesDirectory())
+                rootView: SettingsView(store: .shared, notesDirectory: Self.notesDirectory())
             )
             let window = NSWindow(contentViewController: host)
             window.title = "Blink Settings"

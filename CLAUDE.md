@@ -10,6 +10,10 @@ edit it; port lessons, not code.
 - Build plan (M0–M5): `docs/v2-plan.md`
 - Feature spec / scope contract: `docs/functionality-v1.md`
 - UI studies (visual spec): `design/studio` (`bun dev` → localhost:3060/studio)
+- Config & theming (agent-first): `docs/config.md` — edit
+  `~/Library/Application Support/Blink/config.json` and Blink hot-applies it.
+  Agents configure the app through this file, not the GUI.
+- Notes representation (design conversation): `docs/notes-representation.md`
 
 ## Commands
 

@@ -33,7 +33,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
             log.error("[BLINK] failed to load notes", metadata: ["error": "\(error)"])
             return
         }
-        guard ConfigStore.shared.restoreSession else {
+        guard BlinkConfigStore.shared.config.behavior.restoreSession else {
             log.info("[BLINK] session restore disabled in settings")
             return
         }
@@ -80,8 +80,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
         // Mode: explicit (new notes open in edit) > per-note memory > default.
         let mode = initialMode
             ?? UserDefaults.standard.string(forKey: ConfigKeys.noteMode(note.id))
-            ?? ConfigStore.shared.defaultMode
+            ?? BlinkConfigStore.shared.config.behavior.defaultMode
         panel.editor.setMode(mode)
+        panel.editor.setTheme(BlinkConfigStore.shared.config.editorThemeVars)
         panel.reflectMode(mode)
         panel.editor.onReady = { [weak panel] in
             if mode == "edit" { panel?.editor.focus() }
@@ -132,6 +133,14 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
     func windowDidResignKey(_ notification: Notification) {
         updateFocusOverlay()
+    }
+
+    /// Hot-apply a config change to every live surface.
+    func applyTheme(_ config: BlinkConfig) {
+        for panel in panels.values {
+            panel.applyTheme(config)
+        }
+        focusOverlay.applyTheme(dim: config.focus.dim)
     }
 
     /// The blink: see every note, then none. Hides/shows all open panels

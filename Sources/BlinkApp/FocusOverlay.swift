@@ -6,6 +6,12 @@ import AppKit
 @MainActor
 final class FocusOverlay {
     private let window: NSWindow
+    private let dimView = NSView()
+
+    /// Themable dim strength (config.json → focus.dim).
+    func applyTheme(dim: Double) {
+        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(dim).cgColor
+    }
 
     init() {
         let w = NSWindow(
@@ -27,7 +33,7 @@ final class FocusOverlay {
         blur.blendingMode = .behindWindow
         blur.state = .active
 
-        let dim = NSView()
+        let dim = dimView
         dim.wantsLayer = true
         dim.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
         dim.translatesAutoresizingMaskIntoConstraints = false

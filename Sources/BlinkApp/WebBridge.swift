@@ -20,6 +20,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     private var isReady = false
     private var pendingContent: String?
     private var pendingMode: String?
+    private var pendingTheme: [String: String]?
     private let log = HudLogger(category: "blink.bridge")
 
     override init() {
@@ -89,6 +90,19 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         evaluate("window.blink.setMode(\(Self.jsString(mode)))")
     }
 
+    /// Push CSS variables to the bundle (theming). Guarded so an older bundle
+    /// without setTheme is a no-op rather than an error.
+    func setTheme(_ vars: [String: String]) {
+        guard isReady else {
+            pendingTheme = vars
+            return
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: vars),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        evaluate("window.blink.setTheme && window.blink.setTheme(\(json))")
+    }
+
     // MARK: - WKScriptMessageHandler
 
     func userContentController(
@@ -110,6 +124,10 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             if let mode = pendingMode {
                 pendingMode = nil
                 setMode(mode)
+            }
+            if let theme = pendingTheme {
+                pendingTheme = nil
+                setTheme(theme)
             }
             onReady?()
         case "contentChanged":

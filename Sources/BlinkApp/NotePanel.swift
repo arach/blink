@@ -21,10 +21,12 @@ final class NotePanel: NSPanel {
     /// Guaranteed-contrast tint between glass and content. Baseline keeps the
     /// panel legible over pale backgrounds without sampling the screen (which
     /// would need Screen Recording permission); edit mode darkens further so
-    /// writing gets a focused, higher-contrast surface.
+    /// writing gets a focused, higher-contrast surface. Values are themable
+    /// via config.json.
     private let tintLayer = NSView()
-    private static let readTint: CGFloat = 0.18
-    private static let editTint: CGFloat = 0.28  // subtle — the FocusOverlay dims the surroundings instead
+    private let glassView = NSVisualEffectView()
+    private var readTint: CGFloat
+    private var editTint: CGFloat
 
     private var modePillView: NSView?
     private var focusGlyphView: NSView?
@@ -34,8 +36,15 @@ final class NotePanel: NSPanel {
         self.noteID = noteID
         self.editor = EditorWebView()
 
+        let theme = BlinkConfigStore.shared.config
+        self.readTint = theme.panel.tintRead
+        self.editTint = theme.panel.tintEdit
+
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 340),
+            contentRect: NSRect(
+                x: 0, y: 0,
+                width: theme.panel.defaultWidth, height: theme.panel.defaultHeight
+            ),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -56,17 +65,18 @@ final class NotePanel: NSPanel {
         appearance = NSAppearance(named: .darkAqua)
 
         // Glass under a transparent editor.
-        let glass = NSVisualEffectView()
-        glass.material = .hudWindow
+        let glass = glassView
+        glass.material = theme.panel.visualEffectMaterial
         glass.blendingMode = .behindWindow
         glass.state = .active
         glass.wantsLayer = true
-        glass.layer?.cornerRadius = 12
+        glass.layer?.cornerRadius = theme.panel.cornerRadius
         glass.layer?.masksToBounds = true
+        hasShadow = theme.panel.shadow
 
         tintLayer.wantsLayer = true
         tintLayer.layer?.backgroundColor = NSColor.black.cgColor
-        tintLayer.alphaValue = Self.readTint
+        tintLayer.alphaValue = readTint
         tintLayer.translatesAutoresizingMaskIntoConstraints = false
         glass.addSubview(tintLayer)
         NSLayoutConstraint.activate([
@@ -203,8 +213,19 @@ final class NotePanel: NSPanel {
         modeState.mode = mode
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
-            tintLayer.animator().alphaValue = mode == "edit" ? Self.editTint : Self.readTint
+            tintLayer.animator().alphaValue = mode == "edit" ? editTint : readTint
         }
+    }
+
+    /// Re-apply themable visuals after a config change (hot reload).
+    func applyTheme(_ config: BlinkConfig) {
+        readTint = config.panel.tintRead
+        editTint = config.panel.tintEdit
+        glassView.material = config.panel.visualEffectMaterial
+        glassView.layer?.cornerRadius = config.panel.cornerRadius
+        hasShadow = config.panel.shadow
+        tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
+        editor.setTheme(config.editorThemeVars)
     }
 
     /// User-initiated mode change from native chrome (toggle click or ⌘⇧P).
