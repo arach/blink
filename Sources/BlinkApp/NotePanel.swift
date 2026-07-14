@@ -26,6 +26,10 @@ final class NotePanel: NSPanel {
     private static let readTint: CGFloat = 0.18
     private static let editTint: CGFloat = 0.28  // subtle — the FocusOverlay dims the surroundings instead
 
+    private var modePillView: NSView?
+    private var focusGlyphView: NSView?
+    private var isHovered = false
+
     init(noteID: String, initialContent: String, title: String) {
         self.noteID = noteID
         self.editor = EditorWebView()
@@ -82,21 +86,52 @@ final class NotePanel: NSPanel {
             webView.bottomAnchor.constraint(equalTo: glass.bottomAnchor),
         ])
 
-        // Always-visible mode control: ✎/◧ segments, bottom-right, active
-        // segment lit — you can always SEE which mode a panel is in.
-        let toggle = NSHostingView(
-            rootView: ModeToggle(
-                state: modeState,
-                onSelect: { [weak self] mode in self?.selectMode(mode) },
-                onFocus: { [weak self] in self?.toggleFocus() }
+        // Chrome is earned: both controls fade in on hover.
+        // Mode pill (✎/◧) lives top-right in the title bar as an accessory;
+        // the focus ring sits alone bottom-right — deliberately not a peer.
+        let pill = NSHostingView(
+            rootView: ModeToggle(state: modeState) { [weak self] mode in
+                self?.selectMode(mode)
+            }
+        )
+        pill.translatesAutoresizingMaskIntoConstraints = false
+        let pillContainer = NSView()
+        pillContainer.translatesAutoresizingMaskIntoConstraints = false
+        pillContainer.addSubview(pill)
+        NSLayoutConstraint.activate([
+            pill.trailingAnchor.constraint(equalTo: pillContainer.trailingAnchor, constant: -8),
+            pill.centerYAnchor.constraint(equalTo: pillContainer.centerYAnchor),
+            pillContainer.heightAnchor.constraint(equalToConstant: 26),
+            pillContainer.widthAnchor.constraint(equalToConstant: 62),
+        ])
+        pillContainer.alphaValue = 0
+        let accessory = NSTitlebarAccessoryViewController()
+        accessory.layoutAttribute = .trailing
+        accessory.view = pillContainer
+        addTitlebarAccessoryViewController(accessory)
+        modePillView = pillContainer
+
+        let focusHost = NSHostingView(
+            rootView: FocusGlyph(state: modeState) { [weak self] in
+                self?.toggleFocus()
+            }
+        )
+        focusHost.translatesAutoresizingMaskIntoConstraints = false
+        focusHost.alphaValue = 0
+        glass.addSubview(focusHost)
+        NSLayoutConstraint.activate([
+            focusHost.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -9),
+            focusHost.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -8),
+        ])
+        focusGlyphView = focusHost
+
+        glass.addTrackingArea(
+            NSTrackingArea(
+                rect: .zero,
+                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                owner: self
             )
         )
-        toggle.translatesAutoresizingMaskIntoConstraints = false
-        glass.addSubview(toggle)
-        NSLayoutConstraint.activate([
-            toggle.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -8),
-            toggle.bottomAnchor.constraint(equalTo: glass.bottomAnchor, constant: -8),
-        ])
 
         contentView = glass
 
@@ -140,7 +175,29 @@ final class NotePanel: NSPanel {
     func toggleFocus() {
         modeState.focus.toggle()
         if modeState.focus { makeKey() }
+        updateChromeVisibility()
         onFocusModeChange?()
+    }
+
+    // MARK: - Hover-earned chrome
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        updateChromeVisibility()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        updateChromeVisibility()
+    }
+
+    private func updateChromeVisibility() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            modePillView?.animator().alphaValue = isHovered ? 1 : 0
+            // Active focus leaves a faint trace so the state stays legible.
+            focusGlyphView?.animator().alphaValue = isHovered ? 1 : (modeState.focus ? 0.35 : 0)
+        }
     }
 
     // MARK: - Mode
@@ -177,32 +234,15 @@ final class PanelModeState: ObservableObject {
     @Published var focus: Bool = false
 }
 
-/// ✎/◧ mode segments plus a ☾ focus segment; active segments are lit.
+/// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right.
 private struct ModeToggle: View {
     @ObservedObject var state: PanelModeState
     var onSelect: (String) -> Void
-    var onFocus: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 2) {
             segment(icon: "pencil", mode: "edit", help: "Edit (⌘⇧P)")
             segment(icon: "book", mode: "read", help: "Read (⌘⇧P)")
-            Rectangle()
-                .fill(.white.opacity(0.15))
-                .frame(width: 1, height: 12)
-                .padding(.horizontal, 1)
-            Button(action: onFocus) {
-                Image(systemName: "moon")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(state.focus ? .white : .white.opacity(0.4))
-                    .frame(width: 22, height: 18)
-                    .background(
-                        state.focus ? Color.white.opacity(0.18) : .clear,
-                        in: RoundedRectangle(cornerRadius: 4)
-                    )
-            }
-            .buttonStyle(.plain)
-            .help("Focus — quiet everything else (⌘.)")
         }
         .padding(2)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
@@ -223,5 +263,22 @@ private struct ModeToggle: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+}
+
+/// The focus ring: a small dashed circle, alone in the bottom-right corner —
+/// deliberately not a peer of the mode segments. Fills in while focus is on.
+private struct FocusGlyph: View {
+    @ObservedObject var state: PanelModeState
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Image(systemName: state.focus ? "circle.dashed.inset.filled" : "circle.dashed")
+                .font(.system(size: 11))
+                .foregroundStyle(state.focus ? .white : .white.opacity(0.5))
+        }
+        .buttonStyle(.plain)
+        .help("Focus — quiet everything else (⌘.)")
     }
 }
