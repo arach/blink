@@ -54,3 +54,5 @@ DEBUG*.md
 DEBUGGING.md
 manual-test-*.md
 test-*.md
+# OpenScout local state
+.openscout/project.json
