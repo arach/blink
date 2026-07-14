@@ -1,9 +1,9 @@
 # The `blink` CLI — agent surface, layer 2
 
-A command-line face over the exact same files and codec the app uses
-(`docs/notes-representation.md` §3.4). Writes are atomic and slug-safe via
-BlinkCore, and the running app picks every change up **live**: it watches the
-Notes directory, reconciles disk against memory, and routes the diff through
+A command-line face over the exact same files and codec the app uses. Writes
+are atomic and slug-safe via BlinkCore. The running app picks every change up
+**live**: it watches the Notes directory, reconciles disk against memory, and
+routes the diff through
 the same notifications in-app edits use. Create a note from a script and it's
 in the popover a second later; edit an open note's file and the panel updates
 in place (unless the user has unsaved edits in flight — then the user wins).
@@ -75,5 +75,4 @@ structured output for free. Prefer it for *creating* notes (slug uniqueness)
 and any scripted workflow.
 
 Not here yet, by design: `blink link` waits for the `.blink/index.json`
-backlink index; MCP waits until conversational, typed interaction is earned
-(same doc, §3.4).
+backlink index; MCP waits until conversational, typed interaction is earned.

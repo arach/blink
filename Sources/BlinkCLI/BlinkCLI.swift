@@ -2,7 +2,7 @@ import ArgumentParser
 import BlinkCore
 import Foundation
 
-/// The agent surface, layer 2 (docs/notes-representation.md §3.4): a CLI over
+/// The agent surface, layer 2: a CLI over
 /// the exact same files and codec the app uses. Writes are atomic and
 /// slug-safe via BlinkCore; the running app reconciles the directory and picks
 /// every change up live — no IPC, no daemon, no racing.

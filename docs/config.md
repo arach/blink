@@ -116,5 +116,4 @@ Maximum-contrast writing mode:
   foreign keys) before each content save, so editing a note's frontmatter while it's
   open in a panel is safe.
 - Per-machine workspace state (open panels, per-note modes, window frames):
-  UserDefaults today, migrating to `.blink/workspace.json` — see
-  `docs/notes-representation.md`.
+  UserDefaults today, with a planned migration to `.blink/workspace.json`.

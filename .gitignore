@@ -20,9 +20,13 @@ logs
 .idea
 
 # Local state
-.claude/settings.local.json
+.claude/
 .openscout/project.json
 data/.claude/
 
-# Rust build artifacts (archived v1)
-archive/v1/src-tauri/target/
+# Local planning and design tooling
+design/
+docs/functionality-v1.md
+docs/notes-representation.md
+docs/v2-plan.md
+docs/v2-ui-map.md

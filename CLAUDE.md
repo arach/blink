@@ -2,18 +2,20 @@
 
 Blink v2 — native macOS spatial note-taking. Menubar-only app (LSUIElement):
 floating NSPanel notes + menubar popover + command palette. No main window.
-The v1 Tauri app is archived under `archive/v1/` (tag `v1-final`) — do not
-edit it; port lessons, not code.
+The v1 Tauri app remains at tag `v1-final` — port lessons, not code.
 
 ## Canonical references
 
-- Build plan (M0–M5): `docs/v2-plan.md`
-- Feature spec / scope contract: `docs/functionality-v1.md`
-- UI studies (visual spec): `design/studio` (`bun dev` → localhost:3060/studio)
+- Build plan (M0–M5): `docs/v2-plan.md` (local, untracked)
+- Feature spec / scope contract: `docs/functionality-v1.md` (local, untracked)
+- UI map: `docs/v2-ui-map.md` (local, untracked)
+- UI studies (visual spec): `design/studio` (local, untracked;
+  `bun dev` → localhost:3060/studio)
 - Config & theming (agent-first): `docs/config.md` — edit
   `~/Library/Application Support/Blink/config.json` and Blink hot-applies it.
   Agents configure the app through this file, not the GUI.
 - Notes representation (design conversation): `docs/notes-representation.md`
+  (local, untracked)
 - Notes CLI (agent-first): `docs/cli.md` — `blink ls/cat/new/search/rm/path`
   over the same files; the app reconciles external writes live.
 
