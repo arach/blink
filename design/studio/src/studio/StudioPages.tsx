@@ -12,9 +12,11 @@ import {
 import type { StudioHudsonRenderContext } from "studio/app-shell";
 import { useStudioRouter } from "studio/router";
 import { CommandPaletteStudy } from "@/studio/studies/CommandPaletteStudy";
+import { EditorModesStudy } from "@/studio/studies/EditorModesStudy";
 import { GridOverlayStudy } from "@/studio/studies/GridOverlayStudy";
 import { MenubarPopoverStudy } from "@/studio/studies/MenubarPopoverStudy";
 import { NotePanelStudy } from "@/studio/studies/NotePanelStudy";
+import { SettingsStudy } from "@/studio/studies/SettingsStudy";
 import {
   HOME_HREF,
   pages,
@@ -102,6 +104,38 @@ const STUDIES: Record<string, Study> = {
     open: [
       "Multi-display: one grid per screen, or grid follows the active screen?",
       "Should slots be resizable regions (thirds/halves) later, or stay fixed 3×3?",
+    ],
+  },
+  "/studio/studies/editor-modes": {
+    component: EditorModesStudy,
+    intent:
+      "Reading is the rest state of a note on your desktop; the flip must feel like turning a card, not opening an app. Read mode is rendered typography on the same glass, edit mode is the source — same webview, same panel, just the other face.",
+    specs: [
+      ["flip", "⌘⇧P both ways · double-click read→edit"],
+      ["renderer", "marked (GFM) in the same webview · same transparent glass"],
+      ["persistence", "per-note mode remembered · new notes always open in edit"],
+      ["scroll", "preserved proportionally across flips"],
+    ],
+    open: [
+      "Auto-flip to read when a panel loses focus?",
+      "Should double-click place the caret at the clicked paragraph?",
+      "Syntax highlighting inside read-mode code blocks?",
+    ],
+  },
+  "/studio/studies/settings": {
+    component: SettingsStudy,
+    intent:
+      "Settings restraint is a core v2 principle: every knob must justify existing. A small native window — not a panel — with three sections capped to one screen. The good-default rule kills most rows before they are drawn.",
+    specs: [
+      ["window", "small native window · not a panel · ⌘, / gear in popover"],
+      ["storage", "UserDefaults — no config file until sharing matters"],
+      ["sections", "General · Editor · Shortcuts — hard cap one screen"],
+      ["non-settings", "debounce, glass material, panel sizes: good defaults, no knobs"],
+    ],
+    open: [
+      "Launch at login in v2.0 or later?",
+      "Config file (portable/dotfile-able) vs UserDefaults?",
+      "Should shortcuts be rebindable and when?",
     ],
   },
 };

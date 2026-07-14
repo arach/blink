@@ -103,6 +103,24 @@ export const pages: readonly BlinkStudioPage[] = [
     blurb:
       "Hyper+B: the 3×3 deploy grid made visible — slot occupancy, QWERTY chord keys, teachable spatial placement.",
   },
+  {
+    href: "/studio/studies/editor-modes",
+    label: "Edit ↔ read mode",
+    bucket: "studies",
+    surface: "macos",
+    status: "study",
+    blurb:
+      "Reading and writing are two faces of one surface: read mode is rendered typography on glass, edit mode is the source. Double-click or ⌘⇧P flips in place.",
+  },
+  {
+    href: "/studio/studies/settings",
+    label: "Settings",
+    bucket: "studies",
+    surface: "macos",
+    status: "study",
+    blurb:
+      "Deliberately tiny. Three sections, one screen, no duplicated controls — the antidote to v1's 1,600-line settings panel.",
+  },
 ];
 
 const defined = defineStudio({
