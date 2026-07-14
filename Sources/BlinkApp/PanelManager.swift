@@ -44,12 +44,54 @@ final class PanelManager: NSObject, NSWindowDelegate {
             return
         }
         let openIDs = UserDefaults.standard.stringArray(forKey: Self.openNotesKey) ?? []
+        var restored: [NotePanel] = []
         for id in openIDs {
-            if let note = await store.note(id: id) {
-                openPanel(for: note)
+            if let note = await store.note(id: id),
+               // Restore silently — the staggered reveal below owns the motion.
+               let panel = openPanel(for: note, playEntrance: false) {
+                restored.append(panel)
             }
         }
+        // Session restore: one entrance per panel, staggered `staggerMs` apart,
+        // ordered left-to-right by on-screen x, so the desk assembles rather than
+        // popping in all at once.
+        staggerReveal(restored, motion: BlinkConfigStore.shared.config.motion)
         log.info("[BLINK] session restored", metadata: ["panels": "\(panels.count)"])
+    }
+
+    /// Play a staggered entrance across `panels`, ordered left-to-right by
+    /// on-screen x, each delayed `staggerMs` after the previous. When motion is
+    /// off (or Reduce Motion), every entrance resolves to `none` internally, so
+    /// this collapses to instant with no visible stagger. `offset(for:)` lets the
+    /// blink push each panel in from its screen-edge direction (compass reveal);
+    /// session restore passes a zero offset.
+    private func staggerReveal(
+        _ panels: [NotePanel],
+        motion: BlinkConfig.Motion,
+        offset: @escaping (NotePanel) -> CGSize = { _ in .zero }
+    ) {
+        let ordered = panels.sorted { $0.frame.minX < $1.frame.minX }
+        guard motion.enabled, !NotePanel.reduceMotion, motion.staggerMs > 0 else {
+            // No stagger: land them all now (each entrance may still animate its
+            // own alpha if motion is on but stagger is zero).
+            for panel in ordered { panel.animateEntrance(motion: motion, fromOffset: offset(panel)) }
+            return
+        }
+        for (index, panel) in ordered.enumerated() {
+            let panelOffset = offset(panel)
+            let delay = Double(index) * motion.staggerMs / 1000
+            if delay <= 0 {
+                panel.animateEntrance(motion: motion, fromOffset: panelOffset)
+            } else {
+                // Keep the panel hidden until its turn so it doesn't sit fully
+                // opaque waiting — the entrance sets alpha 0 at its start too.
+                panel.alphaValue = 0
+                Task { @MainActor [weak panel] in
+                    try? await Task.sleep(for: .seconds(delay))
+                    panel?.animateEntrance(motion: motion, fromOffset: panelOffset)
+                }
+            }
+        }
     }
 
     /// A note is being deleted: drop any pending edits for it (so the close
@@ -98,14 +140,17 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
     /// One panel per note: if it's already open, focus it.
     /// `initialMode` overrides mode resolution (new notes pass "edit").
-    func openPanel(for note: Note, initialMode: String? = nil) {
+    /// `playEntrance` is `false` only for session restore, which runs its own
+    /// staggered entrance across all reopened panels afterward.
+    @discardableResult
+    func openPanel(for note: Note, initialMode: String? = nil, playEntrance: Bool = true) -> NotePanel? {
         // Opening a note while blinked-away: the new panel is visible, so the
         // next Hyper+B should hide everything again.
         blinkHidden = false
         if let existing = panels[note.id] {
             mostRecentKeyPanelID = note.id
             existing.makeKeyAndOrderFront(nil)
-            return
+            return existing
         }
 
         // Sheet: per-note frontmatter override > config default.
@@ -157,6 +202,13 @@ final class PanelManager: NSObject, NSWindowDelegate {
             self?.updateFocusOverlay()
         }
 
+        // Land the panel with its configured entrance (a new note, popover open,
+        // or a reveal). Set alpha 0 BEFORE ordering front so the window never
+        // flashes fully opaque for a frame; then order in and animate up.
+        let motion = BlinkConfigStore.shared.config.motion
+        if playEntrance {
+            panel.animateEntrance(motion: motion)
+        }
         panel.makeKeyAndOrderFront(nil)
         mostRecentKeyPanelID = note.id
         if mode == "edit" {
@@ -167,18 +219,39 @@ final class PanelManager: NSObject, NSWindowDelegate {
         persistOpenList()
         updateFocusOverlay()
         gridOverlay?.refresh()
+        return panel
     }
 
     /// Focus overlay is active exactly when the key window is a panel with
     /// focus mode on (edit or read) and the blink hasn't hidden everything.
     private func updateFocusOverlay() {
+        let keyPanel = panels.values.first { $0.isKeyWindow }
         if gridOverlay?.isVisible != true,
            !blinkHidden,
-           let keyPanel = panels.values.first(where: { $0.isKeyWindow }),
+           let keyPanel,
            keyPanel.focusEnabled {
             focusOverlay.show(behind: keyPanel)
         } else {
             focusOverlay.hide()
+        }
+        updateFocusRecede(keyPanel: keyPanel)
+    }
+
+    /// Focus recede: while a panel has focus mode on, its non-key peers get a
+    /// subtle depth cue (contentView layer scale + alpha), so the focused note
+    /// stands proud of the others. This is TRANSFORM-only — geometry persistence
+    /// is never touched. Restored the moment focus turns off or key focus moves.
+    private func updateFocusRecede(keyPanel: NotePanel?) {
+        let motion = BlinkConfigStore.shared.config.motion
+        let receding = !blinkHidden
+            && gridOverlay?.isVisible != true
+            && (keyPanel?.focusEnabled ?? false)
+        for panel in panels.values {
+            if receding, panel !== keyPanel {
+                panel.recede(enabled: motion.enabled)
+            } else {
+                panel.unrecede()
+            }
         }
     }
 
@@ -237,22 +310,119 @@ final class PanelManager: NSObject, NSWindowDelegate {
             panel.applyTheme(config)
         }
         focusOverlay.applyTheme(dim: config.focus.dim)
+        // Motion changes (e.g. disabling it) can flip whether peers should be
+        // receded — re-evaluate against the live key panel.
+        updateFocusRecede(keyPanel: panels.values.first { $0.isKeyWindow })
     }
+
+    /// Tracks the staggered-reveal delay tasks so a rapid re-toggle cancels
+    /// them — otherwise a pending reveal could fire after a hide and leave a
+    /// panel stuck visible/mid-fade. Exhale animations self-cancel inside
+    /// NotePanel when a new entrance/exhale starts on the same panel.
+    private var blinkRevealTasks: [Task<Void, Never>] = []
+    /// Bumped on every blink toggle. An exhale's async completion checks it and
+    /// no-ops if a newer toggle superseded it — so a hide's `orderOut` can never
+    /// fire against a panel that a subsequent reveal already brought back.
+    private var blinkGeneration = 0
 
     /// The blink: see every note, then none. Hides/shows all open panels
     /// without closing them — the open list and pending saves are untouched.
+    /// State flips instantly; motion is garnish. Rapid toggles cancel any
+    /// in-flight motion so a panel is always left fully visible or fully hidden.
     func toggleBlink() {
         guard !panels.isEmpty else { return }
         blinkHidden.toggle()
-        for panel in panels.values {
-            if blinkHidden {
-                panel.orderOut(nil)
+        blinkGeneration += 1
+        let generation = blinkGeneration
+
+        // Cancel any in-flight reveal stagger from a previous toggle so a late
+        // entrance can't fight this transition.
+        for task in blinkRevealTasks { task.cancel() }
+        blinkRevealTasks.removeAll()
+
+        let motion = BlinkConfigStore.shared.config.motion
+        let animate = motion.enabled && !NotePanel.reduceMotion
+        let all = Array(panels.values)
+
+        if blinkHidden {
+            if animate {
+                // Synchronized exhale: every panel fades + drifts 6px outward
+                // together over ~180ms, THEN orderOut. The state is already
+                // flipped, so the effect is instantaneous even mid-animation.
+                let exhaleMs = min(180, max(80, motion.durationMs * 0.7))
+                for panel in all {
+                    let drift = Self.outwardDrift(for: panel, distance: 6)
+                    panel.animateExhale(direction: drift, durationMs: exhaleMs) { [weak self] in
+                        // Superseded by a newer toggle (a reveal): do NOT order
+                        // out — the reveal owns this panel's visibility now.
+                        guard let self, self.blinkGeneration == generation, self.blinkHidden
+                        else { return }
+                        panel.orderOut(nil)
+                        panel.resetAfterExhale()
+                    }
+                }
             } else {
+                for panel in all { panel.orderOut(nil) }
+            }
+        } else {
+            // Reveal: staggered compass entrances. Order the panels in first
+            // (behind alpha 0), then run the stagger with a per-panel inward
+            // offset from the panel's screen-edge direction.
+            for panel in all {
+                if animate { panel.alphaValue = 0 }
                 panel.orderFrontRegardless()
+            }
+            if animate {
+                revealWithStagger(all, motion: motion)
             }
         }
         log.info("[BLINK] blink toggled", metadata: ["hidden": "\(blinkHidden)"])
         updateFocusOverlay()
+    }
+
+    /// Staggered compass reveal used by the blink: each panel enters from a few
+    /// px toward its screen-edge direction and settles into place, `staggerMs`
+    /// apart, left-to-right. Delay tasks are tracked so a re-toggle cancels them.
+    private func revealWithStagger(_ panels: [NotePanel], motion: BlinkConfig.Motion) {
+        let ordered = panels.sorted { $0.frame.minX < $1.frame.minX }
+        let stagger = max(0, motion.staggerMs) / 1000
+        for (index, panel) in ordered.enumerated() {
+            let inward = Self.compassOffset(for: panel, distance: 10)
+            let delay = Double(index) * stagger
+            if delay <= 0 {
+                panel.animateEntrance(motion: motion, fromOffset: inward)
+            } else {
+                panel.alphaValue = 0
+                let task = Task { @MainActor [weak panel] in
+                    try? await Task.sleep(for: .seconds(delay))
+                    guard !Task.isCancelled else { return }
+                    panel?.animateEntrance(motion: motion, fromOffset: inward)
+                }
+                blinkRevealTasks.append(task)
+            }
+        }
+    }
+
+    /// The direction from screen center toward the panel's nearest screen edge,
+    /// scaled to `distance`. Used to push a panel *out* on the exhale.
+    private static func outwardDrift(for panel: NotePanel, distance: CGFloat) -> CGSize {
+        guard let screen = panel.screen ?? NSScreen.main else { return .zero }
+        let v = panel.frame
+        let center = NSPoint(x: screen.frame.midX, y: screen.frame.midY)
+        var dx = v.midX - center.x
+        var dy = v.midY - center.y
+        let len = max(hypot(dx, dy), 0.001)
+        dx = dx / len * distance
+        dy = dy / len * distance
+        return CGSize(width: dx, height: dy)
+    }
+
+    /// The inverse of `outwardDrift`: a compass offset pointing *toward* the
+    /// screen edge the panel sits nearest to, so a reveal starts pushed out and
+    /// settles inward. (Same direction as outwardDrift — the entrance animates
+    /// from origin+offset back to the resting origin.)
+    private static func compassOffset(for panel: NotePanel, distance: CGFloat) -> CGSize {
+        outwardDrift(for: panel, distance: distance)
     }
 
     /// Quit is imminent: stop treating window closes as the user closing notes.

@@ -53,6 +53,12 @@ Rules:
   "focus": {
     "dim": 0.30                 // 0–1 strength of the focus-mode veil over everything else
   },
+  "motion": {                   // Arrival: every show/hide is choreographed
+    "entrance": "shimmer",      // "shimmer" | "drop" | "draw" | "none" — how a note lands
+    "durationMs": 260,          // base duration for one panel's entrance
+    "staggerMs": 40,            // per-panel delay in group reveals (session restore, the blink)
+    "enabled": true             // master switch — false = instant show/hide (today's behavior)
+  },
   "editor": {                   // typography & colors, applied to editor AND reader
     "fontFamily": null,         // null → system font stack; any CSS font-family string
     "monoFamily": null,         // null → ui-monospace stack
@@ -81,6 +87,9 @@ Rules:
 - `hotkeys.*` hot-apply too: global chords re-register with Carbon on change;
   panel chords are read live on each keypress.
 - `behavior.launchAtLogin` syncs the macOS login item on change.
+- `motion.*` choreographs every show/hide (see **Motion (Arrival)** below);
+  applied live, so the next note you open — or the next Hyper+B — uses the new
+  feel. `enabled: false` restores the instant behavior exactly.
 - `editor.*` maps to the web bundle's CSS custom properties
   (`--blink-font-size`, `--blink-text`, …) and is pushed over the bridge via
   `window.blink.setTheme`. The full variable table lives in
@@ -110,6 +119,38 @@ Maximum-contrast writing mode:
   "focus": { "dim": 0.45 }
 }
 ```
+
+## Motion (Arrival)
+
+Notes don't appear — they land. Every show/hide is choreographed, with the
+character set by `motion.*` so a theme ships a matching feel. All of it no-ops
+cleanly when `motion.enabled` is `false`, and macOS **Reduce Motion**
+(System Settings → Accessibility → Display) is always honored as `"none"`.
+
+Entrances (`motion.entrance`):
+
+- **shimmer** — content fades up from nothing while a soft highlight sweep
+  crosses the sheet left→right.
+- **drop** — the panel drifts down ~8pt into place with a slight overshoot
+  settle as the content fades in.
+- **draw** — on flat sheets (`dotted`/`bracket`/`marginalia`) the frame draws
+  itself on, then the text fades in behind it. On `glass`/`card` (no frame to
+  draw) it falls back to **shimmer**.
+- **none** — instant (today's behavior).
+
+Where the choreography shows up:
+
+- **Opening a note** (new note, popover, focusing) plays one entrance.
+- **Session restore** staggers the reopened panels `staggerMs` apart,
+  left-to-right by on-screen position, so the desk assembles.
+- **The blink** (Hyper+B): the reveal staggers panels in from their screen-edge
+  direction; the hide is one synchronized exhale (all panels fade + drift
+  outward together, then vanish). The state flips instantly regardless — the
+  motion is garnish, and rapid toggles never leave a panel half-faded. Pending
+  saves and the open-notes list are untouched.
+- **Focus mode** recedes the non-key panels a hair (a subtle depth cue), so the
+  note you're writing stands proud. Transform-only — window positions never
+  move.
 
 ## What does NOT live here
 

@@ -49,6 +49,7 @@ logs to the console.
 | `setTheme` | `(vars: Record<string, string>) => void` | Apply theme overrides. For each entry, `document.documentElement.style.setProperty(key, value)` — keys arrive as **full** var names (e.g. `"--blink-font-size": "14px"`). Unknown keys are set anyway (harmless). Calling with `{}` is a no-op. No echo message. |
 | `resetTheme` | `() => void` | Remove all inline `--blink-*` properties from `:root`, restoring the stylesheet defaults. No echo message. |
 | `setSheet` | `(name: string) => void` | Select the sheet template — the note's whole visual identity (see **Sheet templates** below). Sets `data-sheet` on `<body>`. **Idempotent**; unknown names fall back to `"glass"`. No echo message (same no-echo discipline as `setContent`/`setMode`/`setTheme`). |
+| `enter` | `(kind: string, durationMs: number) => void` | Play a content entrance effect (see **Entrances** below): `"shimmer"` \| `"drop"` \| `"draw"` \| `"none"`. Sets a transient `data-enter` on `<body>` that the CSS animates, self-clearing after the run. Unknown kinds and `"none"` are instant no-ops. No echo message. |
 
 ### JS -> native: `postMessage`
 
@@ -140,6 +141,31 @@ working inside every sheet; `--blink-frame` tints the flat-sheet chrome.
 The build guardrails verify each non-glass sheet has a `data-sheet` CSS block,
 that the flat-sheet halo (`var(--blink-halo)`) is present, and that
 `setSheet` exists in the bundle.
+
+## Entrances (Arrival)
+
+Notes don't appear — they land. The **native** panel animates its own window
+(alpha `0→1`, and for `drop` a downward frame drift with a spring settle); this
+web layer choreographs the **content**, keyed off a transient
+`body[data-enter="<kind>"]` attribute set by `window.blink.enter(kind, ms)` and
+cleared after the run. `--blink-enter-ms` carries the configured base duration.
+
+| Kind | Content choreography |
+| --- | --- |
+| `shimmer` | The type layers fade up from 0 while a soft highlight sweep (a `body::after` overlay) crosses the sheet left→right. |
+| `drop` | The type layers fade in; the window's scale/drift/settle is the native half. |
+| `draw` | **Flat sheets only:** the frame chrome (`body::before` — dotted outline / brackets / margin rule) strokes itself on via a left→right clip wipe, then the text fades in behind it. On `glass`/`card` the native side substitutes `shimmer` (there's no frame to draw). |
+| `none` | Instant — no `data-enter`, no animation. |
+
+Only the content type layers and (for `draw`) the flat-sheet frame are touched —
+never geometry. With no `data-enter` present the page is in its resting,
+fully-visible state, so a disabled entrance / **Reduce Motion** / `"none"` looks
+exactly like today. A `@media (prefers-reduced-motion: reduce)` rule additionally
+disables the animations web-side even if a `data-enter` slips through.
+
+The build guardrails verify each entrance (`shimmer`/`drop`/`draw`) has a
+`data-enter` CSS block, that the `@keyframes blink-enter-*` exist, and that the
+entrance runtime (`data-enter` + `--blink-enter-ms`) is in the bundle.
 
 ## Read mode interactions
 

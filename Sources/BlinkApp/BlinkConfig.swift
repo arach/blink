@@ -89,6 +89,30 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// Motion signature: every show/hide is choreographed so a theme ships a
+    /// matching feel. `enabled == false` restores today's instant behavior, and
+    /// `NSWorkspace.accessibilityDisplayShouldReduceMotion` is honored as "none"
+    /// regardless of these values.
+    struct Motion: Codable, Equatable {
+        /// "shimmer" | "drop" | "draw" | "none". Unknown names fall back to none.
+        var entrance: String = "shimmer"
+        /// Base duration for one panel's entrance, in milliseconds.
+        var durationMs: Double = 260
+        /// Per-panel delay in group reveals (session restore + the blink), in ms.
+        var staggerMs: Double = 40
+        /// Master switch — false is today's instant show/hide.
+        var enabled: Bool = true
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            entrance = try c.decodeIfPresent(String.self, forKey: .entrance) ?? "shimmer"
+            durationMs = try c.decodeIfPresent(Double.self, forKey: .durationMs) ?? 260
+            staggerMs = try c.decodeIfPresent(Double.self, forKey: .staggerMs) ?? 40
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        }
+    }
+
     struct Editor: Codable, Equatable {
         var fontFamily: String?
         var monoFamily: String?
@@ -133,6 +157,7 @@ struct BlinkConfig: Codable, Equatable {
     var hotkeys = Hotkeys()
     var panel = Panel()
     var focus = Focus()
+    var motion = Motion()
     var editor = Editor()
 
     init() {}
@@ -142,6 +167,7 @@ struct BlinkConfig: Codable, Equatable {
         hotkeys = try c.decodeIfPresent(Hotkeys.self, forKey: .hotkeys) ?? Hotkeys()
         panel = try c.decodeIfPresent(Panel.self, forKey: .panel) ?? Panel()
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
+        motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
     }
 

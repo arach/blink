@@ -358,6 +358,203 @@ final class NotePanel: NSPanel {
         editor.setTheme(config.editorThemeVars)
     }
 
+    // MARK: - Arrival: motion signature
+
+    /// True when the OS asks for reduced motion — treated as `"none"` (spec).
+    static var reduceMotion: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    /// Resolve the effective entrance for this panel. `draw` only makes sense on
+    /// flat sheets (there's a frame to stroke); on glass/card it falls back to
+    /// `shimmer`. Reduce Motion and a disabled config collapse to `none`.
+    private func effectiveEntrance(_ motion: BlinkConfig.Motion) -> String {
+        guard motion.enabled, !Self.reduceMotion else { return "none" }
+        if motion.entrance == "draw", !Self.isFlatSheet(sheetTemplate) {
+            return "shimmer"
+        }
+        return motion.entrance
+    }
+
+    /// Land this panel with its configured entrance. The window animates its own
+    /// alpha 0→1 over `durationMs` (and, for `drop`, drifts down from 8pt above
+    /// with a spring-like settle); the web layer choreographs the content via
+    /// `enter(kind)`. `none` (and Reduce Motion / disabled) is today's instant
+    /// show. Safe to call before `orderFront`; the caller orders the panel in.
+    ///
+    /// `fromOffset` nudges the pre-animation origin (used by the blink's
+    /// compass reveal) on top of any per-kind drift.
+    func animateEntrance(motion: BlinkConfig.Motion, fromOffset: CGSize = .zero) {
+        // If an exhale left the frame drifted, snap back to the resting home
+        // before we read the target — the reveal must land the panel exactly
+        // where it lives, never at a drifted position.
+        if let home = blinkHomeFrame {
+            setFrame(home, display: false)
+            blinkHomeFrame = nil
+        }
+
+        let kind = effectiveEntrance(motion)
+        editor.enter(kind, durationMs: motion.durationMs)
+
+        guard kind != "none" else {
+            // Instant: assigning alpha directly interrupts any in-flight implicit
+            // animation, so nothing is left partial.
+            alphaValue = 1
+            return
+        }
+
+        let target = frame
+        let dur = max(0.05, motion.durationMs / 1000)
+        // `drop` starts 8pt above and scaled-feeling (we approximate the scale
+        // with the frame drift + content fade; a window can't cheaply scale its
+        // own backing). Any compass offset from the blink adds on top.
+        let dropDrift: CGFloat = kind == "drop" ? 8 : 0
+        let start = NSRect(
+            x: target.origin.x + fromOffset.width,
+            y: target.origin.y + dropDrift + fromOffset.height,
+            width: target.width, height: target.height
+        )
+
+        alphaValue = 0
+        if start != target {
+            setFrame(start, display: false)
+        }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = dur
+            // A gentle overshoot easing so `drop` reads as a settle, not a slide.
+            context.timingFunction = kind == "drop"
+                ? CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.3, 1.25)
+                : CAMediaTimingFunction(name: .easeOut)
+            animator().alphaValue = 1
+            if start != target {
+                animator().setFrame(target, display: true)
+            }
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.alphaValue = 1
+                self.setFrame(target, display: false)
+            }
+        }
+    }
+
+    /// The resting frame captured at the start of a blink exhale, so a reveal
+    /// (or the exhale's own reset) can restore the panel to exactly where it
+    /// lived. The drift is purely cosmetic and NEVER touches autosaved geometry.
+    private var blinkHomeFrame: NSRect?
+
+    /// Fade out for the blink's synchronized exhale: alpha → 0 and a drift toward
+    /// `direction` over `durationMs`. The caller's `finish` closure decides
+    /// whether to `orderOut` — a rapid re-toggle can supersede this exhale, in
+    /// which case the panel must stay visible for the incoming reveal instead.
+    func animateExhale(
+        direction: CGSize, durationMs: Double, then finish: @escaping @MainActor () -> Void
+    ) {
+        let home = frame
+        blinkHomeFrame = home
+        let dur = max(0.05, durationMs / 1000)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = dur
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            animator().alphaValue = 0
+            animator().setFrame(home.offsetBy(dx: direction.width, dy: direction.height), display: true)
+        } completionHandler: {
+            MainActor.assumeIsolated { finish() }
+        }
+    }
+
+    /// Restore a panel to its resting frame + full alpha after the exhale has
+    /// ordered it out, ready for the next reveal. Never touches autosaved frame.
+    func resetAfterExhale() {
+        if let home = blinkHomeFrame {
+            setFrame(home, display: false)
+            blinkHomeFrame = nil
+        }
+        alphaValue = 1
+    }
+
+    /// Reusable "slot lock" primitive: animate to `frame` with a 2pt
+    /// overshoot-and-settle so a programmatic placement reads as snapping into
+    /// its slot rather than gliding. Persists the new frame in the completion.
+    /// (GridOverlay draws its own placement today; this is here for it to adopt
+    /// later — the spec forbids modifying GridOverlay to use it now.)
+    func animateLock(to frame: NSRect) {
+        // Overshoot slightly past the target along the travel direction, then
+        // settle back. Direction derives from where we're coming from.
+        let current = self.frame
+        let dx = frame.minX - current.minX
+        let dy = frame.minY - current.minY
+        let len = max(hypot(dx, dy), 0.001)
+        let overshoot: CGFloat = 2
+        let past = NSRect(
+            x: frame.minX + dx / len * overshoot,
+            y: frame.minY + dy / len * overshoot,
+            width: frame.width, height: frame.height
+        )
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.17
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            animator().setFrame(past, display: true)
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                NSAnimationContext.runAnimationGroup { settle in
+                    settle.duration = 0.11
+                    settle.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    self.animator().setFrame(frame, display: true)
+                } completionHandler: {
+                    MainActor.assumeIsolated {
+                        self.setFrame(frame, display: false)
+                        self.saveFrame(usingName: "blink.note.\(self.noteID)")
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Focus recede
+
+    /// Whether this panel is currently receded (a non-key panel while focus mode
+    /// is active). Recede is a layer TRANSFORM + alpha only — it must never touch
+    /// the frame, or geometry persistence would drift.
+    private(set) var isReceded = false
+
+    /// Push this panel back a hair: contentView layer scales to 0.985 and dims to
+    /// 0.92, giving the focused note visible depth over its peers. Transform-only,
+    /// so autosaved geometry is untouched. No-op when motion is disabled or
+    /// Reduce Motion is on.
+    func recede(enabled: Bool) {
+        guard enabled, !Self.reduceMotion else { return }
+        guard !isReceded else { return }
+        isReceded = true
+        applyRecede(scale: 0.985, alpha: 0.92)
+    }
+
+    /// Restore a receded panel to its resting transform/alpha (focus off, or this
+    /// panel became key). Always safe to call.
+    func unrecede() {
+        guard isReceded else { return }
+        isReceded = false
+        applyRecede(scale: 1.0, alpha: 1.0)
+    }
+
+    private func applyRecede(scale: CGFloat, alpha: CGFloat) {
+        guard let layer = container.layer else { return }
+        // Scale about the view's center so the recede reads as depth, not a
+        // corner shrink. Anchor + position math keeps the layer put.
+        let bounds = container.bounds
+        layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            layer.transform = CATransform3DMakeScale(scale, scale, 1)
+            container.animator().alphaValue = alpha
+        }
+    }
+
     /// User-initiated mode change from native chrome (toggle click or ⌘⇧P).
     func selectMode(_ mode: String) {
         guard mode != modeState.mode else { return }

@@ -98,6 +98,11 @@ const PAGE_CSS = `
 
   /* Frame ink for flat sheets (dotted outline, corner brackets, margin rule). */
   --blink-frame: rgba(255, 255, 255, 0.85);
+
+  /* Entrance duration (Arrival). Native pushes the configured value onto
+   * <body> via --blink-enter-ms before running an effect; this default keeps
+   * the keyframes well-defined if an entrance ever fires without one. */
+  --blink-enter-ms: 260ms;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -399,6 +404,93 @@ body[data-sheet="marginalia"]::before {
   z-index: 2;
   filter: drop-shadow(1px 0 1px rgba(0, 0, 0, 0.7));
 }
+
+/* ===========================================================================
+ * ENTRANCES (Arrival)
+ *
+ * The native panel animates its own window (alpha 0→1 over the entrance's
+ * duration; for "drop" it also drifts the frame from 8pt above with a spring
+ * settle). This layer choreographs the CONTENT, keyed off a transient
+ * body[data-enter="…"] attribute set by window.blink.enter() and cleared after
+ * the run. --blink-enter-ms carries the configured base duration.
+ *
+ * Only the content type layers (#editor / .blink-reader) and, for "draw", the
+ * flat-sheet frame chrome (body::before) are touched — never geometry. When no
+ * data-enter is present the page is in its resting, fully-visible state, so an
+ * entrance that never fires (motion disabled / Reduce Motion / "none") looks
+ * exactly like today.
+ * =========================================================================== */
+
+/* shimmer — content fades up from 0 while a soft highlight sweep crosses the
+ * sheet left→right. The sweep is a body::after overlay so it rides above both
+ * surfaces without disturbing layout; it self-removes when data-enter clears. */
+body[data-enter="shimmer"] #editor,
+body[data-enter="shimmer"] .blink-reader {
+  animation: blink-enter-fade var(--blink-enter-ms) ease-out both;
+}
+body[data-enter="shimmer"]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.14) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  animation: blink-enter-sweep var(--blink-enter-ms) ease-out both;
+}
+
+/* drop — content just fades in; the window scale/drift/settle is native. */
+body[data-enter="drop"] #editor,
+body[data-enter="drop"] .blink-reader {
+  animation: blink-enter-fade var(--blink-enter-ms) ease-out both;
+}
+
+/* draw — flat sheets only (native falls back to shimmer on glass/card). The
+ * frame chrome strokes itself on via a left→right clip wipe, then the text
+ * fades in behind it (delayed by ~55% of the duration so the frame lands
+ * first). */
+body[data-enter="draw"][data-sheet="dotted"]::before,
+body[data-enter="draw"][data-sheet="bracket"]::before,
+body[data-enter="draw"][data-sheet="marginalia"]::before {
+  animation: blink-enter-draw var(--blink-enter-ms) ease-out both;
+}
+body[data-enter="draw"] #editor,
+body[data-enter="draw"] .blink-reader {
+  animation: blink-enter-fade calc(var(--blink-enter-ms) * 0.6) ease-out both;
+  animation-delay: calc(var(--blink-enter-ms) * 0.5);
+}
+
+@keyframes blink-enter-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes blink-enter-sweep {
+  from { background-position: 140% 0; }
+  to { background-position: -60% 0; }
+}
+@keyframes blink-enter-draw {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* Reduce Motion: the native side already downgrades to "none" (no data-enter is
+ * ever set), but honor the OS setting here too so a stray entrance can't animate
+ * against the user's wishes. */
+@media (prefers-reduced-motion: reduce) {
+  body[data-enter] #editor,
+  body[data-enter] .blink-reader,
+  body[data-enter]::after,
+  body[data-enter]::before {
+    animation: none !important;
+  }
+}
 `.trim();
 
 function htmlTemplate({ css, js }) {
@@ -488,6 +580,20 @@ async function main() {
   }
   if (!/setSheet/.test(html)) {
     throw new Error("Bundle is missing window.blink.setSheet");
+  }
+
+  // Entrances (Arrival): the content-choreography CSS must be present for each
+  // effect, the keyframes must exist, and window.blink.enter must be wired.
+  for (const enter of ["shimmer", "drop", "draw"]) {
+    if (!new RegExp(`\\[data-enter="${enter}"\\]`).test(html)) {
+      throw new Error(`Output is missing the "${enter}" entrance CSS block`);
+    }
+  }
+  if (!/@keyframes blink-enter-/.test(html)) {
+    throw new Error("Output is missing the entrance keyframes");
+  }
+  if (!/data-enter/.test(html) || !/--blink-enter-ms/.test(html)) {
+    throw new Error("Bundle is missing the entrance runtime (window.blink.enter)");
   }
 
   // Theming guardrails. The runtime theme contract is load-bearing (native code

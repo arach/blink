@@ -22,6 +22,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     private var pendingMode: String?
     private var pendingTheme: [String: String]?
     private var pendingSheet: String?
+    private var pendingEnter: (kind: String, durationMs: Double)?
     private let log = HudLogger(category: "blink.bridge")
 
     override init() {
@@ -102,6 +103,18 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         evaluate("window.blink.setSheet && window.blink.setSheet(\(Self.jsString(name)))")
     }
 
+    /// Play a content entrance effect (Arrival): the web layer choreographs the
+    /// content while the native panel animates its window. Guarded so an older
+    /// bundle without `enter` is a no-op rather than an error. `none` still calls
+    /// through (a harmless no-op web-side) so a stale bundle never animates.
+    func enter(_ kind: String, durationMs: Double) {
+        guard isReady else {
+            pendingEnter = (kind, durationMs)
+            return
+        }
+        evaluate("window.blink.enter && window.blink.enter(\(Self.jsString(kind)), \(durationMs))")
+    }
+
     /// Push CSS variables to the bundle (theming). Guarded so an older bundle
     /// without setTheme is a no-op rather than an error.
     func setTheme(_ vars: [String: String]) {
@@ -144,6 +157,12 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             if let sheet = pendingSheet {
                 pendingSheet = nil
                 setSheet(sheet)
+            }
+            // Entrance last: content + sheet are in place, so the effect plays
+            // against the final surface rather than an empty page.
+            if let enter = pendingEnter {
+                pendingEnter = nil
+                self.enter(enter.kind, durationMs: enter.durationMs)
             }
             onReady?()
         case "contentChanged":

@@ -2,6 +2,7 @@ import { EditorView } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
 import type { Transaction } from "@codemirror/state";
 import { applySheet } from "./sheet";
+import { runEntrance } from "./entrance";
 
 /**
  * Native bridge for the Blink v2 editor.
@@ -60,6 +61,13 @@ export interface BlinkGlobal {
    * setContent/setMode/setTheme).
    */
   setSheet(name: string): void;
+  /**
+   * Play a content entrance effect (Arrival): "shimmer" | "drop" | "draw" |
+   * "none". The native panel animates its own window (alpha, and the frame for
+   * "drop"); this choreographs the content inside. `durationMs` is the base
+   * duration. Unknown kinds and "none" are instant no-ops. No echo message.
+   */
+  enter(kind: string, durationMs: number): void;
 }
 
 /** Minimal shape of the WKWebView message handler we depend on. */
@@ -227,6 +235,10 @@ export function installBlinkGlobal(
 
     setSheet(name: string): void {
       applySheet(name);
+    },
+
+    enter(kind: string, durationMs: number): void {
+      runEntrance(kind, durationMs);
     },
   };
 
