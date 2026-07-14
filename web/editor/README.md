@@ -46,6 +46,8 @@ logs to the console.
 | `focus` | `() => void` | Focus the editor. |
 | `setMode` | `(mode: "edit" \| "read") => void` | **Programmatic** flip. Does **not** post `modeChanged` (native is the source of truth — same no-echo discipline as `setContent`). |
 | `getMode` | `() => "edit" \| "read"` | Current surface. |
+| `setTheme` | `(vars: Record<string, string>) => void` | Apply theme overrides. For each entry, `document.documentElement.style.setProperty(key, value)` — keys arrive as **full** var names (e.g. `"--blink-font-size": "14px"`). Unknown keys are set anyway (harmless). Calling with `{}` is a no-op. No echo message. |
+| `resetTheme` | `() => void` | Remove all inline `--blink-*` properties from `:root`, restoring the stylesheet defaults. No echo message. |
 
 ### JS -> native: `postMessage`
 
@@ -55,6 +57,49 @@ logs to the console.
 | `contentChanged` | `{ type: "contentChanged"; text }` | **User** edits only (never programmatic `setContent`). |
 | `saveRequested` | `{ type: "saveRequested" }` | User presses ⌘S / Ctrl-S. |
 | `modeChanged` | `{ type: "modeChanged"; mode }` | **User-initiated** flip only: double-click on the reader, or ⌘⇧P (Mod-Shift-p) in either mode. Programmatic `setMode` is silent. |
+
+## Theming
+
+Every visual value in **both** the CM6 editor theme (`src/theme.ts`) and the
+reader typography (`build.mjs` `PAGE_CSS`) resolves to a CSS custom property
+declared on `:root` in the bundled stylesheet. Defaults equal the original
+hard-coded values. Native code overrides them at runtime via
+`window.blink.setTheme({...})` (full var names as keys) and clears overrides via
+`window.blink.resetTheme()`.
+
+| Variable | Default | Controls |
+| --- | --- | --- |
+| `--blink-font-family` | `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif` | Body/UI font (editor + reader). |
+| `--blink-mono-family` | `ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace` | Monospace font (inline + block code). |
+| `--blink-font-size` | `13px` | Base text size (editor, reader, marker reset, empty placeholder). |
+| `--blink-line-height` | `1.75` | Base line height (editor scroller + reader). |
+| `--blink-pad-x` | `20px` | Horizontal content padding (editor + reader + placeholder). |
+| `--blink-pad-y` | `16px` | Vertical content padding (editor + reader + placeholder). |
+| `--blink-text` | `rgba(255,255,255,0.85)` | Body text; also editor emphasis (`em`). |
+| `--blink-text-strong` | `rgba(255,255,255,0.96)` | Headings, `strong`, table headers. |
+| `--blink-text-muted` | `rgba(255,255,255,0.45)` | List content + markers, `del`/strikethrough, gutter. |
+| `--blink-marker` | `rgba(255,255,255,0.35)` | Markdown formatting markers (`#`, `*`, `` ` ``, `>`, brackets); empty placeholder. |
+| `--blink-accent` | `rgba(158,203,255,0.9)` | Link text. |
+| `--blink-accent-dim` | `rgba(158,203,255,0.55)` | Link URL/target (editor source view). |
+| `--blink-code-bg` | `rgba(255,255,255,0.07)` | Code chip / block background. |
+| `--blink-code-text` | `rgba(255,255,255,0.8)` | Code text (inline + block). |
+| `--blink-caret` | `#ffffff` | Text caret / cursor. |
+| `--blink-selection` | `rgba(255,255,255,0.18)` | Selection highlight (+ selection match). |
+| `--blink-h1-size` | `20px` | H1 size (reader). Editor derives `calc(… - 3px)` → 17px. |
+| `--blink-h2-size` | `17px` | H2 size (reader). Editor derives `calc(… - 3px)` → 14px. |
+| `--blink-h3-size` | `15px` | H3–H6 size (reader). Editor derives `calc(… - 3px)` → 12px. |
+| `--blink-quote-text` | `rgba(255,255,255,0.65)` | Blockquote text. |
+| `--blink-quote-border` | `rgba(255,255,255,0.2)` | Blockquote left border. |
+| `--blink-rule` | `rgba(255,255,255,0.15)` | Horizontal rule + table cell borders. |
+
+Heading sizes use **one** set of variables: `--blink-hN-size` are the **reader**
+sizes; the editor (which renders markdown *source*) derives its heading sizes as
+`calc(var(--blink-hN-size) - 3px)`. Font weights are hard-coded (not themable
+this pass).
+
+The build guardrails statically verify the `:root` block declares all of these
+variables, that no raw accent literal (`rgba(158,203,255,…)`) survives outside
+those defaults, and that `setTheme`/`resetTheme` exist in the bundle.
 
 ## Read mode interactions
 

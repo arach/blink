@@ -22,7 +22,64 @@ const outHtml = resolve(distDir, "editor.html");
  * fully transparent, so the native glass panel shows through.
  */
 const PAGE_CSS = `
-:root { color-scheme: dark; }
+/* ---------------------------------------------------------------------------
+ * Runtime theme variables. Every visual value in BOTH the reader typography
+ * (below) and the CM6 editor theme (src/theme.ts) resolves to one of these
+ * custom properties. Defaults equal the original hard-coded values.
+ *
+ * Native code themes the surface at runtime via window.blink.setTheme({...}),
+ * which does document.documentElement.style.setProperty(key, value) per entry
+ * (keys arrive as full var names, e.g. "--blink-font-size": "14px"), and
+ * window.blink.resetTheme(), which strips those inline overrides back to these
+ * stylesheet defaults.
+ *
+ * Heading sizes: --blink-hN-size are the READER sizes (20/17/15). The editor
+ * derives its own heading sizes as calc(var(--blink-hN-size) - 3px) in
+ * src/theme.ts (-> 17/14/12). Font weights are hard-coded (not themable).
+ * ------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  /* Typography */
+  --blink-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --blink-mono-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  --blink-font-size: 13px;
+  --blink-line-height: 1.75;
+
+  /* Content padding */
+  --blink-pad-x: 20px;
+  --blink-pad-y: 16px;
+
+  /* Text colors */
+  --blink-text: rgba(255, 255, 255, 0.85);
+  --blink-text-strong: rgba(255, 255, 255, 0.96);
+  --blink-text-muted: rgba(255, 255, 255, 0.45);
+  --blink-marker: rgba(255, 255, 255, 0.35);
+
+  /* Links */
+  --blink-accent: rgba(158, 203, 255, 0.9);
+  --blink-accent-dim: rgba(158, 203, 255, 0.55);
+
+  /* Code */
+  --blink-code-bg: rgba(255, 255, 255, 0.07);
+  --blink-code-text: rgba(255, 255, 255, 0.8);
+
+  /* Caret + selection */
+  --blink-caret: #ffffff;
+  --blink-selection: rgba(255, 255, 255, 0.18);
+
+  /* Heading sizes (reader; editor derives - 3px) */
+  --blink-h1-size: 20px;
+  --blink-h2-size: 17px;
+  --blink-h3-size: 15px;
+
+  /* Blockquote */
+  --blink-quote-text: rgba(255, 255, 255, 0.65);
+  --blink-quote-border: rgba(255, 255, 255, 0.2);
+
+  /* Rules + table borders */
+  --blink-rule: rgba(255, 255, 255, 0.15);
+}
 * { box-sizing: border-box; }
 html, body {
   margin: 0;
@@ -61,12 +118,12 @@ html, body {
   overflow-x: hidden;
   overflow-y: auto;
   background: transparent;
-  /* Match the editor content box: 20px horizontal, 16px vertical. */
-  padding: 16px 20px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 13.5px;
-  line-height: 1.75;
-  color: rgba(255, 255, 255, 0.85);
+  /* Match the editor content box padding. */
+  padding: var(--blink-pad-y) var(--blink-pad-x);
+  font-family: var(--blink-font-family);
+  font-size: var(--blink-font-size);
+  line-height: var(--blink-line-height);
+  color: var(--blink-text);
   -webkit-font-smoothing: antialiased;
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -84,33 +141,33 @@ html, body {
   line-height: 1.3;
   margin: 1.4em 0 0.5em;
 }
-.blink-reader h1 { font-size: 20px; font-weight: 700; color: rgba(255, 255, 255, 0.96); }
-.blink-reader h2 { font-size: 17px; font-weight: 650; color: rgba(255, 255, 255, 0.94); }
+.blink-reader h1 { font-size: var(--blink-h1-size); font-weight: 700; color: var(--blink-text-strong); }
+.blink-reader h2 { font-size: var(--blink-h2-size); font-weight: 650; color: var(--blink-text-strong); }
 .blink-reader h3,
 .blink-reader h4,
 .blink-reader h5,
-.blink-reader h6 { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.92); }
+.blink-reader h6 { font-size: var(--blink-h3-size); font-weight: 600; color: var(--blink-text-strong); }
 
 .blink-reader p { margin: 0 0 0.85em; }
 
 .blink-reader a {
-  color: rgba(158, 203, 255, 0.9);
+  color: var(--blink-accent);
   text-decoration: none;
 }
 .blink-reader a:hover { text-decoration: underline; }
 
 .blink-reader code {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  font-family: var(--blink-mono-family);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--blink-code-text);
+  background: var(--blink-code-bg);
   border-radius: 3px;
   padding: 1px 4px;
 }
 .blink-reader pre {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  font-family: var(--blink-mono-family);
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--blink-code-bg);
   border-radius: 6px;
   padding: 10px 12px;
   overflow-x: auto;
@@ -121,14 +178,14 @@ html, body {
   background: transparent;
   padding: 0;
   border-radius: 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--blink-code-text);
 }
 
 .blink-reader blockquote {
   margin: 0 0 0.85em;
   padding: 0.1em 0 0.1em 12px;
-  border-left: 2px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.65);
+  border-left: 2px solid var(--blink-quote-border);
+  color: var(--blink-quote-text);
   font-style: italic;
 }
 
@@ -138,11 +195,11 @@ html, body {
   padding-left: 1.5em;
 }
 .blink-reader li { margin: 0.15em 0; }
-.blink-reader li::marker { color: rgba(255, 255, 255, 0.45); }
+.blink-reader li::marker { color: var(--blink-text-muted); }
 
 .blink-reader hr {
   border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 1px solid var(--blink-rule);
   margin: 1.4em 0;
 }
 
@@ -153,19 +210,19 @@ html, body {
 .blink-reader th,
 .blink-reader td {
   padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--blink-rule);
 }
 .blink-reader th {
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--blink-text-strong);
   text-align: left;
 }
 
 .blink-reader img { max-width: 100%; }
 
-.blink-reader strong { font-weight: 650; color: rgba(255, 255, 255, 0.95); }
+.blink-reader strong { font-weight: 650; color: var(--blink-text-strong); }
 .blink-reader em { font-style: italic; }
-.blink-reader del { color: rgba(255, 255, 255, 0.5); }
+.blink-reader del { color: var(--blink-text-muted); }
 
 /* Empty-note placeholder: centered dim italic, fills the reader viewport. */
 .blink-reader-empty {
@@ -175,10 +232,10 @@ html, body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 16px 20px;
-  color: rgba(255, 255, 255, 0.35);
+  padding: var(--blink-pad-y) var(--blink-pad-x);
+  color: var(--blink-marker);
   font-style: italic;
-  font-size: 13.5px;
+  font-size: var(--blink-font-size);
 }
 `.trim();
 
@@ -255,6 +312,64 @@ async function main() {
   }
   if (!/blink-reader-empty/.test(html)) {
     throw new Error("Output is missing the empty-note placeholder styles");
+  }
+
+  // Theming guardrails. The runtime theme contract is load-bearing (native code
+  // is being built against exactly this), so verify the bundle statically.
+  //
+  // 1. The :root block must declare every themable variable with a default.
+  const THEME_VARS = [
+    "--blink-font-family",
+    "--blink-mono-family",
+    "--blink-font-size",
+    "--blink-line-height",
+    "--blink-pad-x",
+    "--blink-pad-y",
+    "--blink-text",
+    "--blink-text-strong",
+    "--blink-text-muted",
+    "--blink-marker",
+    "--blink-accent",
+    "--blink-accent-dim",
+    "--blink-code-bg",
+    "--blink-code-text",
+    "--blink-caret",
+    "--blink-selection",
+    "--blink-h1-size",
+    "--blink-h2-size",
+    "--blink-h3-size",
+    "--blink-quote-text",
+    "--blink-quote-border",
+    "--blink-rule",
+  ];
+  const rootMatch = html.match(/:root\s*\{([^}]*)\}/);
+  if (!rootMatch) {
+    throw new Error("Output is missing the :root theme-variable block");
+  }
+  const rootBlock = rootMatch[1];
+  const missing = THEME_VARS.filter(
+    (v) => !new RegExp(`${v}\\s*:`).test(rootBlock)
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `:root is missing theme variable defaults: ${missing.join(", ")}`
+    );
+  }
+
+  // 2. No raw accent color literal may remain outside the :root defaults —
+  //    every consumer must reference var(--blink-accent[-dim]).
+  const outsideRoot =
+    html.slice(0, rootMatch.index) +
+    html.slice(rootMatch.index + rootMatch[0].length);
+  if (/rgba\(158,\s*203,\s*255/.test(outsideRoot)) {
+    throw new Error(
+      "Raw rgba(158,203,255,…) accent color found outside the :root defaults"
+    );
+  }
+
+  // 3. The setTheme / resetTheme native API must exist on window.blink.
+  if (!/setTheme/.test(html) || !/resetTheme/.test(html)) {
+    throw new Error("Bundle is missing window.blink.setTheme / resetTheme");
   }
 
   const { size } = await stat(outHtml);

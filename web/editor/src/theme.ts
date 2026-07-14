@@ -10,60 +10,40 @@ import type { Extension } from "@codemirror/state";
  * own. The native glass NSPanel behind the WKWebView provides the background,
  * blur, and shadow. So html/body and every CodeMirror background layer are fully
  * transparent, and we only paint text, caret, and selection.
- */
-
-const SYSTEM_FONT =
-  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif';
-const MONO_FONT =
-  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace';
-
-const TEXT = "rgba(255, 255, 255, 0.85)";
-const CARET = "#ffffff";
-const SELECTION = "rgba(255, 255, 255, 0.18)";
-
-/**
- * Markdown presentation palette.
  *
- * These are the concrete values from the Blink v2 rendering spec. They style the
- * markdown *source* (this is syntax highlighting, not a rendered preview), so the
- * headings/emphasis/etc. tokens are colored and weighted while the `#`, `*`, `>`
- * and backtick markers are dimmed so the prose reads cleanly.
+ * THEMING: every visual value below is expressed as a `var(--blink-…)` CSS
+ * custom property. `var(...)` strings are valid values in CodeMirror theme specs
+ * and in HighlightStyle inline styles (both render to plain CSS), so the whole
+ * theme is runtime-themable. The variables are DECLARED with their defaults on
+ * `:root` in the bundled stylesheet (see build.mjs PAGE_CSS); native code
+ * overrides them via `window.blink.setTheme(...)`.
+ *
+ * NOTE on heading sizes: `--blink-h1-size` etc. are the READER sizes (20/17/15).
+ * The editor renders markdown *source* at a slightly smaller scale, so editor
+ * heading sizes are derived as `calc(var(--blink-hN-size) - 3px)` -> 17/14/12.
+ * Font weights are hard-coded (not themable this pass).
  */
-const H1_COLOR = "rgba(255, 255, 255, 0.96)";
-const H2_COLOR = "rgba(255, 255, 255, 0.94)";
-const H3_COLOR = "rgba(255, 255, 255, 0.92)"; // shared by H3–H6
-const MARKER = "rgba(255, 255, 255, 0.35)"; // #, *, _, `, >, list bullets, link brackets
-const STRONG_COLOR = "rgba(255, 255, 255, 0.95)";
-const EMPHASIS_COLOR = "rgba(255, 255, 255, 0.9)";
-const STRIKE_COLOR = "rgba(255, 255, 255, 0.5)";
-const CODE_COLOR = "rgba(255, 255, 255, 0.8)";
-const CODE_BG = "rgba(255, 255, 255, 0.07)";
-const LINK_COLOR = "rgba(158, 203, 255, 0.9)"; // soft blue
-const LINK_URL_COLOR = "rgba(158, 203, 255, 0.55)"; // dimmer for the URL part
-const QUOTE_COLOR = "rgba(255, 255, 255, 0.6)";
-const LIST_COLOR = "rgba(255, 255, 255, 0.45)"; // list content (markers use MARKER)
-const RULE_COLOR = "rgba(255, 255, 255, 0.3)";
 
-/** Base view theme: transparent everywhere, system font, generous line height. */
+/** Base view theme: transparent everywhere, themed font, generous line height. */
 export const blinkTheme: Extension = EditorView.theme(
   {
     "&": {
-      color: TEXT,
+      color: "var(--blink-text)",
       backgroundColor: "transparent",
-      fontFamily: SYSTEM_FONT,
-      fontSize: "13px",
+      fontFamily: "var(--blink-font-family)",
+      fontSize: "var(--blink-font-size)",
       height: "100%",
     },
     ".cm-scroller": {
-      fontFamily: SYSTEM_FONT,
-      lineHeight: "1.75",
-      // Content padding: 20px horizontal, 16px vertical.
-      padding: "16px 20px",
+      fontFamily: "var(--blink-font-family)",
+      lineHeight: "var(--blink-line-height)",
+      // Content padding driven by --blink-pad-y (vertical) / --blink-pad-x.
+      padding: "var(--blink-pad-y) var(--blink-pad-x)",
       overflow: "auto",
     },
     ".cm-content": {
       backgroundColor: "transparent",
-      caretColor: CARET,
+      caretColor: "var(--blink-caret)",
       // padding lives on the scroller; keep content flush.
       padding: "0",
     },
@@ -79,23 +59,23 @@ export const blinkTheme: Extension = EditorView.theme(
     },
     // Caret color for the drawn cursor (drawSelection).
     ".cm-cursor, .cm-dropCursor": {
-      borderLeftColor: CARET,
+      borderLeftColor: "var(--blink-caret)",
     },
     "&.cm-focused .cm-cursor": {
-      borderLeftColor: CARET,
+      borderLeftColor: "var(--blink-caret)",
     },
     // Selection: works for both native and drawSelection layers.
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-      backgroundColor: SELECTION,
+      backgroundColor: "var(--blink-selection)",
     },
     ".cm-selectionMatch": {
-      backgroundColor: "rgba(255, 255, 255, 0.10)",
+      backgroundColor: "var(--blink-selection)",
     },
     // No gutters at all in v2, but keep them transparent if ever present.
     ".cm-gutters": {
       backgroundColor: "transparent",
       border: "none",
-      color: "rgba(255, 255, 255, 0.3)",
+      color: "var(--blink-text-muted)",
     },
     ".cm-activeLine": {
       backgroundColor: "transparent",
@@ -105,7 +85,7 @@ export const blinkTheme: Extension = EditorView.theme(
     },
     ".cm-panels": {
       backgroundColor: "transparent",
-      color: TEXT,
+      color: "var(--blink-text)",
     },
   },
   { dark: true }
@@ -122,7 +102,7 @@ export const blinkTheme: Extension = EditorView.theme(
  *                          (* _), CodeMark (`), QuoteMark (>), ListMark (bullet/
  *                          number), LinkMark ([ ] ( )). One shared tag, so every
  *                          marker gets the same dim treatment (spec asks for the
- *                          same rgba(...,0.35) for all of them).
+ *                          same --blink-marker for all of them).
  *   strong / emphasis / strikethrough   inline styling (marks excluded — they
  *                          are separate processingInstruction nodes)
  *   monospace           InlineCode + fenced/indented CodeText
@@ -135,57 +115,94 @@ export const blinkTheme: Extension = EditorView.theme(
  *
  * A more specific/inner node wins, so a HeaderMark inside a heading is dimmed
  * even though the surrounding heading is bright — exactly what we want.
+ *
+ * Editor heading sizes derive from the reader `--blink-hN-size` vars minus 3px
+ * (see file header note). All heading colors map to `--blink-text-strong`.
  */
 export const blinkHighlight: Extension = syntaxHighlighting(
   HighlightStyle.define([
-    // Headings.
-    { tag: t.heading1, color: H1_COLOR, fontWeight: "700", fontSize: "17px" },
-    { tag: t.heading2, color: H2_COLOR, fontWeight: "650", fontSize: "15.5px" },
-    { tag: t.heading3, color: H3_COLOR, fontWeight: "600", fontSize: "14px" },
-    { tag: t.heading4, color: H3_COLOR, fontWeight: "600", fontSize: "14px" },
-    { tag: t.heading5, color: H3_COLOR, fontWeight: "600", fontSize: "14px" },
-    { tag: t.heading6, color: H3_COLOR, fontWeight: "600", fontSize: "14px" },
+    // Headings. Editor sizes = reader size - 3px.
+    {
+      tag: t.heading1,
+      color: "var(--blink-text-strong)",
+      fontWeight: "700",
+      fontSize: "calc(var(--blink-h1-size) - 3px)",
+    },
+    {
+      tag: t.heading2,
+      color: "var(--blink-text-strong)",
+      fontWeight: "650",
+      fontSize: "calc(var(--blink-h2-size) - 3px)",
+    },
+    {
+      tag: t.heading3,
+      color: "var(--blink-text-strong)",
+      fontWeight: "600",
+      fontSize: "calc(var(--blink-h3-size) - 3px)",
+    },
+    {
+      tag: t.heading4,
+      color: "var(--blink-text-strong)",
+      fontWeight: "600",
+      fontSize: "calc(var(--blink-h3-size) - 3px)",
+    },
+    {
+      tag: t.heading5,
+      color: "var(--blink-text-strong)",
+      fontWeight: "600",
+      fontSize: "calc(var(--blink-h3-size) - 3px)",
+    },
+    {
+      tag: t.heading6,
+      color: "var(--blink-text-strong)",
+      fontWeight: "600",
+      fontSize: "calc(var(--blink-h3-size) - 3px)",
+    },
     // Generic heading fallback (Setext bodies not covered above).
-    { tag: t.heading, color: H3_COLOR, fontWeight: "600" },
+    { tag: t.heading, color: "var(--blink-text-strong)", fontWeight: "600" },
 
     // Formatting markers (#, *, _, `, >, list bullets, link brackets) — dimmed.
     // Reset weight/size to base so a marker inside a heading stays small & light.
     {
       tag: t.processingInstruction,
-      color: MARKER,
+      color: "var(--blink-marker)",
       fontWeight: "normal",
-      fontSize: "13px",
+      fontSize: "var(--blink-font-size)",
     },
 
-    // Inline emphasis.
-    { tag: t.strong, color: STRONG_COLOR, fontWeight: "650" },
-    { tag: t.emphasis, color: EMPHASIS_COLOR, fontStyle: "italic" },
-    { tag: t.strikethrough, color: STRIKE_COLOR, textDecoration: "line-through" },
+    // Inline emphasis. strong/emphasis map to --blink-text-strong / --blink-text.
+    { tag: t.strong, color: "var(--blink-text-strong)", fontWeight: "650" },
+    { tag: t.emphasis, color: "var(--blink-text)", fontStyle: "italic" },
+    {
+      tag: t.strikethrough,
+      color: "var(--blink-text-muted)",
+      textDecoration: "line-through",
+    },
 
     // Code — inline and block. HighlightStyle spans support background/padding,
     // so inline code gets a subtle chip; the mono font + size apply to blocks too.
     {
       tag: t.monospace,
-      color: CODE_COLOR,
-      fontFamily: MONO_FONT,
+      color: "var(--blink-code-text)",
+      fontFamily: "var(--blink-mono-family)",
       fontSize: "12px",
-      background: CODE_BG,
+      background: "var(--blink-code-bg)",
       borderRadius: "3px",
       padding: "1px 3px",
     },
 
     // Links: soft blue, no underline; the URL/target part dimmer.
-    { tag: t.link, color: LINK_COLOR, textDecoration: "none" },
-    { tag: t.url, color: LINK_URL_COLOR, textDecoration: "none" },
+    { tag: t.link, color: "var(--blink-accent)", textDecoration: "none" },
+    { tag: t.url, color: "var(--blink-accent-dim)", textDecoration: "none" },
 
     // Blockquote content.
-    { tag: t.quote, color: QUOTE_COLOR, fontStyle: "italic" },
+    { tag: t.quote, color: "var(--blink-quote-text)", fontStyle: "italic" },
 
     // List content (markers are handled by processingInstruction above).
-    { tag: t.list, color: LIST_COLOR },
+    { tag: t.list, color: "var(--blink-text-muted)" },
 
     // Horizontal rule.
-    { tag: t.contentSeparator, color: RULE_COLOR },
+    { tag: t.contentSeparator, color: "var(--blink-rule)" },
   ])
 );
 

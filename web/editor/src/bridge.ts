@@ -40,6 +40,18 @@ export interface BlinkGlobal {
   setMode(mode: Mode): void;
   /** Current surface, "edit" | "read". */
   getMode(): Mode;
+  /**
+   * Apply theme overrides. For each entry, sets the CSS custom property on the
+   * document root (`:root`). Keys arrive as full var names (e.g.
+   * `"--blink-font-size": "14px"`). Unknown keys are set anyway (harmless).
+   * Calling with `{}` is a no-op. No echo message is posted.
+   */
+  setTheme(vars: Record<string, string>): void;
+  /**
+   * Remove all inline `--blink-*` custom properties from `:root`, restoring the
+   * stylesheet defaults. No echo message is posted.
+   */
+  resetTheme(): void;
 }
 
 /** Minimal shape of the WKWebView message handler we depend on. */
@@ -180,6 +192,29 @@ export function installBlinkGlobal(
 
     getMode(): Mode {
       return modes.getMode();
+    },
+
+    setTheme(vars: Record<string, string>): void {
+      const root = document.documentElement.style;
+      // Full var names arrive as keys; set each as-is. Unknown keys are harmless.
+      for (const [key, value] of Object.entries(vars)) {
+        root.setProperty(key, value);
+      }
+    },
+
+    resetTheme(): void {
+      const root = document.documentElement.style;
+      // Collect first (mutating the list mid-iteration skips entries).
+      const toRemove: string[] = [];
+      for (let i = 0; i < root.length; i++) {
+        const name = root.item(i);
+        if (name.startsWith("--blink-")) {
+          toRemove.push(name);
+        }
+      }
+      for (const name of toRemove) {
+        root.removeProperty(name);
+      }
     },
   };
 
