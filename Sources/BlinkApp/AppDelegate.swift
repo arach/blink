@@ -53,6 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         ) { [weak self] in
             self?.newNote()
         }
+
+        // The blink: Hyper+B shows every note, then none.
+        HotkeyManager.shared.register(
+            id: 2,
+            keyCode: CarbonKeyCode.b,
+            modifiers: CarbonModifier.hyper
+        ) { [weak self] in
+            self?.panelManager.toggleBlink()
+        }
     }
 
     /// Flush pending note saves before quitting — never drop edits (v1 lesson).

@@ -12,6 +12,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var pendingText: [String: String] = [:]
     private var saveTasks: [String: Task<Void, Never>] = [:]
     private var isTerminating = false
+    private var blinkHidden = false
     private let log = HudLogger(category: "blink.panels")
 
     private static let openNotesKey = "blink.openNotes"
@@ -56,6 +57,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// One panel per note: if it's already open, focus it.
     /// `initialMode` overrides mode resolution (new notes pass "edit").
     func openPanel(for note: Note, initialMode: String? = nil) {
+        // Opening a note while blinked-away: the new panel is visible, so the
+        // next Hyper+B should hide everything again.
+        blinkHidden = false
         if let existing = panels[note.id] {
             existing.makeKeyAndOrderFront(nil)
             return
@@ -99,6 +103,21 @@ final class PanelManager: NSObject, NSWindowDelegate {
             panel.makeFirstResponder(panel.editor.webView)
         }
         persistOpenList()
+    }
+
+    /// The blink: see every note, then none. Hides/shows all open panels
+    /// without closing them — the open list and pending saves are untouched.
+    func toggleBlink() {
+        guard !panels.isEmpty else { return }
+        blinkHidden.toggle()
+        for panel in panels.values {
+            if blinkHidden {
+                panel.orderOut(nil)
+            } else {
+                panel.orderFrontRegardless()
+            }
+        }
+        log.info("[BLINK] blink toggled", metadata: ["hidden": "\(blinkHidden)"])
     }
 
     /// Quit is imminent: stop treating window closes as the user closing notes.
