@@ -15,6 +15,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var panelContent: [String: String] = [:]
     private var observers: [NSObjectProtocol] = []
     private var saveTasks: [String: Task<Void, Never>] = [:]
+    private var revealCompletionTasks: [String: Task<Void, Never>] = [:]
+    private var revealSoundTasks: [String: Task<Void, Never>] = [:]
+    private var revealSounds: [String: NSSound] = [:]
+    private var revealOrderings: [String: RevealOrdering] = [:]
     private var isTerminating = false
     private var blinkHidden = false
     private lazy var focusOverlay = FocusOverlay()
@@ -24,6 +28,16 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
     private static let openNotesKey = "blink.openNotes"
     private static let saveDebounce: Duration = .seconds(1)
+    private static let typeOnCharactersPerSecond = 180.0
+
+    /// The two neighboring windows that bracketed a panel before a reveal
+    /// briefly ordered it front. Keeping both gives restoration a fallback if
+    /// one closes during the reveal.
+    private struct RevealOrdering {
+        let windowInFront: Int?
+        let windowBehind: Int?
+        let wasKey: Bool
+    }
 
     init(store: NoteStore) {
         self.store = store
@@ -97,6 +111,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// A note is being deleted: drop any pending edits for it (so the close
     /// flush doesn't resurrect them against a missing id) and close its panel.
     func handleNoteDeleted(id: String) {
+        discardTypedReveal(id: id)
         saveTasks[id]?.cancel()
         saveTasks[id] = nil
         pendingText[id] = nil
@@ -132,10 +147,156 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private func applyExternalUpdate(id: String) async {
         guard let panel = panels[id], pendingText[id] == nil else { return }
         guard let note = await store.note(id: id), note.content != panelContent[id] else { return }
+        let previous = panelContent[id] ?? ""
+        // State becomes truthful before presentation begins. Saves and a user
+        // edit arriving on frame zero therefore see the COMPLETE external text.
         panelContent[id] = note.content
-        panel.editor.setContent(note.content)  // programmatic — never echoes
+
+        if let prefix = note.content.range(of: previous, options: [.anchored, .literal]),
+           prefix.lowerBound == note.content.startIndex,
+           prefix.upperBound < note.content.endIndex {
+            let suffix = String(note.content[prefix.upperBound...])
+            panel.editor.typeOn(
+                base: previous,
+                suffix: suffix,
+                source: note.extraFrontmatterValue(for: "source")
+            )
+            beginTypedReveal(id: id, panel: panel, suffixCount: suffix.count)
+            log.info(
+                "[BLINK] external append revealing in open panel",
+                metadata: ["id": id, "characters": "\(suffix.count)"]
+            )
+        } else {
+            // A replacement/middle edit silently supersedes any reveal. The
+            // bridge's setContent also clears the web-side mask without echo.
+            finishTypedReveal(id: id, snapWeb: false)
+            panel.editor.setContent(note.content)
+            log.info("[BLINK] external edit applied to open panel", metadata: ["id": id])
+        }
         if panel.title != note.title { panel.title = note.title }
-        log.info("[BLINK] external edit applied to open panel", metadata: ["id": id])
+    }
+
+    // MARK: - Visible Hand: native reveal garnish
+
+    /// Start the native half of a typed reveal: low-volume debounced Tink
+    /// ticks, plus a temporary front ordering that never makes the panel key.
+    /// A second append preserves the original z-order target while replacing
+    /// every timer from the first.
+    private func beginTypedReveal(id: String, panel: NotePanel, suffixCount: Int) {
+        supersedeTypedReveal(id: id)
+        bringForwardForRevealIfVisible(id: id, panel: panel)
+        playRevealTicks(id: id, suffixCount: suffixCount)
+
+        let seconds = max(Double(suffixCount) / Self.typeOnCharactersPerSecond, 1 / 60)
+        revealCompletionTasks[id] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            // Ensure a background-throttled WKWebView also lands fully. Let an
+            // already-playing final tick ring out; no future ticks survive.
+            self?.finishTypedReveal(id: id, snapWeb: true, stopCurrentSound: false)
+        }
+    }
+
+    /// Cancel the old timers/sound for a superseding append, but deliberately
+    /// keep its original z-order bracket for the eventual final reveal.
+    private func supersedeTypedReveal(id: String) {
+        revealCompletionTasks[id]?.cancel()
+        revealCompletionTasks[id] = nil
+        revealSoundTasks[id]?.cancel()
+        revealSoundTasks[id] = nil
+        revealSounds.removeValue(forKey: id)?.stop()
+    }
+
+    /// Finish (or abort) the presentation layer. This never touches note state
+    /// or save order — it only snaps web garnish, silences ticks, and restores
+    /// a panel's prior place among Blink windows.
+    private func finishTypedReveal(
+        id: String, snapWeb: Bool, stopCurrentSound: Bool = true
+    ) {
+        let wasActive = revealCompletionTasks[id] != nil
+            || revealSoundTasks[id] != nil
+            || revealSounds[id] != nil
+            || revealOrderings[id] != nil
+        guard wasActive else { return }
+        revealCompletionTasks[id]?.cancel()
+        revealCompletionTasks[id] = nil
+        revealSoundTasks[id]?.cancel()
+        revealSoundTasks[id] = nil
+        if let sound = revealSounds.removeValue(forKey: id), stopCurrentSound {
+            sound.stop()
+        }
+        if snapWeb { panels[id]?.editor.finishTypeOn() }
+        restoreOrderingAfterReveal(id: id)
+    }
+
+    /// Teardown variant for a deleted/closed panel. Ordering a disappearing
+    /// window would risk showing it again, so discard rather than restore.
+    private func discardTypedReveal(id: String) {
+        revealCompletionTasks[id]?.cancel()
+        revealCompletionTasks[id] = nil
+        revealSoundTasks[id]?.cancel()
+        revealSoundTasks[id] = nil
+        revealSounds.removeValue(forKey: id)?.stop()
+        revealOrderings[id] = nil
+    }
+
+    private func playRevealTicks(id: String, suffixCount: Int) {
+        let interval = 4 / Self.typeOnCharactersPerSecond
+        let audibleCap = 3.0
+        let ticks = min(suffixCount / 4, Int(audibleCap / interval))
+        guard ticks > 0, let sound = NSSound(named: NSSound.Name("Tink")) else { return }
+        sound.volume = 0.15
+        revealSounds[id] = sound
+        revealSoundTasks[id] = Task { @MainActor [weak self, weak sound] in
+            for _ in 0..<ticks {
+                try? await Task.sleep(for: .seconds(interval))
+                guard !Task.isCancelled, self?.revealSounds[id] === sound else { return }
+                // Tink is longer than four characters at this cadence. Never
+                // overlap copies — one soft sample represents the latest group.
+                if sound?.isPlaying == false { sound?.play() }
+            }
+        }
+    }
+
+    private func bringForwardForRevealIfVisible(id: String, panel: NotePanel) {
+        // An existing ordering means a rapid second append already has a home
+        // to return to. Do not accidentally record the temporarily-front state.
+        guard revealOrderings[id] == nil,
+              !blinkHidden,
+              panel.isVisible,
+              panel.isOnActiveSpace,
+              panel.occlusionState.contains(.visible),
+              let screen = panel.screen,
+              !panel.frame.intersection(screen.visibleFrame).isEmpty
+        else { return }
+
+        let ordered = NSApp.orderedWindows
+        guard let index = ordered.firstIndex(where: { $0 === panel }) else { return }
+        let inFront = index > 0 ? ordered[index - 1].windowNumber : nil
+        let behind = index + 1 < ordered.count ? ordered[index + 1].windowNumber : nil
+        guard inFront != nil else { return }  // already front: nothing to restore
+        revealOrderings[id] = RevealOrdering(
+            windowInFront: inFront, windowBehind: behind, wasKey: panel.isKeyWindow
+        )
+        panel.orderFront(nil)  // never makeKey; the user's current focus remains untouched
+    }
+
+    private func restoreOrderingAfterReveal(id: String) {
+        guard let ordering = revealOrderings.removeValue(forKey: id),
+              let panel = panels[id],
+              panel.isVisible
+        else { return }
+        // If the user explicitly focused this panel during the reveal, that
+        // action wins over our stale ordering snapshot.
+        if panel.isKeyWindow, !ordering.wasKey { return }
+
+        if let number = ordering.windowInFront,
+           NSApp.windows.contains(where: { $0.windowNumber == number && $0.isVisible }) {
+            panel.order(.below, relativeTo: number)
+        } else if let number = ordering.windowBehind,
+                  NSApp.windows.contains(where: { $0.windowNumber == number && $0.isVisible }) {
+            panel.order(.above, relativeTo: number)
+        }
     }
 
     /// One panel per note: if it's already open, focus it.
@@ -167,6 +328,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panelContent[note.id] = note.content
 
         panel.editor.onContentChanged = { [weak self] text in
+            // User input is the reveal's hard stop. Web already unmasks its
+            // complete doc before posting; native mirrors that cancellation so
+            // sound/z-order cannot linger.
+            self?.finishTypedReveal(id: note.id, snapWeb: true)
             self?.panelContent[note.id] = text
             self?.scheduleSave(noteID: note.id, text: text)
         }
@@ -430,6 +595,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// and persists an EMPTY open-notes list — killing session restore.
     func prepareForTermination() {
         isTerminating = true
+        for id in Array(revealCompletionTasks.keys) { discardTypedReveal(id: id) }
         gridOverlay?.hide()
         focusOverlay.hide()
     }
@@ -474,6 +640,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard let panel = notification.object as? NotePanel else { return }
         let id = panel.noteID
+        discardTypedReveal(id: id)
         panel.editor.teardown()
         panels[id] = nil
         panelContent[id] = nil

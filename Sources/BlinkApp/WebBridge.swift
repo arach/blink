@@ -2,10 +2,10 @@ import Foundation
 import HudsonObservability
 import WebKit
 
-/// Hosts the CodeMirror editor bundle in a WKWebView and speaks the four-message
-/// bridge contract (see web/editor/README.md):
+/// Hosts the CodeMirror editor bundle in a WKWebView and speaks the bridge
+/// contract (see web/editor/README.md):
 ///   JS → native:  ready · contentChanged(text) · saveRequested
-///   native → JS:  window.blink.setContent(text) · window.blink.focus()
+///   native → JS:  setContent · typeOn · focus · mode/theme/sheet/entrance
 ///
 /// Designed to be generic enough to upstream to HudsonKit once proven.
 @MainActor
@@ -23,6 +23,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     private var pendingTheme: [String: String]?
     private var pendingSheet: String?
     private var pendingEnter: (kind: String, durationMs: Double)?
+    private var pendingTypeOn: (base: String, suffix: String, source: String?)?
     private let log = HudLogger(category: "blink.bridge")
 
     override init() {
@@ -73,6 +74,9 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     func setContent(_ text: String) {
         guard isReady else {
             pendingContent = text
+            // Last programmatic content operation wins while the page loads.
+            // A non-append replacement supersedes a queued reveal.
+            pendingTypeOn = nil
             return
         }
         evaluate("window.blink.setContent(\(Self.jsString(text)))")
@@ -113,6 +117,42 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             return
         }
         evaluate("window.blink.enter && window.blink.enter(\(Self.jsString(kind)), \(durationMs))")
+    }
+
+    /// Reveal an externally appended suffix without ever echoing
+    /// `contentChanged`. Like theme/sheet/entrance this queues until `ready`
+    /// and is guarded for a stale editor bundle; unlike those cosmetic calls,
+    /// the fallback MUST install the complete content so no update is lost.
+    func typeOn(base: String, suffix: String, source: String?) {
+        guard isReady else {
+            pendingContent = nil
+            pendingTypeOn = (base, suffix, source)
+            return
+        }
+        let full = base + suffix
+        let encodedSource = source.map(Self.jsString) ?? "null"
+        evaluate(
+            "window.blink.typeOn "
+                + "? window.blink.typeOn(\(Self.jsString(base)), \(Self.jsString(suffix)), "
+                + "\(encodedSource)) "
+                + ": window.blink.setContent(\(Self.jsString(full)))"
+        )
+    }
+
+    /// Snap an in-flight reveal to its already-installed full document. Before
+    /// `ready`, collapse the queued reveal into a full pending set instead.
+    func finishTypeOn() {
+        guard isReady else {
+            // The native reveal clock can elapse before a newly created
+            // WKWebView reaches `ready`. Collapse the queued reveal to a plain
+            // full-content set — never discard the only copy of the update.
+            if let pending = pendingTypeOn {
+                pendingContent = pending.base + pending.suffix
+                pendingTypeOn = nil
+            }
+            return
+        }
+        evaluate("window.blink.finishTypeOn && window.blink.finishTypeOn()")
     }
 
     /// Push CSS variables to the bundle (theming). Guarded so an older bundle
@@ -163,6 +203,12 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             if let enter = pendingEnter {
                 pendingEnter = nil
                 self.enter(enter.kind, durationMs: enter.durationMs)
+            }
+            // Reveal last: content, mode, sheet, and any panel entrance are all
+            // established before the append begins typing.
+            if let typeOn = pendingTypeOn {
+                pendingTypeOn = nil
+                self.typeOn(base: typeOn.base, suffix: typeOn.suffix, source: typeOn.source)
             }
             onReady?()
         case "contentChanged":

@@ -50,6 +50,8 @@ logs to the console.
 | `resetTheme` | `() => void` | Remove all inline `--blink-*` properties from `:root`, restoring the stylesheet defaults. No echo message. |
 | `setSheet` | `(name: string) => void` | Select the sheet template — the note's whole visual identity (see **Sheet templates** below). Sets `data-sheet` on `<body>`. **Idempotent**; unknown names fall back to `"glass"`. No echo message (same no-echo discipline as `setContent`/`setMode`/`setTheme`). |
 | `enter` | `(kind: string, durationMs: number) => void` | Play a content entrance effect (see **Entrances** below): `"shimmer"` \| `"drop"` \| `"draw"` \| `"none"`. Sets a transient `data-enter` on `<body>` that the CSS animates, self-clearing after the run. Unknown kinds and `"none"` are instant no-ops. No echo message. |
+| `typeOn` | `(base: string, suffix: string, source?: string \| null) => void` | Install `base + suffix` as the complete document immediately, then reveal only `suffix` at ~180 characters/sec with a blinking caret. **Never** echoes `contentChanged`. `source` shows `✳ source · just now` during the reveal and for four seconds after. A new call snaps and supersedes the old reveal. |
+| `finishTypeOn` | `() => void` | Snap an in-flight typed reveal to the already-installed complete document. Silent and idempotent. Real user edits invoke this before their `contentChanged` message is posted. |
 
 ### JS -> native: `postMessage`
 
@@ -166,6 +168,27 @@ disables the animations web-side even if a `data-enter` slips through.
 The build guardrails verify each entrance (`shimmer`/`drop`/`draw`) has a
 `data-enter` CSS block, that the `@keyframes blink-enter-*` exist, and that the
 entrance runtime (`data-enter` + `--blink-enter-ms`) is in the bundle.
+
+## Typed external appends (Visible Hand)
+
+`window.blink.typeOn(base, suffix, source)` treats animation as garnish over
+already-applied state: CodeMirror receives the complete `base + suffix` in a
+programmatic, non-user transaction on frame zero. A state-field decoration
+replaces only the unrevealed tail with a blinking caret, advancing by grapheme
+at roughly 180 characters/sec. Thus `getContent()` is always complete, and a
+user edit cannot race a partial document. If the old selection was exactly at
+the append point, its real (temporarily hidden) caret moves after the full
+suffix so a mid-reveal keystroke follows the append in order.
+
+Read mode keeps the rendered markdown base in place and types the suffix into
+a lightweight plain-text overlay; completion performs one full markdown
+render. A real user edit, a non-append `setContent`, or another `typeOn` snaps
+the old reveal instantly. All reveal dispatches have no user event and never
+post `contentChanged`.
+
+When `source` is non-empty, a pointer-inert bottom-left attribution chip reads
+`✳ <source> · just now`; it remains for four seconds after the reveal ends.
+The build guardrails require the typed-reveal runtime/styles and chip mount.
 
 ## Read mode interactions
 

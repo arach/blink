@@ -25,6 +25,7 @@ import {
 import type { Mode, ModeController } from "./bridge";
 import { Reader } from "./reader";
 import { applySheet, DEFAULT_SHEET } from "./sheet";
+import { typeOnExtension } from "./type-on";
 
 /**
  * Blink v2 editor entry point.
@@ -81,6 +82,10 @@ function mount(): void {
         rectangularSelection(),
         crosshairCursor(),
 
+        // Typed reveal decorations hide only the not-yet-visible suffix. The
+        // CodeMirror document beneath is complete from frame zero.
+        typeOnExtension,
+
         // Fallback syntax highlighting for anything the theme does not cover.
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
 
@@ -113,6 +118,10 @@ function mount(): void {
           if (!update.docChanged) return;
           const isUser = update.transactions.some(isReportableUserEdit);
           if (!isUser) return;
+          // A real user edit wins over presentation: remove the reveal mask
+          // before notifying native. The underlying doc was already complete,
+          // so this text contains the append and the user's edit in order.
+          window.blink?.finishTypeOn();
           postToNative({
             type: "contentChanged",
             text: update.state.doc.toString(),
@@ -139,7 +148,7 @@ function mount(): void {
       const editMax = scroller.scrollHeight - scroller.clientHeight;
       const fraction = editMax > 0 ? scroller.scrollTop / editMax : 0;
 
-      reader.render(view.state.doc.toString());
+      reader.renderCurrent(view.state.doc.toString());
       parent!.style.display = "none";
       reader.show();
       reader.setScrollFraction(fraction);
@@ -192,6 +201,8 @@ function mount(): void {
     getMode: () => mode,
     setMode: (m) => applyMode(m, false),
     renderRead: (text) => reader.render(text),
+    beginReadTypeOn: (base) => reader.beginTypeOn(base),
+    updateReadTypeOn: (text) => reader.updateTypeOn(text),
   };
 
   // Expose window.blink (native -> JS API) around this view.

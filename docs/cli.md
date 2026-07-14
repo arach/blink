@@ -34,6 +34,7 @@ exit code 1.
 blink ls [--limit N] [--json]     # list notes, most recently updated first
 blink cat <id> [--json]           # print content (exact bytes); --json adds all metadata
 blink new [text ...] [--json]     # create from args or stdin; prints the assigned id
+blink append <id> [text ...] [--json]  # append a line from args or stdin; prints the id
 blink search <query> [--json]     # case-insensitive substring over title + content
 blink rm <id> [--json]            # delete a note
 blink path [<id>]                 # the notes directory, or a note's file path
@@ -44,6 +45,8 @@ Examples:
 ```sh
 blink new "grocery run"                    # → grocery-run
 printf '# Standup\n\n- ship CLI\n' | blink new --json
+blink append grocery-run "- oat milk"      # types on live if the panel is open
+printf '%s\n' '- ship docs' | blink append standup --json
 blink cat grocery-run
 blink search standup --json | jq '.[0].id'
 open "$(blink path grocery-run)"           # hand the file to anything
@@ -60,8 +63,8 @@ open "$(blink path grocery-run)"           # hand the file to anything
   "created": "2026-07-14T19:51:41.934Z",
   "updated": "2026-07-14T19:51:41.934Z",
   "path": "/Users/you/Library/Application Support/Blink/Notes/standup.md",
-  "content": "…",             // cat --json only
-  "extraFrontmatter": []       // cat --json only — foreign keys, preserved verbatim
+  "content": "…",             // cat/append --json only
+  "extraFrontmatter": []        // cat/append --json only — foreign keys, preserved verbatim
 }
 ```
 
@@ -71,8 +74,11 @@ The filesystem is the API (layer 1): notes are frontmattered markdown, one
 file per note. You may edit them with anything — Blink preserves frontmatter
 keys it doesn't own and merges on-disk metadata before every save, so foreign
 keys survive. The CLI just adds atomic writes, correct slug assignment, and
-structured output for free. Prefer it for *creating* notes (slug uniqueness)
-and any scripted workflow.
+structured output for free. Prefer it for *creating* notes (slug uniqueness),
+`append` when an agent should add a visible update without replacing the note,
+and any scripted workflow. `append` always writes exactly one separating
+newline before the supplied text; stdin bytes after that separator are kept as
+provided.
 
 Not here yet, by design: `blink link` waits for the `.blink/index.json`
 backlink index; MCP waits until conversational, typed interaction is earned.

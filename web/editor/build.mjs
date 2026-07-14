@@ -262,6 +262,75 @@ html, body {
   font-size: var(--blink-font-size);
 }
 
+/* ---------------------------------------------------------------------------
+ * VISIBLE HAND — external appends reveal at typing cadence.
+ *
+ * Edit mode keeps the complete CodeMirror document underneath and replaces
+ * only the unrevealed suffix with this caret widget. Read mode uses a cheap
+ * plain-text suffix region while the base remains rendered markdown, then
+ * swaps to the fully rendered note at completion.
+ * ------------------------------------------------------------------------- */
+.blink-typeon-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.15em;
+  margin: 0 1px;
+  vertical-align: -0.18em;
+  border-radius: 1px;
+  background: var(--blink-caret);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.28);
+  animation: blink-typeon-caret 720ms step-end infinite;
+}
+/* The real selection stays in the complete document (normally at its full
+ * end) while the reveal widget marks the visual append point. */
+body[data-type-on] .cm-cursor {
+  opacity: 0 !important;
+}
+.blink-reader-typeon {
+  min-height: 1.75em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--blink-text);
+}
+@keyframes blink-typeon-caret {
+  0%, 48% { opacity: 1; }
+  49%, 100% { opacity: 0.18; }
+}
+
+/* Attribution is presentation-only and never takes pointer focus. Its quiet
+ * capsule mirrors the panel's hover-earned chrome without reserving layout. */
+.blink-attribution {
+  position: fixed;
+  left: 10px;
+  bottom: 9px;
+  z-index: 10;
+  max-width: calc(100vw - 20px);
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(16, 16, 18, 0.72);
+  color: var(--blink-text-muted);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.24);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-family: var(--blink-font-family);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+.blink-attribution.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* ===========================================================================
  * SHEET TEMPLATES (Ink)
  *
@@ -490,6 +559,12 @@ body[data-enter="draw"] .blink-reader {
   body[data-enter]::before {
     animation: none !important;
   }
+  .blink-typeon-caret {
+    animation: none;
+  }
+  .blink-attribution {
+    transition: none;
+  }
 }
 `.trim();
 
@@ -508,6 +583,7 @@ ${css}
 <body>
 <div id="editor"></div>
 <div id="reader" class="blink-reader" style="display:none"></div>
+<div id="attribution" class="blink-attribution" role="status" aria-live="polite"></div>
 <script>
 ${js}
 </script>
@@ -594,6 +670,18 @@ async function main() {
   }
   if (!/data-enter/.test(html) || !/--blink-enter-ms/.test(html)) {
     throw new Error("Bundle is missing the entrance runtime (window.blink.enter)");
+  }
+
+  // Visible Hand: native must be able to invoke a typed reveal, the bundle
+  // must carry both edit/read reveal visuals, and attribution needs a mount.
+  if (!/typeOn/.test(html) || !/finishTypeOn/.test(html)) {
+    throw new Error("Bundle is missing window.blink.typeOn / finishTypeOn");
+  }
+  if (!/blink-typeon-caret/.test(html) || !/blink-reader-typeon/.test(html)) {
+    throw new Error("Output is missing typed-reveal styles");
+  }
+  if (!/id="attribution"/.test(html) || !/blink-attribution/.test(html)) {
+    throw new Error("Output is missing the attribution chip");
   }
 
   // Theming guardrails. The runtime theme contract is load-bearing (native code

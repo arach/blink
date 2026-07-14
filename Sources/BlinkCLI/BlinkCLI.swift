@@ -17,7 +17,9 @@ struct BlinkCommand: AsyncParsableCommand {
         --json for structured output.
         """,
         version: "0.1.0",
-        subcommands: [Ls.self, Cat.self, New.self, Search.self, Rm.self, PathCommand.self]
+        subcommands: [
+            Ls.self, Cat.self, New.self, Append.self, Search.self, Rm.self, PathCommand.self,
+        ]
     )
 }
 
@@ -77,6 +79,39 @@ struct New: AsyncParsableCommand {
         let note = try await loadedStore().create(content: text)
         if json {
             try printJSON(NoteJSON(note, full: false))
+        } else {
+            print(note.id)
+        }
+    }
+}
+
+struct Append: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Append text to an existing note from arguments or stdin."
+    )
+
+    @Argument(help: "The note id (slug).") var id: String
+    // `allUnrecognized` lets agent-authored markdown begin with "-" without
+    // needing a `--` terminator, while still recognizing `--json` anywhere.
+    @Argument(parsing: .allUnrecognized, help: "Text to append (omit to read stdin).")
+    var content: [String] = []
+    @Flag(help: "Full updated note as JSON.") var json = false
+
+    func run() async throws {
+        var text = content.joined(separator: " ")
+        if text.isEmpty, isatty(0) == 0 {
+            text = String(
+                decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self
+            )
+        }
+
+        let store = try await loadedStore()
+        guard let existing = await store.note(id: id) else {
+            throw NoteNotFound(id: id)
+        }
+        let note = try await store.update(id: id, content: existing.content + "\n" + text)
+        if json {
+            try printJSON(NoteJSON(note, full: true))
         } else {
             print(note.id)
         }

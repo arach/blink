@@ -3,6 +3,7 @@ import { EditorSelection } from "@codemirror/state";
 import type { Transaction } from "@codemirror/state";
 import { applySheet } from "./sheet";
 import { runEntrance } from "./entrance";
+import { TypeOnController } from "./type-on";
 
 /**
  * Native bridge for the Blink v2 editor.
@@ -68,6 +69,14 @@ export interface BlinkGlobal {
    * duration. Unknown kinds and "none" are instant no-ops. No echo message.
    */
   enter(kind: string, durationMs: number): void;
+  /**
+   * Reveal an externally appended suffix at typing cadence. The complete
+   * document is installed programmatically before the visual reveal starts,
+   * so this never echoes contentChanged and a user edit always sees full text.
+   */
+  typeOn(base: string, suffix: string, source?: string | null): void;
+  /** Snap any in-flight typed reveal to its complete document. */
+  finishTypeOn(): void;
 }
 
 /** Minimal shape of the WKWebView message handler we depend on. */
@@ -130,6 +139,9 @@ export interface ModeController {
   setMode(mode: Mode): void;
   /** Re-render the read surface from the given source (used by setContent). */
   renderRead(text: string): void;
+  /** Begin/update read mode's lightweight plain-text reveal overlay. */
+  beginReadTypeOn(base: string): void;
+  updateReadTypeOn(text: string): void;
 }
 
 /**
@@ -152,41 +164,51 @@ export function installBlinkGlobal(
   modes: ModeController
 ): BlinkGlobal {
   let hasSetOnce = false;
+  const typeOn = new TypeOnController(view, {
+    beginTypeOn: (base) => modes.beginReadTypeOn(base),
+    updateTypeOn: (text) => modes.updateReadTypeOn(text),
+    render: (text) => modes.renderRead(text),
+  });
+
+  /** Programmatic whole-document replacement shared by setContent/typeOn. */
+  function replaceContent(text: string): void {
+    const current = view.state.doc.toString();
+    const firstSet = !hasSetOnce;
+    hasSetOnce = true;
+
+    // Preserve scroll position across the replacement.
+    const scroller = view.scrollDOM;
+    const prevScrollTop = scroller.scrollTop;
+    const prevScrollLeft = scroller.scrollLeft;
+
+    if (current === text && !firstSet) {
+      return;
+    }
+
+    const docLength = text.length;
+    const selection = firstSet
+      ? EditorSelection.cursor(docLength)
+      : // Keep the caret in bounds; clamp existing selection to new length.
+        view.state.selection.main.head <= docLength
+        ? undefined
+        : EditorSelection.cursor(docLength);
+
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+      // Deliberately NO userEvent annotation -> not a reportable edit.
+      ...(selection ? { selection } : {}),
+      scrollIntoView: false,
+    });
+
+    // Restore scroll after the DOM settles.
+    scroller.scrollTop = prevScrollTop;
+    scroller.scrollLeft = prevScrollLeft;
+  }
 
   const api: BlinkGlobal = {
     setContent(text: string): void {
-      const current = view.state.doc.toString();
-      const firstSet = !hasSetOnce;
-      hasSetOnce = true;
-
-      // Preserve scroll position across the replacement.
-      const scroller = view.scrollDOM;
-      const prevScrollTop = scroller.scrollTop;
-      const prevScrollLeft = scroller.scrollLeft;
-
-      if (current === text && !firstSet) {
-        // No-op replacement after the first set: nothing to change.
-        return;
-      }
-
-      const docLength = text.length;
-      const selection = firstSet
-        ? EditorSelection.cursor(docLength)
-        : // Keep the caret in bounds; clamp existing selection to new length.
-          view.state.selection.main.head <= docLength
-          ? undefined
-          : EditorSelection.cursor(docLength);
-
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: text },
-        // Deliberately NO userEvent annotation -> not a reportable edit.
-        ...(selection ? { selection } : {}),
-        scrollIntoView: false,
-      });
-
-      // Restore scroll after the DOM settles.
-      scroller.scrollTop = prevScrollTop;
-      scroller.scrollLeft = prevScrollLeft;
+      typeOn.finish();
+      replaceContent(text);
 
       // If the reader is currently on screen, keep it in sync with the doc.
       if (modes.getMode() === "read") {
@@ -239,6 +261,19 @@ export function installBlinkGlobal(
 
     enter(kind: string, durationMs: number): void {
       runEntrance(kind, durationMs);
+    },
+
+    typeOn(base: string, suffix: string, source?: string | null): void {
+      // Two rapid appends: complete the old reveal first, then install the new
+      // full truth before hiding its suffix. No programmatic dispatch echoes.
+      typeOn.finish();
+      const full = base + suffix;
+      replaceContent(full);
+      typeOn.start(base, suffix, source);
+    },
+
+    finishTypeOn(): void {
+      typeOn.finish();
     },
   };
 
