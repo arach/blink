@@ -46,6 +46,140 @@ html, body {
 .cm-editor, .cm-scroller, .cm-content, .cm-gutters {
   background: transparent !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * Read mode: rendered markdown typography on the same transparent glass.
+ * The .blink-reader occupies the full viewport (like #editor), scrolls
+ * independently, and paints NO surface of its own. Only edit OR read is
+ * displayed at a time (toggled via inline display in main.ts).
+ * ------------------------------------------------------------------------- */
+.blink-reader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+  /* Match the editor content box: 20px horizontal, 16px vertical. */
+  padding: 16px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.85);
+  -webkit-font-smoothing: antialiased;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.blink-reader > :first-child { margin-top: 0; }
+.blink-reader > :last-child { margin-bottom: 0; }
+
+.blink-reader h1,
+.blink-reader h2,
+.blink-reader h3,
+.blink-reader h4,
+.blink-reader h5,
+.blink-reader h6 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.4em 0 0.5em;
+}
+.blink-reader h1 { font-size: 20px; font-weight: 700; color: rgba(255, 255, 255, 0.96); }
+.blink-reader h2 { font-size: 17px; font-weight: 650; color: rgba(255, 255, 255, 0.94); }
+.blink-reader h3,
+.blink-reader h4,
+.blink-reader h5,
+.blink-reader h6 { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.92); }
+
+.blink-reader p { margin: 0 0 0.85em; }
+
+.blink-reader a {
+  color: rgba(158, 203, 255, 0.9);
+  text-decoration: none;
+}
+.blink-reader a:hover { text-decoration: underline; }
+
+.blink-reader code {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.blink-reader pre {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 0 0 0.85em;
+}
+/* Code inside a fence: strip the inline chip styling (pre provides the block). */
+.blink-reader pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.blink-reader blockquote {
+  margin: 0 0 0.85em;
+  padding: 0.1em 0 0.1em 12px;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.65);
+  font-style: italic;
+}
+
+.blink-reader ul,
+.blink-reader ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.5em;
+}
+.blink-reader li { margin: 0.15em 0; }
+.blink-reader li::marker { color: rgba(255, 255, 255, 0.45); }
+
+.blink-reader hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 1.4em 0;
+}
+
+.blink-reader table {
+  border-collapse: collapse;
+  margin: 0 0 0.85em;
+}
+.blink-reader th,
+.blink-reader td {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.blink-reader th {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: left;
+}
+
+.blink-reader img { max-width: 100%; }
+
+.blink-reader strong { font-weight: 650; color: rgba(255, 255, 255, 0.95); }
+.blink-reader em { font-style: italic; }
+.blink-reader del { color: rgba(255, 255, 255, 0.5); }
+
+/* Empty-note placeholder: centered dim italic, fills the reader viewport. */
+.blink-reader-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px 20px;
+  color: rgba(255, 255, 255, 0.35);
+  font-style: italic;
+  font-size: 13.5px;
+}
 `.trim();
 
 function htmlTemplate({ css, js }) {
@@ -62,6 +196,7 @@ ${css}
 </head>
 <body>
 <div id="editor"></div>
+<div id="reader" class="blink-reader" style="display:none"></div>
 <script>
 ${js}
 </script>
@@ -110,6 +245,16 @@ async function main() {
   }
   if (/<link[^>]+\bhref=/i.test(html)) {
     throw new Error("Output contains an external <link href>");
+  }
+  // Read-mode surface must be present: element, styles, and placeholder.
+  if (!/id="reader"/.test(html) || !/class="blink-reader"/.test(html)) {
+    throw new Error("Output is missing the #reader / .blink-reader element");
+  }
+  if (!/\.blink-reader\s*\{/.test(html)) {
+    throw new Error("Output is missing the .blink-reader typography styles");
+  }
+  if (!/blink-reader-empty/.test(html)) {
+    throw new Error("Output is missing the empty-note placeholder styles");
   }
 
   const { size } = await stat(outHtml);

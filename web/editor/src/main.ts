@@ -22,6 +22,8 @@ import {
   installBlinkGlobal,
   isReportableUserEdit,
 } from "./bridge";
+import type { Mode, ModeController } from "./bridge";
+import { Reader } from "./reader";
 
 /**
  * Blink v2 editor entry point.
@@ -29,6 +31,13 @@ import {
  * Minimal-chrome CodeMirror 6 markdown editor designed to be hosted inside a
  * native macOS NSPanel via WKWebView. NO line-number gutter, NO fold gutter,
  * word wrap ON, transparent surface.
+ *
+ * Two surfaces flip in place on the same glass:
+ *   - "edit": the CM6 editor (the single EditorView instance, always alive)
+ *   - "read": the note rendered as markdown typography in `.blink-reader`
+ *
+ * The EditorView is never destroyed on flip — it is hidden and shown. Read mode
+ * re-renders its content from the current document.
  */
 
 function mount(): void {
@@ -36,6 +45,17 @@ function mount(): void {
   if (!parent) {
     throw new Error("[BLINK] #editor mount point not found");
   }
+  const readerEl = document.getElementById("reader");
+  if (!readerEl) {
+    throw new Error("[BLINK] #reader mount point not found");
+  }
+  const reader = new Reader(readerEl);
+
+  // The mode state machine. `mode` starts in "edit". `flip` is the single
+  // internal transition; `postEcho` decides whether native is told (only for
+  // user-initiated flips, never programmatic setMode — same no-echo discipline
+  // as setContent).
+  let mode: Mode = "edit";
 
   const view = new EditorView({
     parent,
@@ -68,6 +88,15 @@ function mount(): void {
               return true;
             },
           },
+          // ⌘⇧P -> user-initiated flip to read mode (echoes modeChanged).
+          {
+            key: "Mod-Shift-p",
+            preventDefault: true,
+            run: () => {
+              toggleMode();
+              return true;
+            },
+          },
           ...defaultKeymap,
           ...historyKeymap,
           indentWithTab,
@@ -90,8 +119,77 @@ function mount(): void {
     }),
   });
 
+  /**
+   * Apply a mode transition. Preserves scroll position proportionally between
+   * the two surfaces (best effort). When entering read mode, re-render from the
+   * live document. When `echo` is true (user-initiated), tell native.
+   */
+  function applyMode(next: Mode, echo: boolean): void {
+    if (next === mode) return;
+
+    if (next === "read") {
+      // edit -> read: capture the editor's proportional scroll, render, restore.
+      const scroller = view.scrollDOM;
+      const editMax = scroller.scrollHeight - scroller.clientHeight;
+      const fraction = editMax > 0 ? scroller.scrollTop / editMax : 0;
+
+      reader.render(view.state.doc.toString());
+      parent!.style.display = "none";
+      reader.show();
+      reader.setScrollFraction(fraction);
+    } else {
+      // read -> edit: map the reader's proportional scroll back onto the editor.
+      const fraction = reader.getScrollFraction();
+      reader.hide();
+      parent!.style.display = "block";
+
+      const scroller = view.scrollDOM;
+      const editMax = scroller.scrollHeight - scroller.clientHeight;
+      scroller.scrollTop = editMax > 0 ? Math.round(fraction * editMax) : 0;
+    }
+
+    mode = next;
+    if (echo) {
+      postToNative({ type: "modeChanged", mode });
+    }
+  }
+
+  /** User-initiated toggle (double-click / ⌘⇧P): flips and echoes to native. */
+  function toggleMode(): void {
+    applyMode(mode === "edit" ? "read" : "edit", true);
+  }
+
+  // Double-click anywhere in the reader -> user-initiated switch to edit + focus.
+  readerEl.addEventListener("dblclick", () => {
+    if (mode !== "read") return;
+    applyMode("edit", true);
+    view.focus();
+  });
+
+  // ⌘⇧P in READ mode: CM's keymap is inert when the editor is hidden, so we need
+  // a window-level listener. Guard it to fire ONLY in read mode (edit mode is
+  // handled by the CM keymap entry above) to avoid double-toggling.
+  window.addEventListener("keydown", (e) => {
+    if (mode !== "read") return;
+    // Mod = ⌘ on macOS, Ctrl elsewhere. WKWebView host is macOS -> metaKey.
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.shiftKey && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      toggleMode();
+    }
+  });
+
+  // Mode controller handed to the bridge so setContent can re-render the reader
+  // and setMode/getMode can drive the flip. setMode here is PROGRAMMATIC: it
+  // never echoes modeChanged (native is the source of truth).
+  const modeController: ModeController = {
+    getMode: () => mode,
+    setMode: (m) => applyMode(m, false),
+    renderRead: (text) => reader.render(text),
+  };
+
   // Expose window.blink (native -> JS API) around this view.
-  installBlinkGlobal(view);
+  installBlinkGlobal(view, modeController);
 
   // Focus on load, then announce readiness to native.
   view.focus();

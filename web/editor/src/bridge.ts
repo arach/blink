@@ -7,26 +7,39 @@ import type { Transaction } from "@codemirror/state";
  *
  * Two directions:
  *   JS  -> native : window.webkit.messageHandlers.blink.postMessage(obj)
- *   native -> JS  : window.blink.{ setContent, getContent, focus }
+ *   native -> JS  : window.blink.{ setContent, getContent, focus, setMode, getMode }
  *
  * The webkit handler is GUARDED so the page runs standalone in a plain browser
  * during development (postMessage becomes a no-op that logs to the console).
  */
 
+/** The two editor surfaces. */
+export type Mode = "edit" | "read";
+
 /** Messages posted from JS to native. */
 export type ReadyMessage = { type: "ready" };
 export type ContentChangedMessage = { type: "contentChanged"; text: string };
 export type SaveRequestedMessage = { type: "saveRequested" };
+export type ModeChangedMessage = { type: "modeChanged"; mode: Mode };
 export type OutboundMessage =
   | ReadyMessage
   | ContentChangedMessage
-  | SaveRequestedMessage;
+  | SaveRequestedMessage
+  | ModeChangedMessage;
 
 /** The global object native code calls into. */
 export interface BlinkGlobal {
   setContent(text: string): void;
   getContent(): string;
   focus(): void;
+  /**
+   * Programmatically switch surface. Does NOT post a `modeChanged` message
+   * (same no-echo discipline as setContent): native is the source of truth, so
+   * telling it what it already knows would be a feedback loop.
+   */
+  setMode(mode: Mode): void;
+  /** Current surface, "edit" | "read". */
+  getMode(): Mode;
 }
 
 /** Minimal shape of the WKWebView message handler we depend on. */
@@ -78,6 +91,20 @@ export function isReportableUserEdit(tr: Transaction): boolean {
 }
 
 /**
+ * Mode machinery the bridge coordinates with. Implemented in main.ts (it owns
+ * the reader element and the editor DOM), passed in here so `setContent` can
+ * re-render the reader while in read mode and `setMode`/`getMode` can drive the
+ * flip without echoing a `modeChanged` message.
+ */
+export interface ModeController {
+  getMode(): Mode;
+  /** Programmatic (no `modeChanged` echo). */
+  setMode(mode: Mode): void;
+  /** Re-render the read surface from the given source (used by setContent). */
+  renderRead(text: string): void;
+}
+
+/**
  * Install `window.blink` (native -> JS API) around a live EditorView.
  *
  * setContent:
@@ -87,8 +114,15 @@ export function isReportableUserEdit(tr: Transaction): boolean {
  *     notes in v1)
  *   - preserves scroll position
  *   - places the cursor at the end ONLY on the very first set
+ *   - re-renders the reader if we are currently in read mode
+ *
+ * setMode / getMode delegate to the ModeController. setMode is programmatic and
+ * never posts `modeChanged` (native already knows).
  */
-export function installBlinkGlobal(view: EditorView): BlinkGlobal {
+export function installBlinkGlobal(
+  view: EditorView,
+  modes: ModeController
+): BlinkGlobal {
   let hasSetOnce = false;
 
   const api: BlinkGlobal = {
@@ -125,6 +159,11 @@ export function installBlinkGlobal(view: EditorView): BlinkGlobal {
       // Restore scroll after the DOM settles.
       scroller.scrollTop = prevScrollTop;
       scroller.scrollLeft = prevScrollLeft;
+
+      // If the reader is currently on screen, keep it in sync with the doc.
+      if (modes.getMode() === "read") {
+        modes.renderRead(text);
+      }
     },
 
     getContent(): string {
@@ -133,6 +172,14 @@ export function installBlinkGlobal(view: EditorView): BlinkGlobal {
 
     focus(): void {
       view.focus();
+    },
+
+    setMode(mode: Mode): void {
+      modes.setMode(mode);
+    },
+
+    getMode(): Mode {
+      return modes.getMode();
     },
   };
 
