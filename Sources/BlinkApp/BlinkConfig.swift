@@ -27,7 +27,9 @@ struct BlinkConfig: Codable, Equatable {
     struct Hotkeys: Codable, Equatable {
         var newNote: String = "hyper+n"
         var blink: String = "hyper+b"
-        var grid: String = "hyper+g"
+        // C for constellation — G belongs to Lattices (in-place window tools).
+        // The machine-wide Hyper namespace map lives in project memory.
+        var grid: String = "hyper+c"
         var toggleMode: String = "cmd+shift+p"
         var focus: String = "cmd+."
 
@@ -36,7 +38,7 @@ struct BlinkConfig: Codable, Equatable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             newNote = try c.decodeIfPresent(String.self, forKey: .newNote) ?? "hyper+n"
             blink = try c.decodeIfPresent(String.self, forKey: .blink) ?? "hyper+b"
-            grid = try c.decodeIfPresent(String.self, forKey: .grid) ?? "hyper+g"
+            grid = try c.decodeIfPresent(String.self, forKey: .grid) ?? "hyper+c"
             toggleMode = try c.decodeIfPresent(String.self, forKey: .toggleMode) ?? "cmd+shift+p"
             focus = try c.decodeIfPresent(String.self, forKey: .focus) ?? "cmd+."
         }

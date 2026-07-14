@@ -35,7 +35,7 @@ Rules:
     // binding kept — a bad edit never leaves the app unreachable.
     "newNote": "hyper+n",       // global — create a note from anywhere
     "blink": "hyper+b",         // global — show all notes / hide all
-    "grid": "hyper+g",          // global — grid/constellation overlay
+    "grid": "hyper+c",          // global — grid/constellation overlay ("c" — hyper+g collides with Lattices)
     "toggleMode": "cmd+shift+p",// per-panel — flip read/edit
     "focus": "cmd+."            // per-panel — quiet everything else
   },
