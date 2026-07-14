@@ -14,6 +14,9 @@ final class NotePanel: NSPanel {
     /// frontmatter override) — resolved by PanelManager at open time.
     /// ("sheetTemplate", not "sheet" — NSWindow already owns `sheet: Bool`.)
     private(set) var sheetTemplate: String
+    /// True when the sheet came from the note's own `sheet:` frontmatter key —
+    /// config hot-reloads must not override a per-note choice.
+    let sheetIsPerNote: Bool
 
     /// Fired for user-initiated mode flips from the native toggle or ⌘⇧P
     /// (JS-side flips arrive via the bridge's modeChanged instead).
@@ -36,10 +39,17 @@ final class NotePanel: NSPanel {
     private var focusGlyphView: NSView?
     private var isHovered = false
 
-    init(noteID: String, initialContent: String, title: String, sheet: String = "glass") {
+    init(
+        noteID: String,
+        initialContent: String,
+        title: String,
+        sheet: String = "glass",
+        sheetIsPerNote: Bool = false
+    ) {
         self.noteID = noteID
         self.editor = EditorWebView()
         self.sheetTemplate = sheet
+        self.sheetIsPerNote = sheetIsPerNote
 
         let theme = BlinkConfigStore.shared.config
         self.readTint = theme.panel.tintRead

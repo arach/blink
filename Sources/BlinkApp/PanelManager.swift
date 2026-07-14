@@ -106,10 +106,13 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
 
         // Sheet: per-note frontmatter override > config default.
-        let sheet = note.extraFrontmatterValue(for: "sheet")
-            ?? BlinkConfigStore.shared.config.panel.sheet
+        let sheetOverride = note.extraFrontmatterValue(for: "sheet")
         let panel = NotePanel(
-            noteID: note.id, initialContent: note.content, title: note.title, sheet: sheet
+            noteID: note.id,
+            initialContent: note.content,
+            title: note.title,
+            sheet: sheetOverride ?? BlinkConfigStore.shared.config.panel.sheet,
+            sheetIsPerNote: sheetOverride != nil
         )
         panel.delegate = self
         panels[note.id] = panel
