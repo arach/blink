@@ -1,6 +1,7 @@
 import AppKit
 import BlinkCore
 import HudsonObservability
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -32,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Agent-first config: hot-apply file edits to every live surface.
         BlinkConfigStore.shared.onChange = { [weak self] config in
             self?.panelManager.applyTheme(config)
+            self?.applyHotkeys(config)
+            self?.applyLoginItem(config)
         }
 
         Task {
@@ -45,7 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink")
             image?.isTemplate = true
             button.image = image
-            button.toolTip = "Blink — Hyper+N for a new note"
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -53,21 +55,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         contextMenu = buildContextMenu()
 
-        HotkeyManager.shared.register(
-            id: 1,
-            keyCode: CarbonKeyCode.n,
-            modifiers: CarbonModifier.hyper
-        ) { [weak self] in
+        applyHotkeys(BlinkConfigStore.shared.config)
+        applyLoginItem(BlinkConfigStore.shared.config)
+    }
+
+    /// Sync the SMAppService login item with config. Only touches the service
+    /// when the desired state differs from the registered one, so launch never
+    /// spams registration calls (or re-prompts) needlessly.
+    private func applyLoginItem(_ config: BlinkConfig) {
+        let service = SMAppService.mainApp
+        let isEnabled = service.status == .enabled
+        guard config.behavior.launchAtLogin != isEnabled else { return }
+        do {
+            if config.behavior.launchAtLogin {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+            log.info(
+                "[BLINK] launch at login",
+                metadata: ["enabled": "\(config.behavior.launchAtLogin)"]
+            )
+        } catch {
+            log.error(
+                "[BLINK] launch-at-login change failed",
+                metadata: ["error": "\(error)"]
+            )
+        }
+    }
+
+    /// Register (or re-register on hot reload) the global hotkeys from config.
+    /// An invalid or modifier-less chord is logged and the previous binding kept —
+    /// a bad config edit must never leave the app unreachable.
+    private var appliedHotkeys: [UInt32: String] = [:]
+
+    private func applyHotkeys(_ config: BlinkConfig) {
+        registerGlobalHotkey(id: 1, chord: config.hotkeys.newNote, name: "newNote") { [weak self] in
             self?.newNote()
         }
-
-        // The blink: Hyper+B shows every note, then none.
-        HotkeyManager.shared.register(
-            id: 2,
-            keyCode: CarbonKeyCode.b,
-            modifiers: CarbonModifier.hyper
-        ) { [weak self] in
+        // The blink: shows every note, then none.
+        registerGlobalHotkey(id: 2, chord: config.hotkeys.blink, name: "blink") { [weak self] in
             self?.panelManager.toggleBlink()
+        }
+        if let chord = KeyChord.parse(config.hotkeys.newNote) {
+            statusItem?.button?.toolTip = "Blink — \(chord.display) for a new note"
+        }
+    }
+
+    private func registerGlobalHotkey(
+        id: UInt32, chord raw: String, name: String, callback: @escaping () -> Void
+    ) {
+        guard appliedHotkeys[id] != raw else { return }
+        guard let chord = KeyChord.parse(raw), !chord.eventModifiers.isEmpty else {
+            log.error(
+                "[BLINK] invalid hotkey — keeping previous binding",
+                metadata: ["hotkey": name, "value": raw]
+            )
+            return
+        }
+        if HotkeyManager.shared.register(
+            id: id, keyCode: chord.keyCode, modifiers: chord.carbonModifiers, callback: callback
+        ) {
+            appliedHotkeys[id] = raw
+            log.info("[BLINK] hotkey bound", metadata: ["hotkey": name, "chord": chord.display])
+        } else {
+            log.error(
+                "[BLINK] hotkey registration failed (chord taken by another app?)",
+                metadata: ["hotkey": name, "value": raw]
+            )
         }
     }
 

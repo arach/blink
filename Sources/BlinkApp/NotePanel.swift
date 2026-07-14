@@ -154,20 +154,35 @@ final class NotePanel: NSPanel {
     /// Nonactivating panels must opt in to becoming key so the editor can type.
     override var canBecomeKey: Bool { true }
 
-    /// ⌘⇧P flips mode and ⌘. toggles focus — handled natively so they work
-    /// even when the webview never had key focus.
+    /// Mode flip (⌘⇧P) and focus (⌘.) — chords come from config so they follow
+    /// hot reloads. Handled natively so they work even when the webview never
+    /// had key focus. ⌘W closes the panel (LSUIElement apps have no Close menu
+    /// item to route it); the close path flushes pending saves as always.
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let key = event.charactersIgnoringModifiers?.lowercased()
-        if flags == [.command, .shift], key == "p" {
+        let hotkeys = BlinkConfigStore.shared.config.hotkeys
+        if let chord = KeyChord.parse(hotkeys.toggleMode), chord.matches(event) {
             selectMode(currentMode == "edit" ? "read" : "edit")
             return true
         }
-        if flags == [.command], key == "." {
+        if let chord = KeyChord.parse(hotkeys.focus), chord.matches(event) {
             toggleFocus()
             return true
         }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == [.command], event.charactersIgnoringModifiers?.lowercased() == "w" {
+            performClose(nil)
+            return true
+        }
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// Esc quiets things down a step: leave edit for read, then drop focus mode.
+    override func cancelOperation(_ sender: Any?) {
+        if currentMode == "edit" {
+            selectMode("read")
+        } else if focusEnabled {
+            toggleFocus()
+        }
     }
 
     /// Focus mode: quiet everything around this panel (works in edit or read).

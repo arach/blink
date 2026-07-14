@@ -9,12 +9,33 @@ struct BlinkConfig: Codable, Equatable {
     struct Behavior: Codable, Equatable {
         var restoreSession: Bool = true
         var defaultMode: String = "read"
+        var launchAtLogin: Bool = false
 
         init() {}
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             restoreSession = try c.decodeIfPresent(Bool.self, forKey: .restoreSession) ?? true
             defaultMode = try c.decodeIfPresent(String.self, forKey: .defaultMode) ?? "read"
+            launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+        }
+    }
+
+    /// Chord strings parsed by `KeyChord` ("hyper+n", "cmd+shift+p", "cmd+.").
+    /// `newNote` and `blink` are global (Carbon); `toggleMode` and `focus` are
+    /// panel-local. Invalid strings are logged and the previous binding kept.
+    struct Hotkeys: Codable, Equatable {
+        var newNote: String = "hyper+n"
+        var blink: String = "hyper+b"
+        var toggleMode: String = "cmd+shift+p"
+        var focus: String = "cmd+."
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            newNote = try c.decodeIfPresent(String.self, forKey: .newNote) ?? "hyper+n"
+            blink = try c.decodeIfPresent(String.self, forKey: .blink) ?? "hyper+b"
+            toggleMode = try c.decodeIfPresent(String.self, forKey: .toggleMode) ?? "cmd+shift+p"
+            focus = try c.decodeIfPresent(String.self, forKey: .focus) ?? "cmd+."
         }
     }
 
@@ -101,6 +122,7 @@ struct BlinkConfig: Codable, Equatable {
     }
 
     var behavior = Behavior()
+    var hotkeys = Hotkeys()
     var panel = Panel()
     var focus = Focus()
     var editor = Editor()
@@ -109,6 +131,7 @@ struct BlinkConfig: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         behavior = try c.decodeIfPresent(Behavior.self, forKey: .behavior) ?? Behavior()
+        hotkeys = try c.decodeIfPresent(Hotkeys.self, forKey: .hotkeys) ?? Hotkeys()
         panel = try c.decodeIfPresent(Panel.self, forKey: .panel) ?? Panel()
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()

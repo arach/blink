@@ -24,7 +24,19 @@ Rules:
 {
   "behavior": {
     "restoreSession": true,     // reopen last session's panels at launch
-    "defaultMode": "read"       // "read" | "edit" — mode for notes with no remembered mode
+    "defaultMode": "read",      // "read" | "edit" — mode for notes with no remembered mode
+    "launchAtLogin": false      // register Blink as a login item (SMAppService)
+  },
+  "hotkeys": {
+    // Chord strings: modifiers joined by "+", ending in one key.
+    // Modifiers: hyper (⌃⌥⇧⌘), cmd, ctrl, alt, shift.
+    // Keys: a–z, 0–9, punctuation (. , / ; ' [ ] \ - = `), space, return,
+    // tab, escape, delete. An invalid chord is logged and the previous
+    // binding kept — a bad edit never leaves the app unreachable.
+    "newNote": "hyper+n",       // global — create a note from anywhere
+    "blink": "hyper+b",         // global — show all notes / hide all
+    "toggleMode": "cmd+shift+p",// per-panel — flip read/edit
+    "focus": "cmd+."            // per-panel — quiet everything else
   },
   "panel": {
     "material": "hud",          // glass material: "hud" | "underWindow" | "popover" | "sidebar" | "menu"
@@ -63,6 +75,9 @@ Rules:
 
 - `panel.*` and `focus.*` are native (NSVisualEffectView material, tint layers,
   window shadow, overlay dim) — applied immediately to all open panels.
+- `hotkeys.*` hot-apply too: global chords re-register with Carbon on change;
+  panel chords are read live on each keypress.
+- `behavior.launchAtLogin` syncs the macOS login item on change.
 - `editor.*` maps to the web bundle's CSS custom properties
   (`--blink-font-size`, `--blink-text`, …) and is pushed over the bridge via
   `window.blink.setTheme`. The full variable table lives in
@@ -95,7 +110,11 @@ Maximum-contrast writing mode:
 
 ## What does NOT live here
 
-- Notes themselves: `~/Library/Application Support/Blink/Notes/*.md` (frontmattered markdown).
+- Notes themselves: `~/Library/Application Support/Blink/Notes/*.md` (frontmattered
+  markdown). Agents may write their own frontmatter keys into a note — Blink preserves
+  unknown keys verbatim through every save, and merges on-disk metadata (tags, pinned,
+  foreign keys) before each content save, so editing a note's frontmatter while it's
+  open in a panel is safe.
 - Per-machine workspace state (open panels, per-note modes, window frames):
   UserDefaults today, migrating to `.blink/workspace.json` — see
   `docs/notes-representation.md`.
