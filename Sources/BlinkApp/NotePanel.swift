@@ -95,21 +95,15 @@ final class NotePanel: NSPanel {
             }
         )
         pill.translatesAutoresizingMaskIntoConstraints = false
-        let pillContainer = NSView()
-        pillContainer.translatesAutoresizingMaskIntoConstraints = false
-        pillContainer.addSubview(pill)
+        pill.alphaValue = 0
+        glass.addSubview(pill)
         NSLayoutConstraint.activate([
-            pill.trailingAnchor.constraint(equalTo: pillContainer.trailingAnchor, constant: -8),
-            pill.centerYAnchor.constraint(equalTo: pillContainer.centerYAnchor),
-            pillContainer.heightAnchor.constraint(equalToConstant: 26),
-            pillContainer.widthAnchor.constraint(equalToConstant: 62),
+            pill.trailingAnchor.constraint(equalTo: glass.trailingAnchor, constant: -8),
+            // Just below the 28px title strip: reliable rendering and clicks
+            // (the titlebar's drag region eats hits inside the strip itself).
+            pill.topAnchor.constraint(equalTo: glass.topAnchor, constant: 32),
         ])
-        pillContainer.alphaValue = 0
-        let accessory = NSTitlebarAccessoryViewController()
-        accessory.layoutAttribute = .trailing
-        accessory.view = pillContainer
-        addTitlebarAccessoryViewController(accessory)
-        modePillView = pillContainer
+        modePillView = pill
 
         let focusHost = NSHostingView(
             rootView: FocusGlyph(state: modeState) { [weak self] in
