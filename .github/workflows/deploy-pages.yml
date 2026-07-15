@@ -32,16 +32,16 @@ jobs:
         with:
           node-version: '18'
           
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: 8
-          
+          bun-version: latest
+
       - name: Install dependencies
-        run: cd landing && pnpm install
-        
+        run: cd landing && bun install --frozen-lockfile
+
       - name: Build Next.js app
-        run: cd landing && pnpm run build
+        run: cd landing && bun run build
         
       - name: Setup Pages
         uses: actions/configure-pages@v4
