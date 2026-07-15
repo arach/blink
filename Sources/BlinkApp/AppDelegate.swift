@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         HudLoggerSinks.install(HudLogStore.shared)
         log.info("[BLINK] booted", metadata: ["milestone": "M1"])
         NSApp.setActivationPolicy(.accessory)
+        installMainMenu()
 
         store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
         panelManager = PanelManager(store: store)
@@ -78,6 +79,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         applyHotkeys(BlinkConfigStore.shared.config)
         applyLoginItem(BlinkConfigStore.shared.config)
+    }
+
+    /// Accessory apps do not show a menu bar, but AppKit still uses the main
+    /// menu's key equivalents to route standard editing actions through the
+    /// responder chain. Without this menu, WKWebView never receives them.
+    private func installMainMenu() {
+        let mainMenu = NSMenu()
+        let editMenuItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        editMenuItem.submenu = editMenu
+        mainMenu.addItem(editMenuItem)
+
+        func addItem(
+            _ title: String,
+            action: Selector,
+            keyEquivalent: String,
+            modifiers: NSEvent.ModifierFlags = .command
+        ) {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+            item.target = nil
+            item.keyEquivalentModifierMask = modifiers
+            editMenu.addItem(item)
+        }
+
+        addItem("Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        addItem(
+            "Redo", action: Selector(("redo:")), keyEquivalent: "z", modifiers: [.command, .shift]
+        )
+        editMenu.addItem(.separator())
+        addItem("Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        addItem("Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        addItem("Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(.separator())
+        addItem("Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+
+        NSApp.mainMenu = mainMenu
     }
 
     /// Sync the SMAppService login item with config. Only touches the service
