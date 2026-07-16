@@ -9,7 +9,7 @@ import type { DecorationSet } from "@codemirror/view";
 
 /** Reader hooks kept deliberately small so this module stays mode-agnostic. */
 export interface TypeOnReader {
-  beginTypeOn(base: string): void;
+  beginTypeOn(base: string, suffix: string): void;
   updateTypeOn(text: string): void;
   render(text: string): void;
 }
@@ -139,7 +139,7 @@ export class TypeOnController {
         selection: EditorSelection.cursor(base.length + suffix.length),
       });
     }
-    this.reader.beginTypeOn(base);
+    this.reader.beginTypeOn(base, suffix);
     this.applyFrame(0);
     this.startedAt = performance.now();
     this.frame = requestAnimationFrame((now) => this.tick(now));

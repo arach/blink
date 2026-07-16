@@ -1,4 +1,47 @@
-import { marked } from "marked";
+import { marked, type TokenizerAndRendererExtension } from "marked";
+
+/** Minimal HTML-escape for text we interpolate into rendered link markup. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * `[[note-id]]` and `[[note-id|Label]]` render as internal links that open the
+ * target note as a panel. The href uses `blink://open/<id>`, a scheme the native
+ * navigation policy intercepts (`WebBridge.decidePolicyFor`) and routes to
+ * `NoteStore` — it never actually navigates the webview. Registered once, below.
+ */
+const wikiLinkExtension: TokenizerAndRendererExtension = {
+  name: "wikilink",
+  level: "inline",
+  start(src: string) {
+    return src.indexOf("[[");
+  },
+  tokenizer(src: string) {
+    const match = /^\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/.exec(src);
+    if (!match) return undefined;
+    const id = match[1].trim();
+    return {
+      type: "wikilink",
+      raw: match[0],
+      id,
+      label: (match[2] ?? match[1]).trim(),
+    };
+  },
+  renderer(token) {
+    const { id, label } = token as unknown as { id: string; label: string };
+    return (
+      `<a href="blink://open/${encodeURIComponent(id)}" ` +
+      `class="blink-wikilink" data-note-id="${escapeHtml(id)}">${escapeHtml(label)}</a>`
+    );
+  },
+};
+
+marked.use({ extensions: [wikiLinkExtension] });
 
 /**
  * Read-mode renderer for the Blink v2 editor.
@@ -34,6 +77,32 @@ function isEmptyDoc(source: string): boolean {
 }
 
 /**
+ * Replace every text node under `root` with per-character spans (`.blink-tok`),
+ * returned in document order, so a reveal can fade characters in place without
+ * disturbing layout. Splits by code point to keep surrogate pairs intact.
+ */
+function wrapCharacters(root: HTMLElement): HTMLElement[] {
+  const spans: HTMLElement[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) texts.push(n as Text);
+  for (const node of texts) {
+    const value = node.nodeValue ?? "";
+    if (!value) continue;
+    const frag = document.createDocumentFragment();
+    for (const cp of Array.from(value)) {
+      const span = document.createElement("span");
+      span.className = "blink-tok";
+      span.textContent = cp;
+      frag.append(span);
+      spans.push(span);
+    }
+    node.replaceWith(frag);
+  }
+  return spans;
+}
+
+/**
  * Controller around the `.blink-reader` element. It renders the document, shows
  * a placeholder for empty notes, and exposes hide/show plus proportional
  * scroll helpers used when flipping between modes.
@@ -41,9 +110,10 @@ function isEmptyDoc(source: string): boolean {
 export class Reader {
   readonly element: HTMLElement;
   private typeOnBase: string | null = null;
-  private typeOnText = "";
-  private typeOnTextElement: HTMLSpanElement | null = null;
-  private typeOnCaretElement: HTMLSpanElement | null = null;
+  private typeOnSuffix = "";
+  private typeChars: HTMLElement[] = [];
+  private typeCaret: HTMLSpanElement | null = null;
+  private typeRevealed = 0;
 
   constructor(element: HTMLElement) {
     this.element = element;
@@ -51,46 +121,79 @@ export class Reader {
 
   /** Render `source` into the reader element (or a placeholder if empty). */
   render(source: string): void {
-    this.typeOnBase = null;
-    this.typeOnText = "";
-    this.typeOnTextElement = null;
-    this.typeOnCaretElement = null;
+    this.resetTypeOn();
     this.renderSettled(source);
   }
 
   /**
-   * Render for a mode flip without disturbing an active typed reveal. The
-   * reader is kept warm while hidden, but rebuilding here makes a flip that
-   * lands between animation frames deterministic (no one-frame flash of the
-   * unrevealed suffix).
+   * Render for a mode flip. Any in-flight reveal simply settles to the full
+   * source (a flip mid-reveal is user-initiated and rare) — no plain-text flash.
    */
   renderCurrent(source: string): void {
-    if (this.typeOnBase !== null) {
-      this.renderTypeOnOverlay();
-    } else {
-      this.renderSettled(source);
-    }
+    this.resetTypeOn();
+    this.renderSettled(source);
   }
 
-  /** Start read mode's intentionally plain typed overlay after rendered base. */
-  beginTypeOn(base: string): void {
+  /**
+   * Begin an IN-PLACE typed reveal. Render base + the full suffix as final
+   * markdown up front, so nothing reflows when the reveal ends, then unveil the
+   * suffix character by character where it actually sits — a caret riding the
+   * edge. `base` is the already-settled content; `suffix` is the appended text.
+   */
+  beginTypeOn(base: string, suffix: string): void {
     this.typeOnBase = base;
-    this.typeOnText = "";
-    this.renderTypeOnOverlay();
+    this.typeOnSuffix = suffix;
+    this.typeRevealed = 0;
+
+    this.element.innerHTML = isEmptyDoc(base) ? "" : renderMarkdown(base);
+    const typing = document.createElement("div");
+    typing.className = "blink-reader-typing";
+    typing.innerHTML = renderMarkdown(suffix);
+    this.element.append(typing);
+
+    // Every appended character starts pending (hidden) in its final position.
+    this.typeChars = wrapCharacters(typing);
+    for (const ch of this.typeChars) ch.classList.add("is-pending");
+
+    const caret = document.createElement("span");
+    caret.className = "blink-typeon-caret";
+    caret.setAttribute("aria-hidden", "true");
+    this.typeCaret = caret;
+    if (this.typeChars[0]) this.typeChars[0].before(caret);
+    else typing.append(caret);
+
+    this.updateTypeOn("");
   }
 
-  /** Update the visible suffix without re-parsing the entire note every frame. */
+  /**
+   * Reveal the suffix up to `text` (the portion typed so far). Progress is taken
+   * proportionally against the raw suffix length and applied to the rendered
+   * characters, so the caret walks the text in place with a soft fade.
+   */
   updateTypeOn(text: string): void {
     if (this.typeOnBase === null) return;
-    this.typeOnText = text;
-    if (!this.typeOnTextElement?.isConnected) {
-      this.renderTypeOnOverlay();
-    } else {
-      this.typeOnTextElement.textContent = text;
+    const total = this.typeChars.length;
+    const fraction = this.typeOnSuffix.length ? text.length / this.typeOnSuffix.length : 1;
+    const target = Math.min(total, Math.round(fraction * total));
+    for (let i = this.typeRevealed; i < target; i++) {
+      this.typeChars[i].classList.remove("is-pending");
     }
-    if (this.isVisible) {
-      this.typeOnCaretElement?.scrollIntoView({ block: "nearest" });
+    if (target > this.typeRevealed) this.typeRevealed = target;
+
+    if (this.typeCaret) {
+      const anchor = target > 0 ? this.typeChars[target - 1] : null;
+      if (anchor) anchor.after(this.typeCaret);
+      else if (this.typeChars[0]) this.typeChars[0].before(this.typeCaret);
     }
+    if (this.isVisible) this.typeCaret?.scrollIntoView({ block: "nearest" });
+  }
+
+  private resetTypeOn(): void {
+    this.typeOnBase = null;
+    this.typeOnSuffix = "";
+    this.typeChars = [];
+    this.typeCaret = null;
+    this.typeRevealed = 0;
   }
 
   private renderSettled(source: string): void {
@@ -100,26 +203,6 @@ export class Reader {
       return;
     }
     this.element.innerHTML = renderMarkdown(source);
-  }
-
-  private renderTypeOnOverlay(): void {
-    const base = this.typeOnBase ?? "";
-    // The overlay is deliberately plain text. Re-running markdown over a large
-    // note at 60fps is wasteful and makes incomplete constructs jump around;
-    // the fully rendered document replaces this the moment the reveal ends.
-    this.element.innerHTML = isEmptyDoc(base) ? "" : renderMarkdown(base);
-
-    const overlay = document.createElement("div");
-    overlay.className = "blink-reader-typeon";
-    const text = document.createElement("span");
-    text.textContent = this.typeOnText;
-    const caret = document.createElement("span");
-    caret.className = "blink-typeon-caret";
-    caret.setAttribute("aria-hidden", "true");
-    overlay.append(text, caret);
-    this.element.append(overlay);
-    this.typeOnTextElement = text;
-    this.typeOnCaretElement = caret;
   }
 
   show(): void {

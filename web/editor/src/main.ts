@@ -201,7 +201,7 @@ function mount(): void {
     getMode: () => mode,
     setMode: (m) => applyMode(m, false),
     renderRead: (text) => reader.render(text),
-    beginReadTypeOn: (base) => reader.beginTypeOn(base),
+    beginReadTypeOn: (base, suffix) => reader.beginTypeOn(base, suffix),
     updateReadTypeOn: (text) => reader.updateTypeOn(text),
   };
 

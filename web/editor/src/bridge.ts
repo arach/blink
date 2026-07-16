@@ -139,8 +139,8 @@ export interface ModeController {
   setMode(mode: Mode): void;
   /** Re-render the read surface from the given source (used by setContent). */
   renderRead(text: string): void;
-  /** Begin/update read mode's lightweight plain-text reveal overlay. */
-  beginReadTypeOn(base: string): void;
+  /** Begin/update read mode's in-place typed reveal. */
+  beginReadTypeOn(base: string, suffix: string): void;
   updateReadTypeOn(text: string): void;
 }
 
@@ -165,7 +165,7 @@ export function installBlinkGlobal(
 ): BlinkGlobal {
   let hasSetOnce = false;
   const typeOn = new TypeOnController(view, {
-    beginTypeOn: (base) => modes.beginReadTypeOn(base),
+    beginTypeOn: (base, suffix) => modes.beginReadTypeOn(base, suffix),
     updateTypeOn: (text) => modes.updateReadTypeOn(text),
     render: (text) => modes.renderRead(text),
   });

@@ -286,11 +286,20 @@ html, body {
 body[data-type-on] .cm-cursor {
   opacity: 0 !important;
 }
-.blink-reader-typeon {
-  min-height: 1.75em;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+/* In-place typed reveal: the appended text is rendered in its FINAL position up
+ * front (so nothing reflows at the end); each character starts pending and fades
+ * in as the caret walks across it. */
+.blink-reader-typing {
   color: var(--blink-text);
+}
+.blink-tok {
+  transition: opacity 220ms ease-out, filter 220ms ease-out;
+}
+.blink-tok.is-pending {
+  opacity: 0;
+  /* Paint-only (no reflow): each char resolves from a soft blur into focus, so
+   * the overlapping fades read as one continuous sharpening wave, not pops. */
+  filter: blur(3px);
 }
 @keyframes blink-typeon-caret {
   0%, 48% { opacity: 1; }
@@ -677,7 +686,7 @@ async function main() {
   if (!/typeOn/.test(html) || !/finishTypeOn/.test(html)) {
     throw new Error("Bundle is missing window.blink.typeOn / finishTypeOn");
   }
-  if (!/blink-typeon-caret/.test(html) || !/blink-reader-typeon/.test(html)) {
+  if (!/blink-typeon-caret/.test(html) || !/blink-tok/.test(html)) {
     throw new Error("Output is missing typed-reveal styles");
   }
   if (!/id="attribution"/.test(html) || !/blink-attribution/.test(html)) {
