@@ -82,7 +82,7 @@ export function Install() {
               {REQS.map(([k, v]) => (
                 <div
                   key={k}
-                  className="grid grid-cols-[110px_1fr] border-b border-[rgba(30, 30, 34,0.55)] last:border-b-0 px-4 py-3"
+                  className="grid grid-cols-[110px_1fr] border-b border-[rgba(var(--line-rgb),0.55)] last:border-b-0 px-4 py-3"
                 >
                   <span className="text-[11px] font-bold text-acc">{k}</span>
                   <span className="text-[11.5px] text-dimx">{v}</span>
@@ -118,7 +118,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="text-[12px]">
             <span className="flex items-center gap-2 font-bold text-[var(--text)]">
-              <span className="flex h-[16px] w-[16px] items-center justify-center rounded-[4px] border border-[rgba(240, 180, 90,0.5)] text-[9px] text-acc leading-none">
+              <span className="flex h-[16px] w-[16px] items-center justify-center rounded-[4px] border border-[rgba(var(--acc-rgb),0.5)] text-[9px] text-acc leading-none">
                 ▚
               </span>
               blink
@@ -140,7 +140,7 @@ export function Footer() {
             <span className="text-faintx">native · open source</span>
           </div>
         </div>
-        <div className="mt-8 border-t border-[rgba(30, 30, 34,0.6)] pt-4 flex flex-wrap justify-between gap-2 text-[10px] text-[#3a3a40]">
+        <div className="mt-8 border-t border-[rgba(var(--line-rgb),0.6)] pt-4 flex flex-wrap justify-between gap-2 text-[10px] text-[#3a3a40]">
           <span>set in JetBrains Mono · no tracking · no cookies</span>
           <span>BLINK(1) · end of manual</span>
         </div>

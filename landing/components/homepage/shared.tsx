@@ -6,9 +6,7 @@ export function Kbd({ children, wide }: { children: ReactNode; wide?: boolean })
   return (
     <span
       className={[
-        'inline-flex items-center justify-center h-[22px] rounded-[5px] border border-line2x',
-        'bg-gradient-to-b from-[#191920] to-[#0e0e12] px-[7px] text-[11px] leading-none text-dimx',
-        'shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_2px_0_rgba(0,0,0,0.5)]',
+        'kbd inline-flex items-center justify-center h-[22px] rounded-[5px] px-[7px] text-[11px] leading-none',
         wide ? 'min-w-[34px]' : 'min-w-[22px]',
       ].join(' ')}
     >
@@ -76,7 +74,7 @@ export function PrimaryButton({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="group inline-flex h-11 items-center gap-2.5 rounded-[6px] bg-[var(--acc)] px-5 text-[13px] font-bold text-[#1a1206] transition-all hover:bg-[#f7cd82] hover:shadow-[0_0_28px_rgba(240, 180, 90,0.35)]"
+      className="group inline-flex h-11 items-center gap-2.5 rounded-[6px] bg-[var(--acc)] px-5 text-[13px] font-bold text-[var(--on-acc)] transition-all hover:brightness-110 hover:shadow-[0_0_28px_rgba(var(--acc-rgb),0.35)]"
     >
       {children}
     </a>
@@ -107,7 +105,7 @@ export function GhostButton({
 export function Chip({ children, tone = 'default' }: { children: ReactNode; tone?: 'default' | 'acc' | 'amber' }) {
   const tones = {
     default: 'border-line2x text-dimx',
-    acc: 'border-[rgba(240, 180, 90,0.35)] text-acc bg-[var(--acc-soft)]',
+    acc: 'border-[rgba(var(--acc-rgb),0.35)] text-acc bg-[var(--acc-soft)]',
     amber: 'border-[rgba(255,195,95,0.35)] text-amberx bg-[rgba(255,195,95,0.08)]',
   }
   return (

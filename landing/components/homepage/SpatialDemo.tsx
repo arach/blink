@@ -157,7 +157,7 @@ export default function SpatialDemo() {
           <button
             onClick={() => spawn()}
             title="new note (or press N)"
-            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-dimx hover:text-acc hover:border-[rgba(240, 180, 90,0.4)] transition-colors"
+            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)] transition-colors"
           >
             ⌃⌥⇧⌘N
           </button>
@@ -166,8 +166,8 @@ export default function SpatialDemo() {
             title="blink all / none (or press B)"
             className={`rounded-[4px] border px-2 py-1 text-[10px] transition-colors ${
               allHidden
-                ? 'border-[rgba(240, 180, 90,0.45)] text-acc bg-[var(--acc-soft)]'
-                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(240, 180, 90,0.4)]'
+                ? 'border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
+                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
             }`}
           >
             ⌃⌥⇧⌘B
@@ -177,8 +177,8 @@ export default function SpatialDemo() {
             title="grid overlay (or press C)"
             className={`rounded-[4px] border px-2 py-1 text-[10px] transition-colors ${
               grid
-                ? 'border-[rgba(240, 180, 90,0.45)] text-acc bg-[var(--acc-soft)]'
-                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(240, 180, 90,0.4)]'
+                ? 'border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
+                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
             }`}
           >
             ⌃⌥⇧⌘C
@@ -207,8 +207,8 @@ export default function SpatialDemo() {
         className="relative h-[380px] md:h-[460px] overflow-hidden rounded-b-[8px] border border-linex cursor-crosshair"
         style={{
           background: grid
-            ? 'linear-gradient(rgba(240, 180, 90,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(240, 180, 90,0.07) 1px, transparent 1px), radial-gradient(ellipse 80% 60% at 50% 30%, rgba(88, 72, 42,0.35), transparent 70%), #09090b'
-            : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(88, 72, 42,0.35), transparent 70%), #09090b',
+            ? 'linear-gradient(rgba(var(--acc-rgb),0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--acc-rgb),0.07) 1px, transparent 1px), radial-gradient(ellipse 80% 60% at 50% 30%, rgba(var(--acc-rgb),0.09), transparent 70%), var(--demo-surface)'
+            : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(var(--acc-rgb),0.09), transparent 70%), var(--demo-surface)',
           backgroundSize: grid ? '40px 40px, 40px 40px, 100% 100%, 100% 100%' : '100% 100%, 100% 100%',
         }}
       >
@@ -218,12 +218,12 @@ export default function SpatialDemo() {
         {grid && (
           <div data-surface="grid" className="absolute inset-0 pointer-events-none">
             {[80, 160, 240, 320, 400].map((x) => (
-              <span key={x} className="absolute top-1 text-[9px] text-[rgba(240, 180, 90,0.45)]" style={{ left: x + 3 }}>
+              <span key={x} className="absolute top-1 text-[9px] text-[rgba(var(--acc-rgb),0.45)]" style={{ left: x + 3 }}>
                 {x}
               </span>
             ))}
             {[80, 160, 240, 320].map((y) => (
-              <span key={y} className="absolute left-1.5 text-[9px] text-[rgba(240, 180, 90,0.45)]" style={{ top: y + 3 }}>
+              <span key={y} className="absolute left-1.5 text-[9px] text-[rgba(var(--acc-rgb),0.45)]" style={{ top: y + 3 }}>
                 {y}
               </span>
             ))}
@@ -259,9 +259,9 @@ export default function SpatialDemo() {
               transition: 'opacity 0.22s ease, transform 0.22s ease',
             }}
           >
-            <div className="flex items-center justify-between border-b border-[rgba(214, 204, 184,0.14)] px-2.5 py-1.5">
-              <span className="text-[10px] text-[rgba(216, 216, 220,0.75)]">{n.title}</span>
-              <span className="text-[9px] text-[rgba(150, 150, 158,0.7)]">
+            <div className="flex items-center justify-between border-b border-[rgba(214,204,184,0.14)] px-2.5 py-1.5">
+              <span className="text-[10px] text-[rgba(216,216,220,0.75)]">{n.title}</span>
+              <span className="text-[9px] text-[rgba(150,150,158,0.7)]">
                 {dragInfo?.id === n.id ? (
                   <span className="text-acc">
                     x:{String(dragInfo.x).padStart(3, '0')} y:{String(dragInfo.y).padStart(3, '0')}
@@ -276,7 +276,7 @@ export default function SpatialDemo() {
                 <div
                   key={i}
                   className={`text-[10px] leading-[1.5] whitespace-nowrap overflow-hidden ${
-                    l.startsWith('##') ? 'text-[rgba(216, 216, 220,0.9)] font-semibold' : 'text-[rgba(150, 150, 158,0.9)]'
+                    l.startsWith('##') ? 'text-[rgba(216,216,220,0.9)] font-semibold' : 'text-[rgba(150,150,158,0.9)]'
                   }`}
                 >
                   {l}

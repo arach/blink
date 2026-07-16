@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ThemeSwitcher } from './ThemeSwitcher'
 
 const LINKS = [
   { href: '#architecture', label: 'arch' },
@@ -26,10 +27,10 @@ export function TopBar() {
   }, [])
 
   return (
-    <header className="fixed top-0 inset-x-0 z-50 border-b border-linex bg-[rgba(10, 10, 11,0.82)] backdrop-blur-md">
+    <header className="fixed top-0 inset-x-0 z-50 border-b border-linex bg-[rgba(var(--bg-rgb),0.82)] backdrop-blur-md">
       <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4 md:px-6">
         <a href="#top" className="flex items-center gap-2.5 text-[13px] font-bold text-[var(--text)]">
-          <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border border-[rgba(240, 180, 90,0.5)] text-[10px] text-acc leading-none">
+          <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border border-[rgba(var(--acc-rgb),0.5)] text-[10px] text-acc leading-none">
             ▚
           </span>
           blink
@@ -50,6 +51,8 @@ export function TopBar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <ThemeSwitcher />
+          <span className="hidden md:inline h-3.5 w-px bg-linex" />
           <span className="hidden md:inline text-[11px] text-faintx tabular-nums">{time}</span>
           <a
             href="https://github.com/arach/blink"
@@ -89,7 +92,7 @@ export function StatusBar() {
   }, [])
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 border-t border-linex bg-[rgba(10, 10, 11,0.9)] backdrop-blur-md">
+    <div className="fixed bottom-0 inset-x-0 z-50 border-t border-linex bg-[rgba(var(--bg-rgb),0.9)] backdrop-blur-md">
       <div className="mx-auto flex h-8 max-w-6xl items-center justify-between px-4 md:px-6 text-[10px] text-faintx tabular-nums">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5">

@@ -31,8 +31,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={jetBrainsMono.variable}>
-      <body>{children}</body>
+    // suppressHydrationWarning: the script below sets data-theme on <html> before
+    // React hydrates, so the server markup and client DOM intentionally differ.
+    <html lang="en" className={jetBrainsMono.variable} suppressHydrationWarning>
+      <body>
+        {/* Apply the saved/URL theme before paint — no flash of the default. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('blink-theme');if(p){try{localStorage.setItem('blink-theme',p)}catch(e){}}if(t&&t!=='amber')document.documentElement.setAttribute('data-theme',t);else document.documentElement.removeAttribute('data-theme')}catch(e){}",
+          }}
+        />
+        {children}
+      </body>
     </html>
   )
 }

@@ -3,7 +3,7 @@ import { Chord, PrimaryButton, GhostButton } from './shared'
 
 function ManRow({ term, children }: { term: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[110px_1fr] md:grid-cols-[150px_1fr] gap-3 md:gap-6 py-4 border-b border-[rgba(30, 30, 34,0.6)] last:border-b-0">
+    <div className="grid grid-cols-[110px_1fr] md:grid-cols-[150px_1fr] gap-3 md:gap-6 py-4 border-b border-[rgba(var(--line-rgb),0.6)] last:border-b-0">
       <div className="text-[11px] font-bold tracking-[0.14em] text-acc pt-[2px]">{term}</div>
       <div className="text-[13px] md:text-[14px] leading-[1.8] text-dimx">{children}</div>
     </div>

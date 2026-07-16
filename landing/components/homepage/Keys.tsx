@@ -23,7 +23,7 @@ function KeyTable({ title, rows }: { title: string; rows: typeof GLOBAL }) {
         {rows.map((r) => (
           <div
             key={r.action}
-            className="group flex items-center justify-between gap-4 border-b border-[rgba(30, 30, 34,0.55)] last:border-b-0 px-4 py-4 transition-colors hover:bg-[rgba(240, 180, 90,0.03)]"
+            className="group flex items-center justify-between gap-4 border-b border-[rgba(var(--line-rgb),0.55)] last:border-b-0 px-4 py-4 transition-colors hover:bg-[rgba(var(--acc-rgb),0.03)]"
           >
             <div>
               <div className="text-[12.5px] font-semibold text-[var(--text)]">{r.action}</div>

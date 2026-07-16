@@ -27,12 +27,12 @@ const LINES: Token[][] = [
 ]
 
 const COLORS: Record<Token[1], string> = {
-  key: '#7cc7e8',
-  str: '#f0b45a',
-  num: '#f0b45a',
-  bool: '#ff7a6e',
-  punct: '#8e8e96',
-  comment: '#5a5a62',
+  key: 'var(--syn-key)',
+  str: 'var(--syn-str)',
+  num: 'var(--syn-num)',
+  bool: 'var(--syn-bool)',
+  punct: 'var(--syn-punct)',
+  comment: 'var(--syn-comment)',
 }
 
 export function ConfigSection() {
@@ -61,7 +61,7 @@ export function ConfigSection() {
               <pre className="text-[11px] leading-[1.85] min-w-[540px]">
                 {LINES.map((tokens, i) => (
                   <div key={i} className="flex">
-                    <span className="w-7 shrink-0 select-none text-right pr-3 text-[#3a3a40]">{i + 1}</span>
+                    <span className="w-7 shrink-0 select-none text-right pr-3 text-[var(--ghost)]">{i + 1}</span>
                     <span className="whitespace-pre">
                       {tokens.map(([t, c], j) => (
                         <span key={j} style={{ color: COLORS[c] }}>

@@ -13,14 +13,14 @@ const SPECS = [
 
 export function SpecStrip() {
   return (
-    <section className="border-y border-linex bg-[rgba(12, 12, 14,0.6)]">
+    <section className="border-y border-linex bg-[rgba(var(--bg-rgb),0.6)]">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
           {SPECS.map((s, i) => (
             <div
               key={s.k}
-              className={`px-4 py-5 ${i !== 0 ? 'border-l border-[rgba(30, 30, 34,0.7)]' : ''} ${
-                i >= 2 ? 'max-lg:border-t max-lg:border-[rgba(30, 30, 34,0.7)]' : ''
+              className={`px-4 py-5 ${i !== 0 ? 'border-l border-[rgba(var(--line-rgb),0.7)]' : ''} ${
+                i >= 2 ? 'max-lg:border-t max-lg:border-[rgba(var(--line-rgb),0.7)]' : ''
               } ${i === 2 || i === 4 ? 'max-lg:border-l-0' : ''} ${i === 3 ? 'max-lg:border-l' : ''}`}
             >
               <div className="text-[9px] tracking-[0.16em] text-faintx uppercase">{s.k}</div>
@@ -85,7 +85,7 @@ function Diagram() {
 
   const Rect = ({ b, title, sub, accent = false }: { b: { x: number; y: number; w: number; h: number }; title: string; sub: string; accent?: boolean }) => (
     <g>
-      <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={6} fill="#0f0f11" stroke={accent ? 'rgba(240, 180, 90,0.55)' : stroke} strokeWidth={1} />
+      <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={6} fill="#0f0f11" stroke={accent ? 'rgba(var(--acc-rgb),0.55)' : stroke} strokeWidth={1} />
       <text x={b.x + 12} y={b.y + 21} fill={accent ? acc : '#d8d8dc'} fontSize={11} fontWeight={700} fontFamily="JetBrains Mono, monospace">
         {title}
       </text>
@@ -163,7 +163,7 @@ export function Architecture() {
             {LAYERS.map((l) => (
               <div
                 key={l.layer}
-                className="group grid grid-cols-[86px_1fr] gap-0 border-b border-[rgba(30, 30, 34,0.55)] last:border-b-0 px-4 py-3.5 transition-colors hover:bg-[rgba(240, 180, 90,0.03)]"
+                className="group grid grid-cols-[86px_1fr] gap-0 border-b border-[rgba(var(--line-rgb),0.55)] last:border-b-0 px-4 py-3.5 transition-colors hover:bg-[rgba(var(--acc-rgb),0.03)]"
               >
                 <span className="text-[11px] font-bold text-acc pt-[1px]">{l.layer}</span>
                 <div>

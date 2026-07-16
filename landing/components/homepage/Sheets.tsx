@@ -12,16 +12,18 @@ const SHEETS: { id: SheetId; name: string; desc: string; spec: string }[] = [
 ]
 
 function NoteBody({ compact = false }: { compact?: boolean }) {
+  // Sheets are always dark app surfaces, so this text uses the fixed dark-app
+  // palette (never the page-theme tokens) — otherwise it goes dark-on-dark on paper.
   return (
     <div className={compact ? 'space-y-[3px]' : 'space-y-[6px]'}>
-      <div className={`${compact ? 'text-[10px]' : 'text-[15px]'} font-bold text-[var(--text)]`}>
+      <div className={`${compact ? 'text-[10px]' : 'text-[15px]'} font-bold text-[#eceaef]`}>
         Weekly review
       </div>
-      <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} text-dimx`}>Ship v2 · port the palette</div>
-      <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} leading-[1.6] text-faintx`}>
-        Notes land where you <span className="underline decoration-[rgba(240, 180, 90,0.5)] underline-offset-2">leave them</span>.
+      <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} text-[#b6b6bf]`}>Ship v2 · port the palette</div>
+      <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} leading-[1.6] text-[#8d8d97]`}>
+        Notes land where you <span className="underline decoration-[rgba(240,180,90,0.5)] underline-offset-2">leave them</span>.
         <br />
-        see <span className="text-acc">[[roadmap]]</span>
+        see <span className="text-[#f0b45a]">[[roadmap]]</span>
       </div>
     </div>
   )
@@ -35,8 +37,8 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
       <div className={`relative h-full w-full overflow-hidden ${compact ? 'rounded-[5px]' : 'rounded-[10px]'}`}>
         {/* backdrop content to blur */}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #3d3423 0%, #1a2330 45%, #2b2436 100%)' }}>
-          <div className="absolute h-24 w-24 rounded-full bg-[rgba(240, 180, 90,0.25)] blur-2xl" style={{ left: '10%', top: '55%' }} />
-          <div className="absolute h-20 w-20 rounded-full bg-[rgba(124, 199, 232,0.2)] blur-2xl" style={{ right: '8%', top: '12%' }} />
+          <div className="absolute h-24 w-24 rounded-full bg-[rgba(var(--acc-rgb),0.25)] blur-2xl" style={{ left: '10%', top: '55%' }} />
+          <div className="absolute h-20 w-20 rounded-full bg-[rgba(124,199,232,0.2)] blur-2xl" style={{ right: '8%', top: '12%' }} />
         </div>
         <div className={`relative h-full glass-note ${pad}`} style={{ borderRadius: 'inherit' }}>
           <NoteBody compact={compact} />
@@ -60,7 +62,7 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
         className={`h-full w-full border border-linex ${pad}`}
         style={{
           background: '#0d0d0f',
-          backgroundImage: 'radial-gradient(rgba(150, 150, 158,0.35) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(rgba(150,150,158,0.35) 1px, transparent 1px)',
           backgroundSize: '18px 18px',
           borderRadius: compact ? 5 : 10,
         }}
@@ -149,7 +151,7 @@ export default function Sheets() {
                 }}
                 className={`w-full text-left rounded-[7px] border px-4 py-3.5 transition-all ${
                   active === s.id
-                    ? 'border-[rgba(240, 180, 90,0.45)] bg-[rgba(240, 180, 90,0.05)]'
+                    ? 'border-[rgba(var(--acc-rgb),0.45)] bg-[rgba(var(--acc-rgb),0.05)]'
                     : 'border-linex bg-panelx hover:border-line2x'
                 }`}
               >
