@@ -341,19 +341,13 @@ final class GridOverlay {
     }
 
     private func makeSlotFrames(visibleFrame: NSRect) -> [GridSlot: NSRect] {
+        // Local coordinates (the drawing view's space); `BlinkGrid` computes in
+        // whatever space it's handed, and its row-major index matches GridSlot's
+        // `row * 3 + column`, so both surfaces share one source of truth.
         let localVisibleFrame = visibleFrame.offsetBy(dx: -screenFrame.minX, dy: -screenFrame.minY)
-        let marginX = localVisibleFrame.width * 0.04
-        let marginY = localVisibleFrame.height * 0.04
-        let gapX = localVisibleFrame.width * 0.02
-        let gapY = localVisibleFrame.height * 0.02
-        let inner = localVisibleFrame.insetBy(dx: marginX, dy: marginY)
-        let slotWidth = (inner.width - 2 * gapX) / 3
-        let slotHeight = (inner.height - 2 * gapY) / 3
-
+        let frames = BlinkGrid.slotFrames(in: localVisibleFrame)
         return Dictionary(uniqueKeysWithValues: GridSlot.allCases.map { slot in
-            let x = inner.minX + CGFloat(slot.column) * (slotWidth + gapX)
-            let y = inner.maxY - CGFloat(slot.row + 1) * slotHeight - CGFloat(slot.row) * gapY
-            return (slot, NSRect(x: x, y: y, width: slotWidth, height: slotHeight))
+            (slot, frames[slot.row * 3 + slot.column])
         })
     }
 

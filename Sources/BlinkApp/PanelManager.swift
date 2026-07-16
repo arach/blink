@@ -13,6 +13,10 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// What each open panel currently displays — the tell between "our own
     /// save came back around" and a genuine external edit to push in.
     private var panelContent: [String: String] = [:]
+    /// The grid slot each open panel was last placed in, so a changed
+    /// `blink.slot` (e.g. `blink present --slot`) can move the panel live and an
+    /// unchanged one never re-snaps. Absent = the note declares no slot.
+    private var panelSlot: [String: Int] = [:]
     private var observers: [NSObjectProtocol] = []
     private var saveTasks: [String: Task<Void, Never>] = [:]
     private var revealCompletionTasks: [String: Task<Void, Never>] = [:]
@@ -146,7 +150,13 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// flush merges metadata from disk either way).
     private func applyExternalUpdate(id: String) async {
         guard let panel = panels[id], pendingText[id] == nil else { return }
-        guard let note = await store.note(id: id), note.content != panelContent[id] else { return }
+        guard let note = await store.note(id: id) else { return }
+
+        // Presentation intent must reach an open panel even when the body is
+        // unchanged: `blink present --slot N` moves the panel into its grid cell.
+        reconcileSlot(id: id, note: note, panel: panel)
+
+        guard note.content != panelContent[id] else { return }
         let previous = panelContent[id] ?? ""
         // State becomes truthful before presentation begins. Saves and a user
         // edit arriving on frame zero therefore see the COMPLETE external text.
@@ -174,6 +184,35 @@ final class PanelManager: NSObject, NSWindowDelegate {
             log.info("[BLINK] external edit applied to open panel", metadata: ["id": id])
         }
         if panel.title != note.title { panel.title = note.title }
+    }
+
+    // MARK: - Grid placement
+
+    /// Realize a note's `blink.slot` on its open panel when the slot first
+    /// appears or changes. Absent/unchanged slots are no-ops, so a plain content
+    /// edit never disturbs a panel's position.
+    private func reconcileSlot(id: String, note: Note, panel: NotePanel) {
+        let newSlot = note.presentation.slot
+        guard newSlot != panelSlot[id] else { return }
+        panelSlot[id] = newSlot
+        if let newSlot {
+            placeInSlot(panel, slot: newSlot, animated: true)
+            log.info("[BLINK] placed panel in grid slot", metadata: ["id": id, "slot": "\(newSlot)"])
+        }
+    }
+
+    /// Snap `panel` into desk-grid cell `slot` (1…9) on its current screen. A
+    /// live change animates with the lock snap so the move reads; a fresh open
+    /// sets the frame directly and lets the entrance land into it.
+    private func placeInSlot(_ panel: NotePanel, slot: Int, animated: Bool) {
+        guard let screen = panel.screen ?? NSScreen.main,
+              let target = BlinkGrid.frame(forSlot: slot, in: screen.visibleFrame) else { return }
+        if animated, !panel.frame.equalTo(target) {
+            panel.animateLock(to: target)
+        } else {
+            panel.setFrame(target, display: false)
+            panel.saveFrame(usingName: "blink.note.\(panel.noteID)")
+        }
     }
 
     // MARK: - Visible Hand: native reveal garnish
@@ -314,14 +353,18 @@ final class PanelManager: NSObject, NSWindowDelegate {
             return existing
         }
 
-        // Sheet: per-note frontmatter override > config default.
-        let sheetOverride = note.extraFrontmatterValue(for: "sheet")
+        // Presentation: the note's `blink:` block drives sheet/tint/radius/theme.
+        // Merge the legacy top-level `sheet:` alias in for resolution only — the
+        // file keeps that key (no silent migration).
+        var presentation = note.presentation
+        if presentation.sheet == nil, let legacy = note.extraFrontmatterValue(for: "sheet") {
+            presentation.sheet = legacy
+        }
         let panel = NotePanel(
             noteID: note.id,
             initialContent: note.content,
             title: note.title,
-            sheet: sheetOverride ?? BlinkConfigStore.shared.config.panel.sheet,
-            sheetIsPerNote: sheetOverride != nil
+            presentation: presentation
         )
         panel.delegate = self
         panels[note.id] = panel
@@ -338,13 +381,22 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.editor.onSaveRequested = { [weak self] in
             Task { await self?.flush(noteID: note.id) }
         }
+        // A rendered [[wiki-link]] was clicked: open or focus the target note.
+        panel.editor.onOpenNote = { [weak self] id in
+            guard let self else { return }
+            Task { @MainActor in
+                if let target = await self.store.note(id: id) {
+                    self.openPanel(for: target)
+                }
+            }
+        }
 
         // Mode: explicit (new notes open in edit) > per-note memory > default.
         let mode = initialMode
             ?? UserDefaults.standard.string(forKey: ConfigKeys.noteMode(note.id))
             ?? BlinkConfigStore.shared.config.behavior.defaultMode
         panel.editor.setMode(mode)
-        panel.editor.setTheme(BlinkConfigStore.shared.config.editorThemeVars)
+        panel.editor.setTheme(BlinkConfigStore.shared.config.resolved(for: presentation).editorThemeVars)
         panel.reflectMode(mode)
         panel.editor.onReady = { [weak panel] in
             if mode == "edit" { panel?.editor.focus() }
@@ -365,6 +417,16 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
         panel.onFocusModeChange = { [weak self] in
             self?.updateFocusOverlay()
+        }
+
+        // Grid home: a note's `blink.slot` (written by `blink present --slot N`)
+        // is its declarative cell in the desk grid. Track it so a later change
+        // moves the panel; and on a fresh open (not session restore, which must
+        // restore exact geometry) set the frame now so the entrance lands into
+        // the cell instead of at the last-saved position.
+        panelSlot[note.id] = presentation.slot
+        if playEntrance, let slot = presentation.slot {
+            placeInSlot(panel, slot: slot, animated: false)
         }
 
         // Land the panel with its configured entrance (a new note, popover open,
@@ -644,6 +706,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.editor.teardown()
         panels[id] = nil
         panelContent[id] = nil
+        panelSlot[id] = nil
         if mostRecentKeyPanelID == id {
             mostRecentKeyPanelID = nil
         }

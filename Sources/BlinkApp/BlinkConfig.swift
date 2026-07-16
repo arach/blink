@@ -155,12 +155,46 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// A named, reusable presentation preset — a *partial* overlay onto the
+    /// panel/editor defaults, every field optional. A note references one by name
+    /// via its `blink.style`; the studio's treatments live here. Typed (not
+    /// passed-through) so it survives a config re-encode.
+    /// Field → surface mapping is in `apply(treatment:)`; see
+    /// `docs/notes-representation.md` Appendix A.
+    struct Treatment: Codable, Equatable {
+        var sheet: String?
+        var accent: String?
+        var font: String?
+        var fontSize: Double?
+        var lineHeight: Double?
+        var tint: Double?
+        var tintRead: Double?
+        var tintEdit: Double?
+        var radius: Double?
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            sheet = try c.decodeIfPresent(String.self, forKey: .sheet)
+            accent = try c.decodeIfPresent(String.self, forKey: .accent)
+            font = try c.decodeIfPresent(String.self, forKey: .font)
+            fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize)
+            lineHeight = try c.decodeIfPresent(Double.self, forKey: .lineHeight)
+            tint = try c.decodeIfPresent(Double.self, forKey: .tint)
+            tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead)
+            tintEdit = try c.decodeIfPresent(Double.self, forKey: .tintEdit)
+            radius = try c.decodeIfPresent(Double.self, forKey: .radius)
+        }
+    }
+
     var behavior = Behavior()
     var hotkeys = Hotkeys()
     var panel = Panel()
     var focus = Focus()
     var motion = Motion()
     var editor = Editor()
+    /// Named presentation presets, referenced by a note's `blink.style`.
+    var styles: [String: Treatment]?
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -171,6 +205,53 @@ struct BlinkConfig: Codable, Equatable {
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
+        styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)
+    }
+
+    // MARK: - Per-note presentation resolution
+
+    /// Resolve a note's `blink:` presentation onto this config, producing the
+    /// effective config *for that note*:
+    /// `configDefaults ← styles[name] ← loose overrides` (Appendix A).
+    /// A missing/unknown style name is ignored (defaults stand); loose overrides
+    /// always win. Never throws — a bad value is clamped, never fatal.
+    func resolved(for presentation: NotePresentation) -> BlinkConfig {
+        var c = self
+        if let name = presentation.style, let treatment = styles?[name] {
+            c.apply(treatment: treatment)
+        }
+        c.apply(treatment: BlinkConfig.treatment(from: presentation))
+        return c
+    }
+
+    /// Overlay a treatment's set fields onto panel/editor, with defensive clamps
+    /// so a stray value can't render the surface unusable.
+    mutating func apply(treatment t: Treatment) {
+        if let v = t.sheet { panel.sheet = v }
+        if let v = t.accent { editor.accentColor = v }
+        if let v = t.font { editor.fontFamily = v }
+        if let v = t.fontSize { editor.fontSize = clamp(v, 6, 48) }
+        if let v = t.lineHeight { editor.lineHeight = clamp(v, 0.8, 3.0) }
+        // `tint` is shorthand for both; explicit read/edit win over it.
+        if let v = t.tint { let c = clamp(v, 0, 1); panel.tintRead = c; panel.tintEdit = c }
+        if let v = t.tintRead { panel.tintRead = clamp(v, 0, 1) }
+        if let v = t.tintEdit { panel.tintEdit = clamp(v, 0, 1) }
+        if let v = t.radius { panel.cornerRadius = clamp(v, 0, 40) }
+    }
+
+    /// The loose per-note overrides as a treatment (everything but `style`/`slot`).
+    private static func treatment(from p: NotePresentation) -> Treatment {
+        var t = Treatment()
+        t.sheet = p.sheet
+        t.accent = p.accent
+        t.font = p.font
+        t.fontSize = p.fontSize
+        t.lineHeight = p.lineHeight
+        t.tint = p.tint
+        t.tintRead = p.tintRead
+        t.tintEdit = p.tintEdit
+        t.radius = p.radius
+        return t
     }
 
     /// Map editor settings onto the web bundle's CSS variable contract
@@ -197,6 +278,11 @@ struct BlinkConfig: Codable, Equatable {
         if let v = editor.h3Size { vars["--blink-h3-size"] = "\(v)px" }
         return vars
     }
+}
+
+/// Clamp a value into `[lo, hi]` — defensive bound for resolved presentation.
+private func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
+    min(max(v, lo), hi)
 }
 
 /// Loads, saves, and hot-reloads the config file. Agent-first: any process may

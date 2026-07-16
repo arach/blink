@@ -1,5 +1,8 @@
+import AppKit
+import BlinkCore
 import Foundation
 import HudsonObservability
+import UniformTypeIdentifiers
 import WebKit
 
 /// Hosts the CodeMirror editor bundle in a WKWebView and speaks the bridge
@@ -16,6 +19,18 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     var onContentChanged: ((String) -> Void)?
     var onSaveRequested: (() -> Void)?
     var onModeChanged: ((String) -> Void)?
+    /// A rendered `[[wiki-link]]` was clicked (`blink://open/<id>`): open or focus
+    /// that note. Wired by PanelManager to the NoteStore.
+    var onOpenNote: ((String) -> Void)?
+
+    /// Serves `blink://attachments/…` from the Blink home. Held so its lifetime
+    /// matches the webview; the configuration copy retains it too.
+    private let assetSchemeHandler: BlinkAssetSchemeHandler
+
+    /// The editor bundle URL once loaded — the ONLY document allowed to navigate
+    /// in the main frame (plus its own `#fragment` jumps). Everything else is
+    /// denied so nothing can replace the editor.
+    private var editorURL: URL?
 
     private var isReady = false
     private var pendingContent: String?
@@ -28,7 +43,12 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
 
     override init() {
         let configuration = WKWebViewConfiguration()
+        // Register the asset scheme on the configuration BEFORE the webview
+        // copies it — scheme handlers cannot be added to a live webview.
+        let handler = BlinkAssetSchemeHandler()
+        configuration.setURLSchemeHandler(handler, forURLScheme: "blink")
         webView = WKWebView(frame: .zero, configuration: configuration)
+        assetSchemeHandler = handler
         super.init()
 
         configuration.userContentController.add(self, name: "blink")
@@ -44,6 +64,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         onContentChanged = nil
         onSaveRequested = nil
         onModeChanged = nil
+        onOpenNote = nil
     }
 
     /// Locate the built editor bundle: app Resources first (run-app.sh copies it),
@@ -68,7 +89,68 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
             log.error("[BLINK] editor.html not found — build web/editor first")
             return
         }
+        editorURL = url
         webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+    }
+
+    // MARK: - WKNavigationDelegate
+
+    /// Deny-by-default navigation for the MAIN frame: the editor document (its
+    /// initial load, a reload, and its own `#fragment` jumps) is the ONLY thing
+    /// allowed to load there — anything else would replace `editor.html` and
+    /// destroy the editor. Beyond that, only a genuine user click may hand off:
+    /// a `blink://open/<id>` wiki-link opens that note; an allowlisted external
+    /// scheme opens in the user's default app.
+    ///
+    /// Subframes (iframes) are allowed to load remote `http(s)` — a cross-origin
+    /// frame is sandboxed from `window.blink`, so a note may embed one (opt-in
+    /// per the owner's high-trust call). `file:`/`about:`/`data:`/`javascript:`
+    /// subframes (which could reach the native bridge or run same-origin script,
+    /// incl. `srcdoc`) stay denied.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+        // 1. The editor document itself (load/reload) + same-document fragments.
+        if url.isFileURL, let editor = editorURL, url.path == editor.path {
+            decisionHandler(.allow)
+            return
+        }
+        // 1b. Subframes: remote http(s) embeds only; the bridge stays unreachable.
+        if navigationAction.targetFrame?.isMainFrame == false {
+            let scheme = url.scheme?.lowercased()
+            decisionHandler(scheme == "http" || scheme == "https" ? .allow : .cancel)
+            return
+        }
+        // Main frame: nothing loads in place. Only a real user click hands off.
+        guard navigationAction.navigationType == .linkActivated else {
+            decisionHandler(.cancel)
+            return
+        }
+        // 2. blink://open/<id> — internal link to another note. Route, never load.
+        //    (blink://attachments/… never reaches here — it's a subresource,
+        //    served by BlinkAssetSchemeHandler, not a navigation.) lastPathComponent
+        //    is already percent-decoded; do not decode a second time.
+        if url.scheme == "blink" {
+            if url.host == "open" {
+                let id = url.lastPathComponent
+                if !id.isEmpty, id != "/" { onOpenNote?(id) }
+            }
+            decisionHandler(.cancel)
+            return
+        }
+        // 3. External links open in the user's default app — allowlisted schemes
+        //    only, so a clicked `javascript:`/`data:` link can't be handed to the OS.
+        if let scheme = url.scheme?.lowercased(),
+           ["http", "https", "mailto", "tel", "file"].contains(scheme) {
+            NSWorkspace.shared.open(url)
+        }
+        decisionHandler(.cancel)
     }
 
     func setContent(_ text: String) {
@@ -242,5 +324,73 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
               let encoded = String(data: data, encoding: .utf8)
         else { return "\"\"" }
         return encoded
+    }
+}
+
+/// Serves `blink://attachments/<path>` from `$BLINK_HOME/attachments`, so a note
+/// can embed an image it owns (`![](blink://attachments/pic.png)`) without the
+/// webview being granted broad file-system read access. Requests that resolve
+/// outside the attachments directory, or to a missing file, fail cleanly (a
+/// broken image, never an escape). Everything is handled synchronously inside
+/// `start`, so a `stop` can never interleave and touch a finished task.
+final class BlinkAssetSchemeHandler: NSObject, WKURLSchemeHandler {
+    /// Cap served bytes so a huge (or malicious) file can't exhaust memory —
+    /// `Data(contentsOf:)` reads the whole file. Generous for note images.
+    private static let maxBytes = 64 * 1024 * 1024
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        guard let url = urlSchemeTask.request.url, url.host == "attachments" else {
+            urlSchemeTask.didFailWithError(URLError(.unsupportedURL))
+            return
+        }
+        let root = BlinkPaths.attachments().standardizedFileURL
+        // url.path is "/sub/pic.png"; resolve it under the attachments root and
+        // refuse anything that standardizes to outside that root (../ traversal).
+        let requested = root.appendingPathComponent(url.path).standardizedFileURL
+        guard requested.path == root.path || requested.path.hasPrefix(root.path + "/") else {
+            urlSchemeTask.didFailWithError(URLError(.noPermissionsToReadFile))
+            return
+        }
+        // Standardizing does NOT follow symlinks — an `attachments/jump -> /etc`
+        // symlink would pass the lexical guard above and read outside the root.
+        // Resolve links on both sides and re-check containment. (Canonicalize
+        // compromise; a descriptor-relative openat(O_NOFOLLOW) is the TOCTOU-proof
+        // hardening if the trust posture tightens.)
+        let resolvedRoot = root.resolvingSymlinksInPath().path
+        let resolved = requested.resolvingSymlinksInPath()
+        guard resolved.path == resolvedRoot || resolved.path.hasPrefix(resolvedRoot + "/") else {
+            urlSchemeTask.didFailWithError(URLError(.noPermissionsToReadFile))
+            return
+        }
+        // Regular files only (never a FIFO that would block, a directory, or a
+        // device), within the byte cap.
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: resolved.path),
+              (attrs[.type] as? FileAttributeType) == .typeRegular,
+              let size = attrs[.size] as? Int, size <= Self.maxBytes else {
+            urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
+            return
+        }
+        guard let data = try? Data(contentsOf: resolved) else {
+            urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
+            return
+        }
+        let response = URLResponse(
+            url: url,
+            mimeType: Self.mimeType(forExtension: resolved.pathExtension),
+            expectedContentLength: data.count,
+            textEncodingName: nil
+        )
+        urlSchemeTask.didReceive(response)
+        urlSchemeTask.didReceive(data)
+        urlSchemeTask.didFinish()
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+
+    private static func mimeType(forExtension ext: String) -> String {
+        if let type = UTType(filenameExtension: ext), let mime = type.preferredMIMEType {
+            return mime
+        }
+        return "application/octet-stream"
     }
 }

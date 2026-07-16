@@ -11,12 +11,13 @@ final class NotePanel: NSPanel {
     let noteID: String
     let editor: EditorWebView
     /// The sheet template this panel renders (config default or per-note
-    /// frontmatter override) — resolved by PanelManager at open time.
-    /// ("sheetTemplate", not "sheet" — NSWindow already owns `sheet: Bool`.)
+    /// `blink:` override) — resolved from `notePresentation` at open time and on
+    /// every hot reload. ("sheetTemplate", not "sheet" — NSWindow owns `sheet: Bool`.)
     private(set) var sheetTemplate: String
-    /// True when the sheet came from the note's own `sheet:` frontmatter key —
-    /// config hot-reloads must not override a per-note choice.
-    let sheetIsPerNote: Bool
+    /// This note's presentation intent (the `blink:` block, plus any legacy
+    /// `sheet:` alias merged in by PanelManager). The single input to
+    /// `config.resolved(for:)`, so open-time and hot-reload theming agree.
+    private let notePresentation: NotePresentation
 
     /// Fired for user-initiated mode flips from the native toggle or ⌘⇧P
     /// (JS-side flips arrive via the bridge's modeChanged instead).
@@ -47,15 +48,17 @@ final class NotePanel: NSPanel {
         noteID: String,
         initialContent: String,
         title: String,
-        sheet: String = "glass",
-        sheetIsPerNote: Bool = false
+        presentation: NotePresentation = NotePresentation()
     ) {
         self.noteID = noteID
         self.editor = EditorWebView()
-        self.sheetTemplate = sheet
-        self.sheetIsPerNote = sheetIsPerNote
+        self.notePresentation = presentation
 
-        let theme = BlinkConfigStore.shared.config
+        // Resolve this note's presentation onto the config once, up front — the
+        // same reducer hot reload uses, so per-note sheet/tint/radius/theme are
+        // consistent everywhere.
+        let theme = BlinkConfigStore.shared.config.resolved(for: presentation)
+        self.sheetTemplate = theme.panel.sheet
         self.readTint = theme.panel.tintRead
         self.editTint = theme.panel.tintEdit
 
@@ -139,8 +142,10 @@ final class NotePanel: NSPanel {
         // Invisible drag strip along the top edge: the webview consumes clicks
         // everywhere, so this is the panel's move gesture (the old titlebar's
         // one useful job, kept without its reserved band). Sits under the
-        // corner chrome in z so ✕/pill clicks win; height matches the editor's
-        // top padding so the first text line stays clickable.
+        // corner chrome in z so ✕/pill clicks win. Height spans the empty top
+        // margin above the first line — 24pt matches the reader's content
+        // padding, so the grab band fills the band over the text (a bigger,
+        // still-thin target) without covering the first line itself.
         let drag = DragHandle()
         drag.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(drag)
@@ -148,7 +153,7 @@ final class NotePanel: NSPanel {
             drag.topAnchor.constraint(equalTo: container.topAnchor),
             drag.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             drag.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            drag.heightAnchor.constraint(equalToConstant: 16),
+            drag.heightAnchor.constraint(equalToConstant: 24),
         ])
 
         // Chrome is earned: controls fade in on hover, floating IN the former
@@ -350,24 +355,26 @@ final class NotePanel: NSPanel {
 
     /// Re-apply themable visuals after a config change (hot reload).
     func applyTheme(_ config: BlinkConfig) {
-        readTint = config.panel.tintRead
-        editTint = config.panel.tintEdit
+        // Resolve the incoming config through this note's presentation, so per-note
+        // sheet/tint/radius/theme survive a global hot reload: a note with its own
+        // `blink.sheet` always resolves back to it, a note without one follows the
+        // new global sheet.
+        let theme = config.resolved(for: notePresentation)
+        readTint = theme.panel.tintRead
+        editTint = theme.panel.tintEdit
 
-        // Live sheet adoption: a config sheet change reaches every panel EXCEPT
-        // those pinned by a per-note `sheet:` frontmatter key (those never
-        // change on reload). `sheetTemplate` is private(set) — mutate it here.
-        if !sheetIsPerNote, config.panel.sheet != sheetTemplate {
-            sheetTemplate = config.panel.sheet
+        if theme.panel.sheet != sheetTemplate {
+            sheetTemplate = theme.panel.sheet
             editor.setSheet(sheetTemplate)
         }
 
         // Re-derive the native surface (glass vs flat, material, radius, shadow)
         // for the current sheet, then set the mode tint only where it applies.
-        applySheetAppearance(config)
+        applySheetAppearance(theme)
         if !Self.isFlatSheet(sheetTemplate) {
             tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
         }
-        editor.setTheme(config.editorThemeVars)
+        editor.setTheme(theme.editorThemeVars)
     }
 
     // MARK: - Arrival: motion signature
