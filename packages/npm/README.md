@@ -29,7 +29,7 @@ blink app install            # fetch + install Blink.app in /Applications
 blink app open               # launch the installed menubar app
 
 # Create content, presentation, and placement in one atomic write.
-blink present q3-plan "# Q3 plan\n\nShip something people love." \
+blink present q3-plan $'# Q3 plan\n\nShip something people love.' \
   --slot 6 --accent '#7dd3fc'
 ```
 
@@ -39,7 +39,7 @@ launches.
 
 ## Why Blink
 
-| | |
+| Principle | What it means |
 |---|---|
 | **Spatial by default** | Notes are borderless floating panels with per-note position, size, style, and grid placement. |
 | **Made for agents** | Predictable verbs, JSON output, stdin support, and one command for content + presentation + placement. |
@@ -64,7 +64,7 @@ blink rm grocery-run                             # delete
 Every mutation uses Blink's atomic file store. The running app reconciles
 external writes and reflects them across the menubar, palette, and open panels.
 
-### `blink app` — install and launch
+### `blink app` — manage the macOS app
 
 ```sh
 blink app install   # fetch, validate, and install/reinstall the newest Blink 2

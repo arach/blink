@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Install and launch the Blink menubar app. If Blink.app isn't in /Applications,
-// download the latest signed DMG from the GitHub release and install it, then
-// open it. `blink-app update` forces a re-download.
+// Install and manage the Blink menubar app. Installation downloads the latest
+// signed DMG from GitHub and replaces /Applications/Blink.app without launching
+// it; `open` is the explicit launch command.
 import { execFileSync } from "node:child_process";
 import {
   createWriteStream,
