@@ -59,11 +59,33 @@ public enum Frontmatter {
         lines.append("updated: \(dateFormatter.string(from: note.updatedAt))")
         lines.append("tags: [\(note.tags.joined(separator: ", "))]")
         lines.append("pinned: \(note.pinned)")
+        appendBlinkBlock(note, to: &lines)
         lines.append(contentsOf: note.extraFrontmatter)
         lines.append("---")
 
         // Join header, then exactly one newline, then content verbatim.
         return lines.joined(separator: "\n") + "\n" + note.content
+    }
+
+    /// Emit the `blink:` presentation block: known keys in canonical order and
+    /// indentation, then any preserved unknown/invalid sub-lines verbatim. Nothing
+    /// is emitted when there is neither typed presentation nor a preserved line.
+    private static func appendBlinkBlock(_ note: Note, to lines: inout [String]) {
+        let p = note.presentation
+        guard !p.isEmpty || !note.extraBlink.isEmpty else { return }
+        lines.append("blink:")
+        if let v = p.style { lines.append("  style: \(v)") }
+        if let v = p.sheet { lines.append("  sheet: \(v)") }
+        if let v = p.accent { lines.append("  accent: \(quoteIfNeeded(v))") }
+        if let v = p.font { lines.append("  font: \(quoteIfNeeded(v))") }
+        if let v = p.fontSize { lines.append("  fontSize: \(formatDouble(v))") }
+        if let v = p.lineHeight { lines.append("  lineHeight: \(formatDouble(v))") }
+        if let v = p.tint { lines.append("  tint: \(formatDouble(v))") }
+        if let v = p.tintRead { lines.append("  tintRead: \(formatDouble(v))") }
+        if let v = p.tintEdit { lines.append("  tintEdit: \(formatDouble(v))") }
+        if let v = p.radius { lines.append("  radius: \(formatDouble(v))") }
+        if let v = p.slot { lines.append("  slot: \(v)") }
+        lines.append(contentsOf: note.extraBlink)
     }
 
     // MARK: - Decode
@@ -95,7 +117,9 @@ public enum Frontmatter {
         var updatedRaw: String?
         var tags: [String] = []
         var pinned = false
+        var presentation = NotePresentation()
         var extra: [String] = []
+        var extraBlink: [String] = []
 
         // The header ends with the newline before the closing "---"; drop the
         // phantom empty element that trailing newline produces on split.
@@ -104,7 +128,10 @@ public enum Frontmatter {
             headerLines = Array(headerLines.dropLast())
         }
 
-        for line in headerLines {
+        var index = 0
+        while index < headerLines.count {
+            let line = headerLines[index]
+            index += 1
             // Blink's own keys are only recognized at the top level: an indented
             // line is a continuation of someone else's block, never ours.
             let isIndented = line.hasPrefix(" ") || line.hasPrefix("\t")
@@ -125,6 +152,17 @@ public enum Frontmatter {
                 tags = parseTags(value)
             case "pinned":
                 pinned = (value.lowercased() == "true")
+            case "blink" where value.isEmpty:
+                // The `blink:` presentation block: consume the immediately
+                // following indented lines and parse the ones we own; anything
+                // unknown or unparseable is preserved verbatim (never-erase).
+                var block: [String] = []
+                while index < headerLines.count,
+                      headerLines[index].hasPrefix(" ") || headerLines[index].hasPrefix("\t") {
+                    block.append(headerLines[index])
+                    index += 1
+                }
+                parseBlinkBlock(block, into: &presentation, unknown: &extraBlink)
             default:
                 extra.append(line) // not ours — preserve verbatim
             }
@@ -147,8 +185,47 @@ public enum Frontmatter {
             updatedAt: updatedAt,
             tags: tags,
             pinned: pinned,
-            extraFrontmatter: extra
+            presentation: presentation,
+            extraFrontmatter: extra,
+            extraBlink: extraBlink
         )
+    }
+
+    /// Parse the indented lines of a `blink:` block. Known scalar keys are typed
+    /// into `presentation`; an empty value, an unknown key, or a value that fails
+    /// to parse as its type is left verbatim in `unknown` (indentation intact) so
+    /// it round-trips and is simply ignored for rendering.
+    private static func parseBlinkBlock(
+        _ lines: [String],
+        into presentation: inout NotePresentation,
+        unknown: inout [String]
+    ) {
+        for raw in lines {
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            guard let colon = trimmed.firstIndex(of: ":") else {
+                unknown.append(raw)
+                continue
+            }
+            let key = String(trimmed[trimmed.startIndex..<colon]).trimmingCharacters(in: .whitespaces)
+            let value = unquote(
+                String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            )
+            guard !value.isEmpty else { unknown.append(raw); continue }
+            switch key {
+            case "style": presentation.style = value
+            case "sheet": presentation.sheet = value
+            case "accent": presentation.accent = value
+            case "font": presentation.font = value
+            case "fontSize": if let d = Double(value) { presentation.fontSize = d } else { unknown.append(raw) }
+            case "lineHeight": if let d = Double(value) { presentation.lineHeight = d } else { unknown.append(raw) }
+            case "tint": if let d = Double(value) { presentation.tint = d } else { unknown.append(raw) }
+            case "tintRead": if let d = Double(value) { presentation.tintRead = d } else { unknown.append(raw) }
+            case "tintEdit": if let d = Double(value) { presentation.tintEdit = d } else { unknown.append(raw) }
+            case "radius": if let d = Double(value) { presentation.radius = d } else { unknown.append(raw) }
+            case "slot": if let i = Int(value) { presentation.slot = i } else { unknown.append(raw) }
+            default: unknown.append(raw)
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -159,6 +236,30 @@ public enum Frontmatter {
         let fallback = ISO8601DateFormatter()
         fallback.formatOptions = [.withInternetDateTime]
         return fallback.date(from: raw)
+    }
+
+    /// Strip one layer of matching surrounding quotes (single or double).
+    private static func unquote(_ s: String) -> String {
+        guard s.count >= 2, let first = s.first, let last = s.last else { return s }
+        if (first == "\"" && last == "\"") || (first == "'" && last == "'") {
+            return String(s.dropFirst().dropLast())
+        }
+        return s
+    }
+
+    /// Quote a `blink:` scalar value when a bare form would be ambiguous — a
+    /// leading `#` (YAML comment), an embedded `:` or `#`, or edge whitespace.
+    private static func quoteIfNeeded(_ v: String) -> String {
+        let needsQuote = v.isEmpty
+            || v.hasPrefix("#") || v.hasPrefix(" ") || v.hasSuffix(" ")
+            || v.contains(":") || v.contains("#")
+        return needsQuote ? "\"\(v)\"" : v
+    }
+
+    /// Render a Double without a trailing `.0` (so `11.0` → `11`, `1.4` → `1.4`).
+    private static func formatDouble(_ d: Double) -> String {
+        if d == d.rounded(), abs(d) < 1e15 { return String(Int(d)) }
+        return String(d)
     }
 
     private static func parseTags(_ raw: String) -> [String] {

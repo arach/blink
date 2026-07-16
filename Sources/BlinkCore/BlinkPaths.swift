@@ -31,4 +31,14 @@ public enum BlinkPaths {
     ) -> URL {
         home(environment: environment).appendingPathComponent("config.json", isDirectory: false)
     }
+
+    /// Where note attachments live: `<home>/attachments`. A note can embed an
+    /// image it owns via `![](blink://attachments/pic.png)`; the app serves this
+    /// directory to the editor webview over the `blink://` scheme (see
+    /// `EditorWebView`) rather than granting broad file-system read access.
+    public static func attachments(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("attachments", isDirectory: true)
+    }
 }

@@ -1,5 +1,43 @@
 import Foundation
 
+/// The typed view of a note's `blink:` frontmatter block — the presentation and
+/// placement *intent* Blink owns (see `docs/notes-representation.md` Appendix A).
+/// Every field is optional; an absent field means "inherit the config default".
+/// Loose overrides here win over a named `style`, which wins over config.
+///
+/// The codec types only *valid* scalars into these fields. An unparseable value
+/// (a non-numeric `slot`, say) is never coerced or dropped — it is preserved
+/// verbatim in `Note.extraBlink` and simply not surfaced here (never-erase).
+public struct NotePresentation: Equatable, Sendable, Codable {
+    /// Named treatment defined in `config.json` → `styles.<name>`.
+    public var style: String?
+    /// Sheet template: glass | card | dotted | bracket | marginalia.
+    public var sheet: String?
+    /// Accent color, e.g. `#d08770` (quoted in the file — a bare `#…` is a comment).
+    public var accent: String?
+    /// Editor font family override.
+    public var font: String?
+    public var fontSize: Double?
+    public var lineHeight: Double?
+    /// Shorthand tint; the app applies it to read+edit when the pair is unset.
+    public var tint: Double?
+    public var tintRead: Double?
+    public var tintEdit: Double?
+    /// Panel corner radius.
+    public var radius: Double?
+    /// Durable grid-slot intent, 1...9 (not pixels — pixels are device state).
+    public var slot: Int?
+
+    public init() {}
+
+    /// True when no field is set — nothing for the codec to emit.
+    public var isEmpty: Bool {
+        style == nil && sheet == nil && accent == nil && font == nil
+            && fontSize == nil && lineHeight == nil && tint == nil
+            && tintRead == nil && tintEdit == nil && radius == nil && slot == nil
+    }
+}
+
 /// A single note. The `id` is the slug identity (see `Slug`), the `content` is the
 /// raw markdown body *without* any frontmatter block. `title` is derived from the
 /// content and never stored separately.
@@ -10,10 +48,15 @@ public struct Note: Equatable, Sendable, Codable {
     public var updatedAt: Date
     public var tags: [String]
     public var pinned: Bool
+    /// Blink's presentation & placement intent (the `blink:` block).
+    public var presentation: NotePresentation
     /// Frontmatter lines Blink does not own (agent- or tool-authored keys like
     /// `source:` or `x-*:`), kept verbatim in their original order so a
     /// decode → edit → encode cycle never destroys another tool's metadata.
     public var extraFrontmatter: [String]
+    /// Sub-lines of the `blink:` block Blink does not recognize (a future or
+    /// invalid key), kept verbatim and indented so they round-trip untouched.
+    public var extraBlink: [String]
 
     public init(
         id: String,
@@ -22,7 +65,9 @@ public struct Note: Equatable, Sendable, Codable {
         updatedAt: Date,
         tags: [String] = [],
         pinned: Bool = false,
-        extraFrontmatter: [String] = []
+        presentation: NotePresentation = NotePresentation(),
+        extraFrontmatter: [String] = [],
+        extraBlink: [String] = []
     ) {
         self.id = id
         self.content = content
@@ -30,7 +75,9 @@ public struct Note: Equatable, Sendable, Codable {
         self.updatedAt = updatedAt
         self.tags = tags
         self.pinned = pinned
+        self.presentation = presentation
         self.extraFrontmatter = extraFrontmatter
+        self.extraBlink = extraBlink
     }
 
     /// The display title, derived from the content.

@@ -18,7 +18,8 @@ struct BlinkCommand: AsyncParsableCommand {
         """,
         version: "0.1.0",
         subcommands: [
-            Ls.self, Cat.self, New.self, Append.self, Search.self, Rm.self, PathCommand.self,
+            Ls.self, Cat.self, New.self, Present.self, Append.self, Type.self, Write.self,
+            Search.self, Rm.self, PathCommand.self,
         ]
     )
 }
@@ -85,6 +86,82 @@ struct New: AsyncParsableCommand {
     }
 }
 
+struct Present: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Create or update a note with content and presentation in one call.",
+        discussion: """
+        The compound arrival verb. Sets a note's markdown AND its blink: \
+        presentation (style, slot, accent, …) in one write, get-or-create by id. \
+        Only the presentation fields you pass are changed; the rest are preserved. \
+        Omit content to change presentation alone. The running app reconciles the \
+        write and applies the look live; slot is placement intent for the grid.
+        """
+    )
+
+    @Argument(help: "The note id (slug); created if it doesn't exist.") var id: String
+    @Argument(parsing: .allUnrecognized, help: "Markdown content (omit to keep existing / read stdin).")
+    var content: [String] = []
+
+    @Option(help: "Named style preset from config (blink.style).") var style: String?
+    @Option(help: "Sheet template (blink.sheet).") var sheet: String?
+    @Option(help: "Accent color, e.g. #9ece6a (blink.accent).") var accent: String?
+    @Option(help: "Font family (blink.font).") var font: String?
+    @Option(name: .customLong("font-size"), help: "Font size in px (blink.fontSize).") var fontSize: Double?
+    @Option(name: .customLong("line-height"), help: "Line height (blink.lineHeight).") var lineHeight: Double?
+    @Option(help: "Glass tint 0–1 (blink.tint).") var tint: Double?
+    @Option(name: .customLong("tint-read"), help: "Read-mode tint 0–1 (blink.tintRead).") var tintRead: Double?
+    @Option(name: .customLong("tint-edit"), help: "Edit-mode tint 0–1 (blink.tintEdit).") var tintEdit: Double?
+    @Option(help: "Corner radius in px (blink.radius).") var radius: Double?
+    @Option(help: "Grid slot 1–9 — placement intent (blink.slot).") var slot: Int?
+    @Flag(help: "Full note as JSON.") var json = false
+
+    func run() throws {
+        // Normalize the id to a canonical slug so `present "Q3 Planning"` and
+        // `present q3-planning` address the same note (get-or-create).
+        let canonicalID = Slug.generate(from: id)
+
+        var text = content.joined(separator: " ")
+        var haveContent = !text.isEmpty
+        if !haveContent, isatty(0) == 0 {
+            text = String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
+            haveContent = !text.isEmpty
+        }
+
+        let store = fileStore()
+        let now = Date()
+        var note: Note
+        if let existing = try? store.load(id: canonicalID) {
+            note = existing
+            if haveContent { note.content = text }
+            note.updatedAt = now
+        } else {
+            note = Note(id: canonicalID, content: haveContent ? text : "", createdAt: now, updatedAt: now)
+        }
+
+        // Overlay only the presentation fields provided — never erase the rest.
+        var p = note.presentation
+        if let style { p.style = style }
+        if let sheet { p.sheet = sheet }
+        if let accent { p.accent = accent }
+        if let font { p.font = font }
+        if let fontSize { p.fontSize = fontSize }
+        if let lineHeight { p.lineHeight = lineHeight }
+        if let tint { p.tint = tint }
+        if let tintRead { p.tintRead = tintRead }
+        if let tintEdit { p.tintEdit = tintEdit }
+        if let radius { p.radius = radius }
+        if let slot { p.slot = slot }
+        note.presentation = p
+
+        try store.save(note)
+        if json {
+            try printJSON(NoteJSON(note, full: true))
+        } else {
+            print(note.id)
+        }
+    }
+}
+
 struct Append: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Append text to an existing note from arguments or stdin."
@@ -98,18 +175,51 @@ struct Append: AsyncParsableCommand {
     @Flag(help: "Full updated note as JSON.") var json = false
 
     func run() async throws {
-        var text = content.joined(separator: " ")
-        if text.isEmpty, isatty(0) == 0 {
-            text = String(
-                decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self
-            )
-        }
+        try await appendToNote(id: id, text: readText(content), json: json)
+    }
+}
 
+struct Type: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Say something into a note — appends text the open panel types on (the visible hand).",
+        discussion: """
+        The visible-hand verb: appends to the note like `append`, and because the \
+        change is an anchored suffix the running app reveals it character by \
+        character in the open panel. Use `write` instead to replace silently.
+        """
+    )
+
+    @Argument(help: "The note id (slug).") var id: String
+    @Argument(parsing: .allUnrecognized, help: "Text to type (omit to read stdin).")
+    var content: [String] = []
+    @Flag(help: "Full updated note as JSON.") var json = false
+
+    func run() async throws {
+        try await appendToNote(id: id, text: readText(content), json: json)
+    }
+}
+
+struct Write: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Replace a note's content wholesale — no typed reveal (the quiet sibling of type).",
+        discussion: """
+        Files the note rather than saying it: a non-append replacement, so the \
+        open panel updates in place with no typing animation. Presentation and \
+        foreign frontmatter are preserved.
+        """
+    )
+
+    @Argument(help: "The note id (slug).") var id: String
+    @Argument(parsing: .allUnrecognized, help: "New content (omit to read stdin).")
+    var content: [String] = []
+    @Flag(help: "Full updated note as JSON.") var json = false
+
+    func run() async throws {
         let store = try await loadedStore()
-        guard let existing = await store.note(id: id) else {
+        guard await store.note(id: id) != nil else {
             throw NoteNotFound(id: id)
         }
-        let note = try await store.update(id: id, content: existing.content + "\n" + text)
+        let note = try await store.update(id: id, content: readText(content))
         if json {
             try printJSON(NoteJSON(note, full: true))
         } else {
@@ -182,6 +292,31 @@ private func loadedStore() async throws -> NoteStore {
     let store = NoteStore(fileStore: fileStore())
     try await store.load()
     return store
+}
+
+/// Resolve command text: joined arguments, or stdin when piped and no args given.
+private func readText(_ content: [String]) -> String {
+    let joined = content.joined(separator: " ")
+    if !joined.isEmpty { return joined }
+    if isatty(0) == 0 {
+        return String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
+    }
+    return joined
+}
+
+/// Append one separated line to an existing note (shared by `append`/`type`).
+/// The anchored suffix is what lets the open panel type the new text on.
+private func appendToNote(id: String, text: String, json: Bool) async throws {
+    let store = try await loadedStore()
+    guard let existing = await store.note(id: id) else {
+        throw NoteNotFound(id: id)
+    }
+    let note = try await store.update(id: id, content: existing.content + "\n" + text)
+    if json {
+        try printJSON(NoteJSON(note, full: true))
+    } else {
+        print(note.id)
+    }
 }
 
 struct NoteNotFound: Error, CustomStringConvertible {

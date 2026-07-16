@@ -220,4 +220,115 @@ struct FrontmatterTests {
         #expect(lines[5].hasPrefix("pinned: "))
         #expect(lines[6] == "---")
     }
+
+    // MARK: - The blink: presentation block (schema v2)
+
+    @Test("blink block: typed keys decode and round-trip")
+    func blinkBlockRoundTrip() throws {
+        let raw = """
+        ---
+        id: styled
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          style: focus
+          sheet: dotted
+          accent: "#d08770"
+          fontSize: 11
+          lineHeight: 1.4
+          slot: 6
+        ---
+        # Body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.presentation.style == "focus")
+        #expect(decoded.presentation.sheet == "dotted")
+        #expect(decoded.presentation.accent == "#d08770")  // quotes stripped
+        #expect(decoded.presentation.fontSize == 11)
+        #expect(decoded.presentation.lineHeight == 1.4)
+        #expect(decoded.presentation.slot == 6)
+        #expect(decoded.content == "# Body")
+
+        // Re-encode and re-decode: stable.
+        let reDecoded = try Frontmatter.decode(Frontmatter.encode(decoded))
+        #expect(reDecoded.presentation == decoded.presentation)
+        #expect(reDecoded.content == "# Body")
+    }
+
+    @Test("blink block: a #hex accent is emitted quoted")
+    func blinkAccentQuoted() throws {
+        var note = sampleNote(content: "x")
+        note.presentation.accent = "#d08770"
+        note.presentation.slot = 3
+        let encoded = Frontmatter.encode(note)
+        #expect(encoded.contains("  accent: \"#d08770\""))
+        #expect(encoded.contains("  slot: 3"))
+        // fontSize integral emits without a trailing .0
+        note.presentation.fontSize = 12
+        #expect(Frontmatter.encode(note).contains("  fontSize: 12"))
+    }
+
+    @Test("blink block emits after pinned, before foreign keys")
+    func blinkBlockOrdering() throws {
+        var note = sampleNote(content: "c")
+        note.presentation.sheet = "card"
+        note.extraFrontmatter = ["source: agent://x"]
+        let lines = Frontmatter.encode(note).split(separator: "\n").map(String.init)
+        let pinnedIdx = lines.firstIndex { $0.hasPrefix("pinned:") }!
+        let blinkIdx = lines.firstIndex(of: "blink:")!
+        let foreignIdx = lines.firstIndex { $0.hasPrefix("source:") }!
+        #expect(pinnedIdx < blinkIdx)
+        #expect(blinkIdx < foreignIdx)
+    }
+
+    @Test("blink block: unknown and invalid sub-keys are preserved, not typed")
+    func blinkPreservesUnknownAndInvalid() throws {
+        let raw = """
+        ---
+        id: mixed
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          sheet: glass
+          slot: not-a-number
+          futureKey: whatever
+        ---
+        body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.presentation.sheet == "glass")
+        #expect(decoded.presentation.slot == nil)  // invalid → not typed
+        // Both the invalid slot and the unknown key survive verbatim.
+        let encoded = Frontmatter.encode(decoded)
+        #expect(encoded.contains("slot: not-a-number"))
+        #expect(encoded.contains("futureKey: whatever"))
+    }
+
+    @Test("No blink block is emitted when presentation is empty")
+    func noBlinkWhenEmpty() {
+        let encoded = Frontmatter.encode(sampleNote(content: "x"))
+        #expect(!encoded.contains("blink:"))
+    }
+
+    @Test("Foreign keys survive a decode → edit → encode cycle alongside blink")
+    func foreignSurvivesWithBlink() throws {
+        let raw = """
+        ---
+        id: keep
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          sheet: dotted
+        source: web-clipper
+        aliases: [a, b]
+        ---
+        body
+        """
+        var decoded = try Frontmatter.decode(raw)
+        decoded.presentation.slot = 9  // an edit
+        let encoded = Frontmatter.encode(decoded)
+        #expect(encoded.contains("source: web-clipper"))
+        #expect(encoded.contains("aliases: [a, b]"))
+        #expect(encoded.contains("  slot: 9"))
+    }
 }
