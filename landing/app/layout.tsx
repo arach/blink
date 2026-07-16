@@ -25,16 +25,18 @@ const sfProText = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Blink — Spatial Note-Taking App",
-  description: "The next generation of note-taking. Create beautiful floating windows that stay exactly where you need them.",
-  keywords: "note-taking, floating windows, productivity, spatial notes, desktop app",
+  title: "Blink — Spatial notes for your Mac",
+  description:
+    "A native macOS menubar app. Summon a borderless glass note anywhere with a keystroke, place it in space, and it stays. Plain markdown you own — open to your agents.",
+  keywords:
+    "macOS notes, menubar app, spatial notes, floating notes, markdown, keyboard-first, agent-first, native app",
   authors: [{ name: "Blink" }],
   openGraph: {
-    title: "Blink — Spatial Note-Taking App",
-    description: "The next generation of note-taking. Create beautiful floating windows that stay exactly where you need them.",
+    title: "Blink — Spatial notes for your Mac",
+    description:
+      "Summon a borderless glass note anywhere with a keystroke, place it in space, and it stays. Plain markdown you own — open to your agents.",
     type: "website",
   },
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({

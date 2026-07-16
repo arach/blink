@@ -1,96 +1,81 @@
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Download, Play } from "lucide-react"
+import { Download, Github } from "lucide-react"
+import { Chord, Keycap } from "@/components/kit"
 
 export default function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center justify-center px-4 overflow-hidden">
-      {/* Subtle background elements */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.05),transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(147,51,234,0.03),transparent_50%)]" />
+    <section className="relative min-h-screen flex flex-col items-center justify-center px-4 pt-28 pb-16 overflow-hidden">
+      {/* Spatial desk: dot-grid + a soft glow where the notes live */}
+      <div className="absolute inset-0 dot-grid opacity-60" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(80,140,235,0.16),transparent_55%)]" />
+      <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#08090b] to-transparent" />
 
-      {/* Floating background notes */}
-      <div className="absolute top-20 left-20 w-64 h-32 bg-white/60 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 rotate-3 animate-pulse opacity-40" />
-      <div className="absolute top-40 right-32 w-48 h-24 bg-blue-50/80 backdrop-blur-xl rounded-2xl shadow-lg border border-blue-100/30 -rotate-2 animate-pulse opacity-30 delay-1000" />
-      <div className="absolute bottom-32 left-32 w-56 h-28 bg-purple-50/70 backdrop-blur-xl rounded-2xl shadow-lg border border-purple-100/20 rotate-1 animate-pulse opacity-35 delay-500" />
+      <div className="relative z-10 w-full max-w-5xl mx-auto text-center">
+        <div className="inline-flex items-center gap-2 mb-8 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-[13px] text-white/60 backdrop-blur-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          Native macOS · lives in your menubar · no dock icon
+        </div>
 
-      <div className="relative z-10 text-center max-w-4xl mx-auto">
-        <Badge variant="outline" className="mb-8 border-slate-200 text-slate-600 bg-white/50 backdrop-blur-sm rounded-xl">
-          <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse" />
-          Now Available
-        </Badge>
-
-        <h1 className="font-display text-6xl md:text-8xl font-extralight mb-8 text-slate-900 leading-[0.9] tracking-tight">
-          Floating Notes
-          <br />
-          <span className="font-light bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
-            Reimagined
-          </span>
+        <h1 className="font-display text-6xl md:text-8xl font-medium tracking-tight text-white leading-[0.95] mb-4">
+          Blink
         </h1>
-
-        <p className="font-text text-xl md:text-2xl text-slate-600 mb-12 max-w-3xl mx-auto leading-relaxed font-light">
-          The next generation of note-taking. Create beautiful floating windows that stay exactly where you need them.
-          Always accessible, never in the way.
+        <p className="font-display text-2xl md:text-4xl font-light tracking-tight mb-7">
+          <span className="bg-gradient-to-r from-white to-white/55 bg-clip-text text-transparent">
+            Spatial notes for your Mac.
+          </span>
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+        <p className="font-text text-lg text-white/55 max-w-2xl mx-auto leading-relaxed mb-9">
+          A menubar app for macOS. Press <span className="text-white/80">⌃⌥⇧⌘N</span> anywhere and a
+          borderless glass note lands on your screen — placed in space and remembered there. Plain markdown
+          you own, keyboard-first, and open to your agents.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-14">
           <Button
             asChild
             size="lg"
-            className="bg-slate-900 text-white hover:bg-slate-800 px-8 py-4 text-base font-medium rounded-xl transition-all duration-200 shadow-lg"
+            className="bg-white text-slate-900 hover:bg-white/90 px-7 py-4 text-base font-medium rounded-xl shadow-lg"
           >
             <a href="https://github.com/arach/blink/releases/latest" target="_blank" rel="noopener noreferrer">
               <Download className="mr-2 w-4 h-4" />
-              Download Free
+              Download for macOS
             </a>
           </Button>
           <Button
             asChild
             size="lg"
             variant="outline"
-            className="border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-4 text-base bg-white/50 backdrop-blur-sm rounded-xl"
+            className="border-white/15 text-white/80 hover:bg-white/[0.06] hover:text-white px-7 py-4 text-base bg-transparent rounded-xl"
           >
             <a href="https://github.com/arach/blink" target="_blank" rel="noopener noreferrer">
-              <Play className="mr-2 w-4 h-4" />
+              <Github className="mr-2 w-4 h-4" />
               View on GitHub
             </a>
           </Button>
         </div>
 
-        {/* The real thing: a borderless note floating on the desktop */}
-        <div className="mb-16 max-w-5xl mx-auto">
+        {/* The real thing: a borderless glass note on the desktop */}
+        <div className="relative max-w-4xl mx-auto">
+          <div className="absolute -inset-x-8 -top-8 bottom-0 bg-[radial-gradient(ellipse_at_center,rgba(90,150,240,0.14),transparent_70%)] blur-2xl" />
           <img
             src="/hero-desk.png"
             alt="A Blink note floating over the desktop — borderless dark glass, edge-to-edge markdown"
-            className="w-full rounded-2xl shadow-2xl ring-1 ring-slate-900/10"
+            className="relative w-full rounded-2xl border border-white/10 shadow-2xl shadow-black/60"
           />
         </div>
 
-        {/* Key features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
-          {[
-            { label: "New Note, Anywhere", value: ["⌃⌥⇧⌘", "N"] },
-            { label: "Always on Top", value: ["Stays Visible"] },
-            { label: "Instant Access", value: ["< 100ms"] },
-          ].map((item, index) => (
-            <div key={index} className="text-center">
-              <div className="flex items-center justify-center space-x-1 mb-2">
-                {Array.isArray(item.value) ? (
-                  item.value.map((key, keyIndex) => (
-                    <span
-                      key={keyIndex}
-                      className="inline-flex items-center justify-center min-w-[2rem] h-8 px-2 bg-white border border-slate-300 rounded-xl shadow-sm font-mono text-sm font-medium text-slate-700"
-                    >
-                      {key}
-                    </span>
-                  ))
-                ) : (
-                  <span className="font-display text-lg font-medium text-slate-900">{item.value}</span>
-                )}
-              </div>
-              <div className="font-text text-sm text-slate-500 uppercase tracking-wider">{item.label}</div>
-            </div>
-          ))}
+        {/* Honest, real specs */}
+        <div className="mt-12 flex flex-wrap items-center justify-center gap-x-10 gap-y-4 text-sm text-white/45">
+          <span className="inline-flex items-center gap-2">
+            <Chord keys={["⌃⌥⇧⌘", "N"]} /> new note, anywhere
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Keycap>&lt; 100ms</Keycap> from keystroke to note
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <Keycap>.md</Keycap> your files, plain markdown
+          </span>
         </div>
       </div>
     </section>

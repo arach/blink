@@ -1,90 +1,104 @@
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Download, Github, Star, Users } from "lucide-react"
+import { Download, Github } from "lucide-react"
+import { Glass, Eyebrow } from "@/components/kit"
+
+const facts = [
+  { value: "Free & open source", label: "MIT-spirited, on GitHub" },
+  { value: "≈ 50 MB native", label: "Swift + AppKit, no Electron" },
+  { value: "No account, no cloud", label: "Your notes never leave your Mac" },
+]
 
 export default function DownloadSection() {
   return (
-    <section id="download" className="py-32 px-4 bg-gradient-to-b from-slate-50/50 to-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-20">
-          <Badge variant="outline" className="mb-6 border-slate-200 text-slate-600 bg-white/50 rounded-xl">
-            Ready to Start
-          </Badge>
-          <h2 className="font-display text-5xl md:text-6xl font-extralight text-slate-900 mb-6 leading-tight">
-            Get Started Today
-          </h2>
-          <p className="font-text text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed mb-12">
-            Join thousands of users who have transformed their note-taking workflow. Free download, no account required.
-          </p>
+    <section id="download" className="relative py-28 px-4">
+      <div className="max-w-4xl mx-auto text-center">
+        <div className="flex justify-center mb-5">
+          <Eyebrow>Get Blink</Eyebrow>
+        </div>
+        <h2 className="font-display text-4xl md:text-5xl font-light tracking-tight text-white mb-5 leading-[1.05]">
+          Free, open source, and yours.
+        </h2>
+        <p className="font-text text-lg text-white/55 max-w-xl mx-auto leading-relaxed mb-10">
+          A single native app for macOS. No account, no sign-in — download it, press{" "}
+          <span className="text-white/80">⌃⌥⇧⌘N</span>, and start.
+        </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button
-              asChild
-              size="lg"
-              className="bg-slate-900 text-white hover:bg-slate-800 px-8 py-4 text-base font-medium rounded-xl shadow-lg"
-            >
-              <a href="https://github.com/arach/blink/releases/latest" target="_blank" rel="noopener noreferrer">
-                <Download className="mr-2 w-5 h-5" />
-                Download for macOS
-              </a>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-4 text-base bg-white rounded-xl"
-            >
-              <a href="https://github.com/arach/blink" target="_blank" rel="noopener noreferrer">
-                <Github className="mr-2 w-5 h-5" />
-                View on GitHub
-              </a>
-            </Button>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-14">
+          <Button
+            asChild
+            size="lg"
+            className="bg-white text-slate-900 hover:bg-white/90 px-7 py-4 text-base font-medium rounded-xl shadow-lg"
+          >
+            <a href="https://github.com/arach/blink/releases/latest" target="_blank" rel="noopener noreferrer">
+              <Download className="mr-2 w-4 h-4" />
+              Download for macOS
+            </a>
+          </Button>
+          <Button
+            asChild
+            size="lg"
+            variant="outline"
+            className="border-white/15 text-white/80 hover:bg-white/[0.06] hover:text-white px-7 py-4 text-base bg-transparent rounded-xl"
+          >
+            <a href="https://github.com/arach/blink" target="_blank" rel="noopener noreferrer">
+              <Github className="mr-2 w-4 h-4" />
+              View on GitHub
+            </a>
+          </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-          {[
-            { icon: Users, label: "Active Users", value: "12,000+" },
-            { icon: Star, label: "GitHub Stars", value: "2,400+" },
-            { icon: Download, label: "Downloads", value: "50,000+" },
-          ].map((stat, index) => (
-            <Card key={index} className="bg-white/60 backdrop-blur-xl border border-white/30 shadow-lg rounded-2xl">
-              <CardContent className="p-8 text-center">
-                <stat.icon className="w-8 h-8 text-slate-600 mx-auto mb-4" />
-                <div className="font-display text-3xl font-light text-slate-900 mb-2">{stat.value}</div>
-                <div className="font-text text-slate-600">{stat.label}</div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-16">
+          {facts.map((f) => (
+            <Glass key={f.value} className="p-6">
+              <div className="font-display text-lg font-medium text-white mb-1">{f.value}</div>
+              <div className="font-text text-[13px] text-white/45">{f.label}</div>
+            </Glass>
           ))}
         </div>
 
-        {/* System Requirements */}
-        <Card className="bg-white/40 backdrop-blur-xl border border-white/30 shadow-lg rounded-2xl">
-          <CardContent className="p-8">
-            <h3 className="font-display text-xl font-medium text-slate-900 mb-6 text-center">System Requirements</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                <h4 className="font-text font-medium text-slate-700 mb-3">macOS</h4>
-                <ul className="font-text text-sm text-slate-600 space-y-1">
-                  <li>• macOS 11.0 or later</li>
-                  <li>• Apple Silicon or Intel processor</li>
-                  <li>• 50MB free disk space</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-text font-medium text-slate-700 mb-3">Features</h4>
-                <ul className="font-text text-sm text-slate-600 space-y-1">
-                  <li>• Global keyboard shortcuts</li>
-                  <li>• Always on top windows</li>
-                  <li>• Automatic updates</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Glass className="p-7 text-left">
+          <h3 className="font-text font-medium text-white/70 mb-5 text-center text-xs uppercase tracking-[0.16em]">
+            Requirements
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-2.5 max-w-xl mx-auto font-text text-sm text-white/50">
+            {[
+              ["macOS 13 (Ventura) or later", "Apple Silicon or Intel", "~50 MB free disk space"],
+              [
+                "Lives in the menubar — no dock icon",
+                "Global hotkeys, no extra permissions",
+                "Notes are plain markdown you own",
+              ],
+            ].map((col, i) => (
+              <ul key={i} className="space-y-2.5">
+                {col.map((item) => (
+                  <li key={item} className="flex gap-2.5 leading-5">
+                    <span className="text-sky-300/40 select-none">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </Glass>
       </div>
+
+      <footer className="max-w-6xl mx-auto mt-24 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="font-display text-white/70">
+          Blink<span className="text-white/30"> — spatial notes for your Mac</span>
+        </div>
+        <div className="flex items-center gap-6 font-text text-[13px] text-white/40">
+          <a href="https://github.com/arach/blink" className="hover:text-white/70 transition-colors">
+            GitHub
+          </a>
+          <a
+            href="https://github.com/arach/blink/releases/latest"
+            className="hover:text-white/70 transition-colors"
+          >
+            Releases
+          </a>
+          <span>Native · open source</span>
+        </div>
+      </footer>
     </section>
   )
 }
