@@ -26,6 +26,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var isTerminating = false
     private var blinkHidden = false
     private lazy var focusOverlay = FocusOverlay()
+    private lazy var drapeOverlay = DrapeOverlay()
     private var gridOverlay: GridOverlay?
     private var mostRecentKeyPanelID: String?
     private let log = HudLogger(category: "blink.panels")
@@ -462,6 +463,22 @@ final class PanelManager: NSObject, NSWindowDelegate {
             focusOverlay.hide()
         }
         updateFocusRecede(keyPanel: keyPanel)
+        updateDrape()
+    }
+
+    /// The drape (config.json → drape) parks behind every note whenever notes are
+    /// on screen and neither the blink nor the grid has taken over — the same
+    /// gates as the focus overlay, so the two backdrops never fight.
+    private func updateDrape() {
+        let drape = BlinkConfigStore.shared.config.drape
+        if drape.enabled,
+           !panels.isEmpty,
+           !blinkHidden,
+           gridOverlay?.isVisible != true {
+            drapeOverlay.show()
+        } else {
+            drapeOverlay.hide()
+        }
     }
 
     /// Focus recede: while a panel has focus mode on, its non-key peers get a
@@ -515,6 +532,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
         if gridOverlay?.isVisible == false {
             focusOverlay.hide()
+            drapeOverlay.hide()
         }
         gridOverlay?.toggle()
         log.info(
@@ -537,6 +555,12 @@ final class PanelManager: NSObject, NSWindowDelegate {
             panel.applyTheme(config)
         }
         focusOverlay.applyTheme(dim: config.focus.dim)
+        drapeOverlay.applyTheme(
+            dim: config.drape.dim,
+            material: config.drape.visualEffectMaterial,
+            opacity: config.drape.opacity
+        )
+        updateDrape()
         // Motion changes (e.g. disabling it) can flip whether peers should be
         // receded — re-evaluate against the live key panel.
         updateFocusRecede(keyPanel: panels.values.first { $0.isKeyWindow })
@@ -660,6 +684,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         for id in Array(revealCompletionTasks.keys) { discardTypedReveal(id: id) }
         gridOverlay?.hide()
         focusOverlay.hide()
+        drapeOverlay.hide()
     }
 
     /// Flush every pending save. Called before quit.
