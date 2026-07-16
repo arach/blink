@@ -44,12 +44,21 @@ async function downloadTo(url, dest) {
 }
 
 async function latestDmgUrl() {
-  const res = await httpsGet(`https://api.github.com/repos/${REPO}/releases/latest`);
+  const res = await httpsGet(`https://api.github.com/repos/${REPO}/releases?per_page=30`);
   const chunks = [];
   for await (const chunk of res) chunks.push(chunk);
-  const release = JSON.parse(Buffer.concat(chunks).toString());
+  const releases = JSON.parse(Buffer.concat(chunks).toString());
+  const release = Array.isArray(releases)
+    ? releases.find(
+        (candidate) =>
+          !candidate.draft && /^v2(?:\.|$)/.test(candidate.tag_name ?? "")
+      )
+    : undefined;
+  if (!release) throw new Error("no compatible Blink 2 release is available yet");
   const assets = Array.isArray(release.assets) ? release.assets : [];
-  const dmg = assets.find((a) => a.name.endsWith(".dmg"));
+  const dmg =
+    assets.find((asset) => asset.name === "Blink.dmg") ??
+    assets.find((asset) => /^Blink(?:-[\w.-]+)?\.dmg$/.test(asset.name));
   if (!dmg) throw new Error("no .dmg asset in the latest release");
   return dmg.browser_download_url;
 }
@@ -172,6 +181,6 @@ try {
   }
 } catch (error) {
   console.error(`blink-app: ${error.message}`);
-  console.error(`Download manually: https://github.com/${REPO}/releases/latest`);
+  console.error(`Download manually: https://github.com/${REPO}/releases`);
   process.exit(1);
 }

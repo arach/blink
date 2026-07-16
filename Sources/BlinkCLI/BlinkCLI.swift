@@ -16,7 +16,7 @@ struct BlinkCommand: AsyncParsableCommand {
         else ~/Library/Application Support/Blink/Notes. Every command takes \
         --json for structured output.
         """,
-        version: "0.1.0",
+        version: "2.0.0-alpha.3",
         subcommands: [
             Ls.self, Cat.self, New.self, Present.self, Append.self, Type.self, Write.self,
             Search.self, Rm.self, PathCommand.self,
