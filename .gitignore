@@ -24,6 +24,9 @@ logs
 .openscout/project.json
 data/.claude/
 
+# Signing secrets (keep the .example, ignore the real one)
+Config/signing.env
+
 # Local planning and design tooling
 design/
 docs/functionality-v1.md

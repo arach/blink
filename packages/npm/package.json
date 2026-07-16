@@ -1,0 +1,46 @@
+{
+  "name": "@arach/blink",
+  "version": "2.0.0-alpha.2",
+  "description": "Blink — native macOS spatial notes. A CLI for agents to author, style, and place notes, plus an installer for the menubar app.",
+  "homepage": "https://github.com/arach/blink",
+  "bugs": {
+    "url": "https://github.com/arach/blink/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arach/blink.git",
+    "directory": "packages/npm"
+  },
+  "license": "MIT",
+  "type": "module",
+  "os": ["darwin"],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "blink": "./bin/blink.mjs",
+    "blink-app": "./bin/blink-app.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "blink",
+    "notes",
+    "macos",
+    "menubar",
+    "cli",
+    "agents",
+    "spatial",
+    "markdown"
+  ],
+  "scripts": {
+    "prepack": "bash ../../tools/release/build-cli.sh"
+  }
+}
