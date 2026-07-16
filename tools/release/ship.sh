@@ -7,7 +7,7 @@
 #
 # Env:
 #   BLINK_RELEASE_REPO    default: arach/blink
-#   BLINK_RELEASE_TARGET  default: main
+#   BLINK_RELEASE_TARGET  remote ref local HEAD must match (default: main)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -20,8 +20,12 @@ TAG="v${VERSION}"
 DRY_RUN=0
 SKIP_DMG=0
 TMP=""
+NOTES=""
 
-cleanup() { [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP" || true; }
+cleanup() {
+    [ -n "$TMP" ] && [ -d "$TMP" ] && rm -rf "$TMP" || true
+    [ -n "$NOTES" ] && rm -f "$NOTES" || true
+}
 trap cleanup EXIT
 
 run() {
@@ -41,6 +45,37 @@ done
 
 command -v gh >/dev/null || { echo "Error: gh not found" >&2; exit 1; }
 cd "$ROOT"
+
+SOURCE_SHA="$(git rev-parse HEAD)"
+
+if [ "$DRY_RUN" -eq 0 ]; then
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "Error: tracked changes are present; release assets must come from a clean commit." >&2
+        exit 1
+    fi
+    UNTRACKED_INPUTS="$(git ls-files --others --exclude-standard -- \
+        Sources Package.swift Package.resolved assets Config web/editor packages/npm tools/release)"
+    if [ -n "$UNTRACKED_INPUTS" ]; then
+        echo "Error: untracked release inputs are present:" >&2
+        printf '  %s\n' "$UNTRACKED_INPUTS" >&2
+        exit 1
+    fi
+    if [ "${BLINK_SKIP_SIGN:-0}" = "1" ]; then
+        echo "Error: refusing to publish release assets with BLINK_SKIP_SIGN=1." >&2
+        exit 1
+    fi
+
+    REMOTE_SHA="$(gh api "repos/$REPO/commits/$TARGET" --jq .sha 2>/dev/null || true)"
+    if [ -z "$REMOTE_SHA" ]; then
+        echo "Error: could not resolve release target '$TARGET' in $REPO." >&2
+        exit 1
+    fi
+    if [ "$SOURCE_SHA" != "$REMOTE_SHA" ]; then
+        echo "Error: local HEAD $SOURCE_SHA does not match $REPO:$TARGET ($REMOTE_SHA)." >&2
+        echo "Push or check out the intended release commit before shipping." >&2
+        exit 1
+    fi
+fi
 
 ASSETS=()
 
@@ -80,15 +115,22 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "==> DRY RUN: would create/update release $TAG in $REPO with:"
     printf '   - %s\n' "${ASSETS[@]}"
 elif gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+    TAG_SHA="$(gh api "repos/$REPO/commits/$TAG" --jq .sha 2>/dev/null || true)"
+    if [ "$TAG_SHA" != "$SOURCE_SHA" ]; then
+        echo "Error: existing tag $TAG resolves to ${TAG_SHA:-unknown}, not local HEAD $SOURCE_SHA." >&2
+        echo "Refusing to replace assets for a different source commit." >&2
+        exit 1
+    fi
     echo "==> Updating release $TAG in $REPO..."
     gh release edit "$TAG" --repo "$REPO" --title "Blink $VERSION" --notes-file "$NOTES"
     gh release upload "$TAG" "${ASSETS[@]}" --repo "$REPO" --clobber
 else
     echo "==> Creating release $TAG in $REPO..."
-    gh release create "$TAG" "${ASSETS[@]}" --repo "$REPO" --target "$TARGET" \
+    gh release create "$TAG" "${ASSETS[@]}" --repo "$REPO" --target "$SOURCE_SHA" \
         --title "Blink $VERSION" --notes-file "$NOTES"
 fi
 rm -f "$NOTES"
+NOTES=""
 
 echo ""
 [ "$DRY_RUN" -eq 1 ] && echo "==> Dry run complete for $TAG" || echo "==> Shipped $TAG to $REPO"

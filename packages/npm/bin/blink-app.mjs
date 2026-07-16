@@ -2,10 +2,16 @@
 // Install and launch the Blink menubar app. If Blink.app isn't in /Applications,
 // download the latest signed DMG from the GitHub release and install it, then
 // open it. `blink-app update` forces a re-download.
-import { execFileSync, execSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, createWriteStream } from "node:fs";
+import { execFileSync } from "node:child_process";
+import {
+  createWriteStream,
+  existsSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { get } from "node:https";
 
 const REPO = "arach/blink";
@@ -51,13 +57,79 @@ async function latestDmgUrl() {
 function installFromDmg(dmgPath) {
   const mount = mkdtempSync(join(tmpdir(), "blink-mount-"));
   try {
-    execSync(`hdiutil attach -nobrowse -readonly -mountpoint '${mount}' '${dmgPath}'`, { stdio: "pipe" });
+    execFileSync(
+      "spctl",
+      [
+        "--assess",
+        "--type",
+        "open",
+        "--context",
+        "context:primary-signature",
+        dmgPath,
+      ],
+      { stdio: "pipe" }
+    );
+    execFileSync(
+      "hdiutil",
+      ["attach", "-nobrowse", "-readonly", "-mountpoint", mount, dmgPath],
+      { stdio: "pipe" }
+    );
     const mounted = resolve(mount, "Blink.app");
     if (!existsSync(mounted)) throw new Error("Blink.app not found in DMG");
-    rmSync(APP_PATH, { recursive: true, force: true });
-    execSync(`cp -R '${mounted}' '${APP_PATH}'`);
+
+    // Stage and validate the complete replacement on the destination volume
+    // before touching the currently installed app.
+    const transaction = mkdtempSync(join(dirname(APP_PATH), ".blink-install-"));
+    const staged = join(transaction, "Blink.app");
+    const backup = join(transaction, "Previous-Blink.app");
+    let preserveTransaction = false;
+    try {
+      execFileSync("ditto", [mounted, staged], { stdio: "pipe" });
+      execFileSync("codesign", ["--verify", "--deep", "--strict", staged], {
+        stdio: "pipe",
+      });
+      const installedBundleID = execFileSync(
+        "plutil",
+        [
+          "-extract",
+          "CFBundleIdentifier",
+          "raw",
+          join(staged, "Contents", "Info.plist"),
+        ],
+        { encoding: "utf8" }
+      ).trim();
+      if (installedBundleID !== BUNDLE_ID) {
+        throw new Error(`unexpected app bundle identifier: ${installedBundleID}`);
+      }
+
+      const hadExistingApp = existsSync(APP_PATH);
+      if (hadExistingApp) renameSync(APP_PATH, backup);
+      try {
+        renameSync(staged, APP_PATH);
+      } catch (error) {
+        if (hadExistingApp && existsSync(backup)) {
+          try {
+            renameSync(backup, APP_PATH);
+          } catch (restoreError) {
+            preserveTransaction = true;
+            throw new Error(
+              `install failed and the previous app could not be restored; it remains at ${backup}: ${restoreError.message}`,
+              { cause: error }
+            );
+          }
+        }
+        throw error;
+      }
+      rmSync(backup, { recursive: true, force: true });
+    } finally {
+      if (!preserveTransaction) {
+        rmSync(transaction, { recursive: true, force: true });
+      }
+    }
   } finally {
-    try { execSync(`hdiutil detach '${mount}' -quiet`, { stdio: "pipe" }); } catch {}
+    try {
+      execFileSync("hdiutil", ["detach", mount, "-quiet"], { stdio: "pipe" });
+    } catch {}
     rmSync(mount, { recursive: true, force: true });
   }
 }

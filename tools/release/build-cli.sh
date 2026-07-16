@@ -32,8 +32,11 @@ if [ "$SKIP_SIGN" = "1" ]; then
 elif [ -n "$SIGN_IDENTITY" ]; then
     echo "==> Signing blink CLI ($SIGN_IDENTITY)..."
     codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$OUT_DIR/blink"
+    codesign --verify --strict --verbose=2 "$OUT_DIR/blink"
 else
-    echo "==> No Developer ID identity found — leaving blink CLI unsigned." >&2
+    echo "Error: no Developer ID Application identity found." >&2
+    echo "Set BLINK_SIGN_IDENTITY, or use BLINK_SKIP_SIGN=1 only for a local smoke build." >&2
+    exit 1
 fi
 
 echo "==> blink CLI at $OUT_DIR/blink"

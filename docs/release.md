@@ -34,10 +34,11 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
 # 0. bump the version
 #    edit packages/npm/package.json  ->  "version": "2.0.0-alpha.2"
 
-# 1. dry-run the GitHub release (builds CLI, prints what it would upload)
+# 1. preview the build commands and GitHub release assets
 ./tools/release/ship.sh --dry-run
 
-# 2. build + sign + notarize + staple the DMG and CLI, publish the GH release
+# 2. from a clean, pushed commit: build + sign + notarize + staple the DMG and
+#    CLI, then publish the GH release
 ./tools/release/ship.sh
 #    -> creates/updates tag v<version> on arach/blink with Blink.dmg + blink-macos-arm64
 
@@ -52,7 +53,13 @@ cd packages/npm && npm publish
 ./tools/release/build-cli.sh             # just the signed CLI -> packages/npm/dist/blink
 BLINK_SKIP_NOTARIZE=1 ./tools/release/build-dmg.sh   # sign but skip notarization (faster)
 BLINK_SKIP_SIGN=1 ./tools/release/build-dmg.sh       # unsigned local smoke build
+BLINK_SKIP_SIGN=1 ./tools/release/build-cli.sh       # unsigned local CLI smoke build
 ```
+
+`ship.sh` never publishes unsigned assets. It also verifies that tracked files
+and release inputs are clean, local `HEAD` matches the configured remote target,
+and an existing release tag still points at that exact commit before replacing
+assets.
 
 ## CI (follow-on)
 

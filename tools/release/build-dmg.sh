@@ -53,7 +53,10 @@ swift build -c release --product BlinkApp
 BIN_PATH="$(swift build -c release --product BlinkApp --show-bin-path)/BlinkApp"
 
 echo "==> Assembling $APP_NAME.app"
-rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+# Preserve sibling release assets (notably blink-macos-arm64, which ship.sh
+# builds before the DMG). Only replace the outputs owned by this script.
+rm -rf "$BUNDLE" "$DMG_PATH"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN_PATH" "$BUNDLE/Contents/MacOS/$APP_NAME"
 chmod +x "$BUNDLE/Contents/MacOS/$APP_NAME"
