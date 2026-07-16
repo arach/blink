@@ -34,19 +34,40 @@ exit code 1.
 blink ls [--limit N] [--json]     # list notes, most recently updated first
 blink cat <id> [--json]           # print content (exact bytes); --json adds all metadata
 blink new [text ...] [--json]     # create from args or stdin; prints the assigned id
+blink present <id> [text ...] [--style … --slot … …] [--json]  # create/update content + presentation
 blink append <id> [text ...] [--json]  # append a line from args or stdin; prints the id
+blink type <id> [text ...] [--json]    # append text the open panel types on (the visible hand)
+blink write <id> [text ...] [--json]   # replace content wholesale, silently (no typed reveal)
 blink search <query> [--json]     # case-insensitive substring over title + content
 blink rm <id> [--json]            # delete a note
 blink path [<id>]                 # the notes directory, or a note's file path
 ```
+
+`present` is the compound arrival verb: it sets a note's markdown **and** its
+`blink:` presentation (see `notes-representation.md`) in one write, get-or-create
+by id. Only the fields you pass change; the rest are preserved. Its options mirror
+the `blink:` keys: `--style --sheet --accent --font --font-size --line-height
+--tint --tint-read --tint-edit --radius --slot`. `--slot 1–9` is placement intent
+for the grid. Omit the text to change presentation alone.
+
+`type` and `write` are the two ways to change a note's body, and they differ only
+in *how the open panel reacts*: `type` appends an anchored suffix, so the running
+app reveals it character by character (the visible hand); `write` replaces the
+whole body, so the panel updates in place with no animation. `append` is the
+established sibling of `type` (identical behavior). All three preserve presentation
+and foreign frontmatter.
 
 Examples:
 
 ```sh
 blink new "grocery run"                    # → grocery-run
 printf '# Standup\n\n- ship CLI\n' | blink new --json
+blink present q3-planning "# Q3 Planning" --style focus --slot 6   # content + look + place
+blink present q3-planning --accent "#9ece6a"   # presentation-only; body untouched
 blink append grocery-run "- oat milk"      # types on live if the panel is open
+blink type standup "shipped the CLI verbs"     # same visible-hand reveal, phrasebook name
 printf '%s\n' '- ship docs' | blink append standup --json
+blink write standup < revised-standup.md       # replace the body, no animation
 blink cat grocery-run
 blink search standup --json | jq '.[0].id'
 open "$(blink path grocery-run)"           # hand the file to anything
