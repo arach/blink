@@ -32,7 +32,7 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
 
 ```sh
 # 0. bump the version
-#    edit packages/npm/package.json  ->  "version": "2.0.0-alpha.4"
+#    edit packages/npm/package.json  ->  "version": "2.0.0-alpha.5"
 
 # 1. preview the build commands and GitHub release assets
 ./tools/release/ship.sh --dry-run

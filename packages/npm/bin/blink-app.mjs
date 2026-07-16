@@ -49,10 +49,20 @@ async function latestDmgUrl() {
   for await (const chunk of res) chunks.push(chunk);
   const releases = JSON.parse(Buffer.concat(chunks).toString());
   const release = Array.isArray(releases)
-    ? releases.find(
-        (candidate) =>
-          !candidate.draft && /^v2(?:\.|$)/.test(candidate.tag_name ?? "")
-      )
+    ? releases
+        .filter(
+          (candidate) =>
+            !candidate.draft && /^v2(?:\.|$)/.test(candidate.tag_name ?? "")
+        )
+        // GitHub may surface its "latest" stable release ahead of a newer
+        // prerelease, so make recency explicit instead of trusting API order.
+        .sort((a, b) => {
+          const publishedA =
+            Date.parse(a.published_at ?? a.created_at ?? "") || 0;
+          const publishedB =
+            Date.parse(b.published_at ?? b.created_at ?? "") || 0;
+          return publishedB - publishedA;
+        })[0]
     : undefined;
   if (!release) throw new Error("no compatible Blink 2 release is available yet");
   const assets = Array.isArray(release.assets) ? release.assets : [];
