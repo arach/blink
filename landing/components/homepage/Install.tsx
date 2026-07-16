@@ -1,4 +1,5 @@
 import { SectionHeader, PrimaryButton, GhostButton } from './shared'
+import { BlinkMark } from './BlinkMark'
 
 const REQS: [string, string][] = [
   ['os', 'macOS 14 (Sonoma) or later'],
@@ -118,9 +119,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="text-[12px]">
             <span className="flex items-center gap-2 font-bold text-[var(--text)]">
-              <span className="flex h-[16px] w-[16px] items-center justify-center rounded-[4px] border border-[rgba(var(--acc-rgb),0.5)] text-[9px] text-acc leading-none">
-                ▚
-              </span>
+              <BlinkMark className="h-[16px] w-[16px] text-acc" />
               blink
             </span>
             <p className="mt-2 text-[11px] text-faintx">spatial notes for your Mac — placed in space, remembered there.</p>

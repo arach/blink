@@ -67,9 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            let image = NSImage(systemSymbolName: "eye", accessibilityDescription: "Blink")
-            image?.isTemplate = true
-            button.image = image
+            button.image = BlinkIcon.menuBar(armed: false)
             button.target = self
             button.action = #selector(statusItemClicked(_:))
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -229,12 +227,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem.button else { return }
         let popover = makePopover()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        setMenuBarArmed(true)
         popover.contentViewController?.view.window?.makeKey()
     }
 
     func popoverDidClose(_ notification: Notification) {
+        setMenuBarArmed(false)
         popover?.contentViewController = nil
         popover = nil
+    }
+
+    private func setMenuBarArmed(_ armed: Bool) {
+        statusItem?.button?.image = BlinkIcon.menuBar(armed: armed)
     }
 
     private func makePopover() -> NSPopover {

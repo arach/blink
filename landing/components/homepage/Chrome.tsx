@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ThemeSwitcher } from './ThemeSwitcher'
+import { BlinkMark } from './BlinkMark'
 
 const LINKS = [
   { href: '#architecture', label: 'arch' },
@@ -30,9 +31,7 @@ export function TopBar() {
     <header className="fixed top-0 inset-x-0 z-50 border-b border-linex bg-[rgba(var(--bg-rgb),0.82)] backdrop-blur-md">
       <div className="mx-auto flex h-12 max-w-6xl items-center justify-between px-4 md:px-6">
         <a href="#top" className="flex items-center gap-2.5 text-[13px] font-bold text-[var(--text)]">
-          <span className="flex h-[18px] w-[18px] items-center justify-center rounded-[4px] border border-[rgba(var(--acc-rgb),0.5)] text-[10px] text-acc leading-none">
-            ▚
-          </span>
+          <BlinkMark className="h-[18px] w-[18px] text-acc" />
           blink
           <span className="hidden md:inline text-[11px] font-normal text-faintx">v2 · menubar resident</span>
         </a>

@@ -50,6 +50,11 @@ for resource_bundle in "$(dirname "$bin_path")"/*.bundle; do
   ditto "$resource_bundle" "$app_path/Contents/Resources/$(basename "$resource_bundle")"
 done
 
+icon="$repo_root/assets/AppIcon.icns"
+if [[ -f "$icon" ]]; then
+  cp "$icon" "$app_path/Contents/Resources/AppIcon.icns"
+fi
+
 # Editor web bundle (built separately: cd web/editor && bun run build).
 editor_html="$repo_root/web/editor/dist/editor.html"
 if [[ -f "$editor_html" ]]; then
@@ -75,6 +80,8 @@ cat > "$app_path/Contents/Info.plist" <<PLIST
   <string>${app_name}</string>
   <key>CFBundleDisplayName</key>
   <string>${app_name}</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
