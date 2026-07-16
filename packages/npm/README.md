@@ -24,7 +24,9 @@ Native floating notes for macOS, with an agent-first CLI over the same local Mar
 ## Zero to a spatial note
 
 ```sh
-npm install -g @arach/blink
+npm install -g @arach/blink  # install the CLI + app installer command
+blink app install            # fetch + install Blink.app in /Applications
+blink app open               # launch the installed menubar app
 
 # Create content, presentation, and placement in one atomic write.
 blink present q3-plan "# Q3 plan\n\nShip something people love." \
@@ -62,17 +64,19 @@ blink rm grocery-run                             # delete
 Every mutation uses Blink's atomic file store. The running app reconciles
 external writes and reflects them across the menubar, palette, and open panels.
 
-### `blink-app` — install and launch
+### `blink app` — install and launch
 
 ```sh
-blink-app          # install the newest compatible Blink 2 release, then launch
-blink-app update   # replace it with the newest compatible release
-blink-app path     # print the installed app path
+blink app install   # fetch, validate, and install/reinstall the newest Blink 2
+blink app update    # explicitly refresh the installed app
+blink app open      # launch the installed menubar app
+blink app path      # print /Applications/Blink.app
 ```
 
-`blink-app` accepts only a signed Blink 2 DMG, validates its bundle identity,
-stages the replacement in `/Applications`, and preserves the previous app if
-the swap fails.
+The shorter `blink-app` command remains available as a compatibility alias.
+Both paths accept only a signed Blink 2 DMG, validate its bundle identity, stage
+the replacement in `/Applications`, and preserve the previous app if the swap
+fails.
 
 ## An API made of files
 

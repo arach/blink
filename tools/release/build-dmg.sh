@@ -21,6 +21,15 @@ DMG_PATH="$BUILD_DIR/$APP_NAME.dmg"
 ENTITLEMENTS="$SCRIPT_DIR/Blink.entitlements"
 BUNDLE_ID="dev.arach.blink"
 VERSION="${1:-$(node -p "require(process.argv[1]).version" "$ROOT/packages/npm/package.json" 2>/dev/null || echo '2.0.0')}"
+MARKETING_VERSION="${VERSION%%-*}"
+BUNDLE_VERSION="$MARKETING_VERSION"
+if [[ "$VERSION" =~ -alpha\.([0-9]+)$ ]]; then
+    BUNDLE_VERSION="${MARKETING_VERSION}a${BASH_REMATCH[1]}"
+elif [[ "$VERSION" =~ -beta\.([0-9]+)$ ]]; then
+    BUNDLE_VERSION="${MARKETING_VERSION}b${BASH_REMATCH[1]}"
+elif [[ "$VERSION" =~ -rc\.([0-9]+)$ ]]; then
+    BUNDLE_VERSION="${MARKETING_VERSION}fc${BASH_REMATCH[1]}"
+fi
 
 SKIP_SIGN="${BLINK_SKIP_SIGN:-0}"
 SKIP_NOTARIZE="${BLINK_SKIP_NOTARIZE:-0}"
@@ -91,9 +100,9 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>${VERSION}</string>
+  <string>${MARKETING_VERSION}</string>
   <key>CFBundleVersion</key>
-  <string>${VERSION}</string>
+  <string>${BUNDLE_VERSION}</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>LSUIElement</key>

@@ -143,9 +143,9 @@ function installFromDmg(dmgPath) {
   }
 }
 
-async function ensureInstalled(force) {
+async function ensureInstalled(force, message) {
   if (existsSync(APP_PATH) && !force) return;
-  console.log(force ? "Updating Blink.app…" : "Installing Blink.app from the latest release…");
+  console.log(message ?? "Installing Blink.app from the latest release…");
   const url = await latestDmgUrl();
   const dir = mkdtempSync(join(tmpdir(), "blink-dl-"));
   const dmg = join(dir, "Blink.dmg");
@@ -170,14 +170,24 @@ if (process.platform !== "darwin") {
 
 const cmd = process.argv[2];
 try {
-  if (cmd === "update") {
-    await ensureInstalled(true);
+  if (cmd === "install") {
+    await ensureInstalled(true, "Installing the latest compatible Blink 2 release…");
+  } else if (cmd === "update") {
+    await ensureInstalled(true, "Updating to the latest compatible Blink 2 release…");
+  } else if (cmd === "open") {
+    if (!existsSync(APP_PATH)) {
+      throw new Error("Blink.app is not installed (run `blink app install` first)");
+    }
     launch();
   } else if (cmd === "path") {
     console.log(APP_PATH);
-  } else {
-    await ensureInstalled(false);
+  } else if (cmd === undefined) {
+    await ensureInstalled(false, "Installing Blink.app from the latest release…");
     launch();
+  } else {
+    throw new Error(
+      `unknown command '${cmd}' (expected install, update, open, or path)`
+    );
   }
 } catch (error) {
   console.error(`blink-app: ${error.message}`);
