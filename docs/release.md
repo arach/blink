@@ -1,7 +1,7 @@
 # Shipping Blink
 
-Three artifacts, one version (`packages/npm/package.json` `version` is the source
-of truth):
+Three artifacts, one version (`packages/npm/package.json` `version` is the release
+source of truth; the CLI's compile-time version must match and is checked during builds):
 
 | Artifact | What | Who it's for |
 |---|---|---|
@@ -32,7 +32,8 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
 
 ```sh
 # 0. bump the version
-#    edit packages/npm/package.json  ->  "version": "2.0.0-alpha.5"
+#    edit packages/npm/package.json and Sources/BlinkCLI/BlinkCLI.swift
+#    -> "2.0.0-alpha.6"
 
 # 1. preview the build commands and GitHub release assets
 ./tools/release/ship.sh --dry-run

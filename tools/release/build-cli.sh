@@ -6,6 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OUT_DIR="$ROOT/packages/npm/dist"
+EXPECTED_VERSION="${BLINK_VERSION:-$(node -p "require(process.argv[1]).version" "$ROOT/packages/npm/package.json")}"
 
 SKIP_SIGN="${BLINK_SKIP_SIGN:-0}"
 
@@ -40,4 +41,9 @@ else
 fi
 
 echo "==> blink CLI at $OUT_DIR/blink"
-"$OUT_DIR/blink" --version 2>/dev/null || true
+ACTUAL_VERSION="$("$OUT_DIR/blink" --version)"
+echo "$ACTUAL_VERSION"
+if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
+    echo "Error: CLI version $ACTUAL_VERSION does not match package version $EXPECTED_VERSION." >&2
+    exit 1
+fi
