@@ -33,7 +33,7 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
 ```sh
 # 0. bump the version
 #    edit packages/npm/package.json and Sources/BlinkCLI/BlinkCLI.swift
-#    -> "2.0.0-alpha.6"
+#    -> "2.0.1"
 
 # 1. preview the build commands and GitHub release assets
 ./tools/release/ship.sh --dry-run
@@ -43,8 +43,9 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
 ./tools/release/ship.sh
 #    -> creates/updates tag v<version> on arach/blink with Blink.dmg + blink-macos-arm64
 
-# 3. publish the npm package (prepack builds + signs dist/blink)
-cd packages/npm && npm publish
+# 3. publish npm from the signed GitHub CLI asset
+git tag -a npm-v2.0.1 -m "@arach/blink 2.0.1"
+git push origin npm-v2.0.1
 ```
 
 ### Individual steps
@@ -62,18 +63,15 @@ and release inputs are clean, local `HEAD` matches the configured remote target,
 and an existing release tag still points at that exact commit before replacing
 assets.
 
-## CI (follow-on)
+## npm CI
 
-Two tag-driven GitHub Actions workflows (mirroring Lattices) are the automation
-layer, once the secrets are set — not built yet:
-- `release-app-macos.yml` on `v*` → build/sign/notarize DMG → GH release.
-- `release-package-npm.yml` on `npm-v*` → `npm publish` (runs `prepack` on a
-  macOS runner, so it needs the Hudson read token + Xcode select).
+`.github/workflows/release-package-npm.yml` publishes on `npm-v*`. It downloads
+the matching signed CLI from the GitHub release, verifies its version and code
+signature, then publishes with provenance without rebuilding.
 
-Secrets/vars they need: `DEVELOPER_ID_APPLICATION_CERT_BASE64`,
-`DEVELOPER_ID_APPLICATION_CERT_PASSWORD`, `KEYCHAIN_PASSWORD`,
-`APP_STORE_CONNECT_API_KEY_P8` (+ `KEY_ID`/`ISSUER_ID`), `NPM_TOKEN`,
-`HUDSON_READ_TOKEN`.
+Configure npm trusted publishing for `arach/blink` and that workflow, or add an
+`NPM_TOKEN` secret to the GitHub `release` environment. The token path is a
+fallback; browser login is not part of the release procedure.
 
 ## Known limitations
 
