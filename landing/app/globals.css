@@ -2,102 +2,303 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-  --font-text: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+@layer base {
+  :root {
+    --bg: #0a0a0b;
+    --bg-2: #0c0c0e;
+    --panel: #0f0f11;
+    --panel-2: #121214;
+    --line: #1e1e22;
+    --line-2: #2b2b31;
+    --text: #d8d8dc;
+    --dim: #8e8e96;
+    --faint: #5a5a62;
+    --ghost: #3a3a40;
+    --acc: #f0b45a;
+    --acc-rgb: 240, 180, 90;
+    --acc-soft: rgba(var(--acc-rgb), 0.12);
+    --on-acc: #17120a;  /* text that sits ON the accent (buttons) */
+    --amber: #f0b45a;
+    --cyan: #7cc7e8;
+    --red: #ff7a6e;
+    /* rgb() forms so surfaces/borders/decoration can retint per theme */
+    --bg-rgb: 10, 10, 11;
+    --line-rgb: 30, 30, 34;
+    --grid: rgba(255, 255, 255, 0.028);
+    --demo-surface: #09090b;  /* the interactive demo's canvas */
+    /* code syntax — tuned for a dark surface by default */
+    --syn-key: #7cc7e8; --syn-str: #f0b45a; --syn-num: #f0b45a;
+    --syn-bool: #ff7a6e; --syn-punct: #8e8e96; --syn-comment: #5a5a62;
 
-  /* Dark, glass-forward palette — matches the app's borderless HUD panels. */
-  --background: 222 14% 5%;
-  --foreground: 0 0% 98%;
-  --card: 222 14% 7%;
-  --card-foreground: 0 0% 98%;
-  --popover: 222 14% 6%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 222 14% 8%;
-  --secondary: 220 9% 14%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 220 9% 14%;
-  --muted-foreground: 220 8% 62%;
-  --accent: 205 90% 72%;
-  --accent-foreground: 222 14% 8%;
-  --destructive: 0 62% 45%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 220 12% 18%;
-  --input: 220 12% 18%;
-  --ring: 205 90% 72%;
-  --radius: 0.75rem;
+    --background: 120 14% 3%;
+    --foreground: 120 12% 86%;
+    --card: 120 14% 4%;
+    --card-foreground: 120 12% 86%;
+    --popover: 120 14% 4%;
+    --popover-foreground: 120 12% 86%;
+    --primary: 136 100% 65%;
+    --primary-foreground: 120 30% 5%;
+    --secondary: 120 10% 10%;
+    --secondary-foreground: 120 12% 86%;
+    --muted: 120 10% 10%;
+    --muted-foreground: 120 8% 55%;
+    --accent: 120 10% 10%;
+    --accent-foreground: 136 100% 65%;
+    --destructive: 5 90% 65%;
+    --destructive-foreground: 120 30% 5%;
+    --border: 120 12% 12%;
+    --input: 120 12% 12%;
+    --ring: 136 100% 65%;
+    --radius: 0.375rem;
+  }
+
+  /* Full-palette themes: each overrides the whole surface — background, panels,
+     lines, text tones, the body grid, and accent — so the page changes mood, not
+     just its highlight. Amber (default) lives in :root; set data-theme on <html>. */
+
+  /* green phosphor — a P1 CRT terminal */
+  [data-theme="green"] {
+    --bg: #060907; --bg-2: #080c09; --panel: #0b100c; --panel-2: #0e140f;
+    --line: #17251b; --line-2: #23331f; --text: #c7e8cf; --dim: #7ba883;
+    --faint: #4c6b53; --ghost: #2f4636;
+    --acc: #6ee787; --acc-rgb: 110, 231, 135; --amber: #6ee787;
+    --bg-rgb: 6, 9, 7; --line-rgb: 23, 37, 27; --grid: rgba(110, 231, 135, 0.04);
+  }
+
+  /* blueprint — cool slate + cyan */
+  [data-theme="blue"] {
+    --bg: #070a10; --bg-2: #0a0e16; --panel: #0c111b; --panel-2: #0f1521;
+    --line: #1a2233; --line-2: #26314a; --text: #cdd7ea; --dim: #808da8;
+    --faint: #515d76; --ghost: #333c52;
+    --acc: #7cc7e8; --acc-rgb: 124, 199, 232; --amber: #7cc7e8;
+    --bg-rgb: 7, 10, 16; --line-rgb: 26, 34, 51; --grid: rgba(124, 199, 232, 0.035);
+  }
+
+  /* synth — deep violet + magenta */
+  [data-theme="violet"] {
+    --bg: #0a0810; --bg-2: #0d0a16; --panel: #110c1a; --panel-2: #150f21;
+    --line: #241a33; --line-2: #33264a; --text: #ddd3ea; --dim: #948aa8;
+    --faint: #5c5176; --ghost: #3a3352;
+    --acc: #c792ea; --acc-rgb: 199, 146, 234; --amber: #c792ea;
+    --bg-rgb: 10, 8, 16; --line-rgb: 36, 26, 51; --grid: rgba(199, 146, 234, 0.035);
+  }
+
+  /* paper — a printed man page, ink on warm stock (light) */
+  [data-theme="paper"] {
+    --bg: #e8e2d4; --bg-2: #efeae0; --panel: #f3efe6; --panel-2: #faf7f0;
+    --line: #d5cdb9; --line-2: #c5bba3; --text: #262019; --dim: #6a6250;
+    --faint: #9a927c; --ghost: #c0b8a2;
+    --acc: #9c5a16; --acc-rgb: 156, 90, 22; --amber: #9c5a16;
+    --on-acc: #fbf6ec;
+    --bg-rgb: 232, 226, 212; --line-rgb: 213, 205, 185;
+    --grid: rgba(120, 96, 52, 0.06);       /* warm sepia rule, like engineering paper */
+    --demo-surface: #ded5c1;               /* the demo becomes a light plate; notes stay dark glass */
+    --syn-key: #1a6a9e; --syn-str: #8f6a10; --syn-num: #a85418;
+    --syn-bool: #b23a2a; --syn-punct: #736b57; --syn-comment: #9a927c;
+    --background: 40 22% 88%; --foreground: 40 16% 12%;
+  }
 }
+
+/* Keycaps: molded dark keys by default; on paper, printed light keys with ink glyphs. */
+.kbd {
+  background: linear-gradient(180deg, #191920, #0e0e12);
+  border: 1px solid var(--line-2);
+  color: var(--dim);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+[data-theme="paper"] .kbd {
+  background: linear-gradient(180deg, #ffffff, #ece5d6);
+  border-color: #cbc0a9;
+  color: #4a4230;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 2px 0 rgba(150, 135, 105, 0.4),
+    0 1px 2px rgba(60, 48, 28, 0.12);
+}
+
+/* Paper is print, not a screen — drop the CRT decoration, warm the page, frame the figure. */
+[data-theme="paper"] .crt { animation: none; }
+[data-theme="paper"] .scanline { display: none; }
+[data-theme="paper"] ::selection { color: #262019; }
+[data-theme="paper"] ::-webkit-scrollbar-thumb { background: #cfc7b4; border-color: var(--bg); }
+[data-theme="paper"] body {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    radial-gradient(130% 90% at 50% -20%, rgba(255, 252, 244, 0.75), transparent 55%);
+  background-size: 56px 56px, 56px 56px, 100% 100%;
+  background-attachment: scroll, scroll, fixed;
+}
+/* the dark-glass demo becomes a light plate; lift it off the page like a pasted figure */
+[data-theme="paper"] .corner-frame {
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6), 0 22px 50px -22px rgba(80, 60, 30, 0.3);
+}
+/* the accent corner ticks are a screen/CRT flourish — drop them on print */
+[data-theme="paper"] .corner-frame::before,
+[data-theme="paper"] .corner-frame::after { display: none; }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    scroll-behavior: smooth;
+    overflow-x: clip;
+  }
   body {
-    @apply bg-[#08090b] text-white/90;
-    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1, "ss02" 1;
+    @apply bg-background text-foreground;
+    font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 56px 56px;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    overflow-x: clip;
+  }
+  :focus-visible {
+    outline: 1px solid var(--acc);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: rgba(var(--acc-rgb), 0.25);
+    color: #fff7ea;
   }
 }
 
 @layer utilities {
-  .font-display {
-    font-family: var(--font-display);
-    font-feature-settings: "ss01" 1, "ss02" 1, "cv01" 1, "cv02" 1;
+  .font-mono-x {
+    font-family: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-
-  .font-text {
-    font-family: var(--font-text);
-    font-feature-settings: "rlig" 1, "calt" 1;
+  .text-acc { color: var(--acc); }
+  .text-dimx { color: var(--dim); }
+  .text-faintx { color: var(--faint); }
+  .text-amberx { color: var(--amber); }
+  .text-cyanx { color: var(--cyan); }
+  .bg-panelx { background-color: var(--panel); }
+  .bg-panel2x { background-color: var(--panel-2); }
+  .border-linex { border-color: var(--line); }
+  .border-line2x { border-color: var(--line-2); }
+  .label-x {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
   }
-
-  /* Faint spatial dot-grid — the "desk" the notes live on. */
-  .dot-grid {
-    background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-    background-size: 22px 22px;
+  .hairline-t { border-top: 1px solid var(--line); }
+  .hairline-b { border-bottom: 1px solid var(--line); }
+  .glass-note {
+    background: linear-gradient(160deg, rgba(42, 42, 46, 0.55), rgba(18, 18, 20, 0.65));
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid rgba(214,204,184, 0.22);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 18px 40px rgba(0, 0, 0, 0.55);
+  }
+  .corner-frame {
+    position: relative;
+  }
+  .corner-frame::before,
+  .corner-frame::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-color: var(--acc);
+    border-style: solid;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .corner-frame::before {
+    top: -1px; left: -1px;
+    border-width: 1px 0 0 1px;
+  }
+  .corner-frame::after {
+    bottom: -1px; right: -1px;
+    border-width: 0 1px 1px 0;
   }
 }
 
-/* Dark scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* caret blink */
+@keyframes caretBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+.caret-blink { animation: caretBlink 1.06s steps(1) infinite; }
+
+/* note spawn */
+@keyframes noteSpawn {
+  0% { opacity: 0; transform: scale(0.9) translateY(10px); filter: brightness(2.2); }
+  60% { opacity: 1; filter: brightness(1.35); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: brightness(1); }
 }
-::-webkit-scrollbar-thumb {
-  @apply bg-white/10 rounded-full;
+/* backwards (not both): pre-applies the 0% frame to avoid a spawn flash, but
+   does NOT hold opacity:1 afterward — otherwise the forwards fill overrides the
+   `opacity-0` used to blink notes out, and they'd stay visible. */
+.note-spawn { animation: noteSpawn 0.34s cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards; }
+
+@keyframes noteVanish {
+  to { opacity: 0; transform: scale(0.94); filter: brightness(1.8); }
 }
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-white/20;
+.note-vanish { animation: noteVanish 0.22s ease-in both; }
+
+/* soft pulse dot */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--acc-rgb), 0.45); }
+  50% { opacity: 0.75; box-shadow: 0 0 0 5px rgba(var(--acc-rgb), 0); }
+}
+.pulse-dot { animation: pulseDot 2.4s ease-in-out infinite; }
+
+/* scanline sweep across demo surface */
+@keyframes scanSweep {
+  0% { top: -12%; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { top: 112%; opacity: 0; }
+}
+.scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(var(--acc-rgb), 0.35), transparent);
+  animation: scanSweep 7s linear infinite;
+  pointer-events: none;
 }
 
-::selection {
-  background: rgba(120, 180, 255, 0.28);
-  color: #fff;
+/* faint screen flicker for CRT feel — very subtle */
+@keyframes crtFlicker {
+  0%, 100% { opacity: 1; }
+  97% { opacity: 1; }
+  98% { opacity: 0.986; }
+  99% { opacity: 0.995; }
 }
+.crt { animation: crtFlicker 6s steps(1) infinite; }
 
-:focus-visible {
-  @apply outline-none ring-2 ring-sky-400/60 ring-offset-2 ring-offset-[#08090b];
+/* staggered rise-in on load */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+.rise-in { animation: riseIn 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.rise-1 { animation-delay: 0.05s; }
+.rise-2 { animation-delay: 0.15s; }
+.rise-3 { animation-delay: 0.25s; }
+.rise-4 { animation-delay: 0.35s; }
 
-/* Caret blink used by the "typed by an agent" demo. */
-@keyframes caret-blink {
-  0%,
-  49% {
-    opacity: 1;
+/* scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #26262c; border: 2px solid var(--bg); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #36363e; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-.caret {
-  display: inline-block;
-  width: 2px;
-  height: 1.05em;
-  vertical-align: text-bottom;
-  background: rgba(150, 200, 255, 0.9);
-  animation: caret-blink 1.05s steps(1) infinite;
 }

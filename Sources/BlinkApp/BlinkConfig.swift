@@ -91,6 +91,35 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// A backdrop parked behind every note panel: a full-screen blur + dim that
+    /// mutes a busy desktop into a calm, dark stage so the notes read as a set.
+    /// Off by default; agents flip it on via config.json and it hot-applies.
+    struct Drape: Codable, Equatable {
+        var enabled: Bool = false
+        var dim: Double = 0.45  // 0–1 black tint over the blurred backdrop
+        var opacity: Double = 1  // 0–1 overall presence; lower = a lighter veil
+        var material: String = "hud"  // hud | underWindow | popover | sidebar | menu
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+            dim = try c.decodeIfPresent(Double.self, forKey: .dim) ?? 0.45
+            opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
+            material = try c.decodeIfPresent(String.self, forKey: .material) ?? "hud"
+        }
+
+        var visualEffectMaterial: NSVisualEffectView.Material {
+            switch material {
+            case "underWindow": .underWindowBackground
+            case "popover": .popover
+            case "sidebar": .sidebar
+            case "menu": .menu
+            default: .hudWindow
+            }
+        }
+    }
+
     /// Motion signature: every show/hide is choreographed so a theme ships a
     /// matching feel. `enabled == false` restores today's instant behavior, and
     /// `NSWorkspace.accessibilityDisplayShouldReduceMotion` is honored as "none"
@@ -191,6 +220,7 @@ struct BlinkConfig: Codable, Equatable {
     var hotkeys = Hotkeys()
     var panel = Panel()
     var focus = Focus()
+    var drape = Drape()
     var motion = Motion()
     var editor = Editor()
     /// Named presentation presets, referenced by a note's `blink.style`.
@@ -203,6 +233,7 @@ struct BlinkConfig: Codable, Equatable {
         hotkeys = try c.decodeIfPresent(Hotkeys.self, forKey: .hotkeys) ?? Hotkeys()
         panel = try c.decodeIfPresent(Panel.self, forKey: .panel) ?? Panel()
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
+        drape = try c.decodeIfPresent(Drape.self, forKey: .drape) ?? Drape()
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
         styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)

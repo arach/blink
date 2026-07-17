@@ -53,6 +53,12 @@ Rules:
   "focus": {
     "dim": 0.30                 // 0–1 strength of the focus-mode veil over everything else
   },
+  "drape": {                    // a backdrop parked BEHIND every note — a calm stage under the set
+    "enabled": false,           // off by default; true parks a full-screen blur+dim behind the notes
+    "dim": 0.45,                // 0–1 black tint over the blurred backdrop
+    "opacity": 1.0,             // 0–1 overall presence; lower = a lighter veil the desktop shows through
+    "material": "hud"           // blur material: "hud" | "underWindow" | "popover" | "sidebar" | "menu"
+  },
   "motion": {                   // Arrival: every show/hide is choreographed
     "entrance": "shimmer",      // "shimmer" | "drop" | "draw" | "none" — how a note lands
     "durationMs": 260,          // base duration for one panel's entrance

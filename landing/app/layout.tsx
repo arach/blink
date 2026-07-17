@@ -1,26 +1,12 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 
-const inter = Inter({
+const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-})
-
-// Fallback fonts that closely match SF Pro
-const sfProDisplay = Inter({
-  subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
-  display: "swap",
-})
-
-const sfProText = Inter({
-  subsets: ["latin"],
-  variable: "--font-text",
-  weight: ["300", "400", "500", "600"],
+  variable: "--font-jetbrains-mono",
+  weight: "variable",
   display: "swap",
 })
 
@@ -45,8 +31,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sfProDisplay.variable} ${sfProText.variable}`}>
-      <body className="font-text antialiased">{children}</body>
+    // suppressHydrationWarning: the script below sets data-theme on <html> before
+    // React hydrates, so the server markup and client DOM intentionally differ.
+    <html lang="en" className={jetBrainsMono.variable} suppressHydrationWarning>
+      <body>
+        {/* Apply the saved/URL theme before paint — no flash of the default. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('blink-theme');if(p){try{localStorage.setItem('blink-theme',p)}catch(e){}}if(t&&t!=='amber')document.documentElement.setAttribute('data-theme',t);else document.documentElement.removeAttribute('data-theme')}catch(e){}",
+          }}
+        />
+        {children}
+      </body>
     </html>
   )
 }
