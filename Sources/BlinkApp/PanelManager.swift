@@ -471,11 +471,15 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// gates as the focus overlay, so the two backdrops never fight.
     private func updateDrape() {
         let drape = BlinkConfigStore.shared.config.drape
+        let noteScreens = panels.values.compactMap { panel -> NSScreen? in
+            guard panel.isVisible, panel.isOnActiveSpace else { return nil }
+            return panel.screen
+        }
         if drape.enabled,
-           !panels.isEmpty,
+           !noteScreens.isEmpty,
            !blinkHidden,
            gridOverlay?.isVisible != true {
-            drapeOverlay.show()
+            drapeOverlay.show(on: noteScreens)
         } else {
             drapeOverlay.hide()
         }
@@ -507,6 +511,12 @@ final class PanelManager: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        updateFocusOverlay()
+    }
+
+    /// A drape is display-scoped. Moving a note across a screen boundary must
+    /// move the backing surface with it, even when key focus does not change.
+    func windowDidChangeScreen(_ notification: Notification) {
         updateFocusOverlay()
     }
 

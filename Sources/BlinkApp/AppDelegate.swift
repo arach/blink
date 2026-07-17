@@ -246,6 +246,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         popover.appearance = NSAppearance(named: .darkAqua)
+        popover.contentSize = CapturePopoverView.contentSize
         let host = NSHostingController(
             rootView: CapturePopoverView(
                 model: model,
@@ -253,6 +254,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 openSettings: { [weak self] in
                     self?.popover?.performClose(nil)
                     self?.openSettings()
+                },
+                toggleBlink: { [weak self] in
+                    self?.popover?.performClose(nil)
+                    self?.panelManager.toggleBlink()
+                },
+                showGrid: { [weak self] in
+                    self?.popover?.performClose(nil)
+                    self?.panelManager.toggleGridOverlay()
+                },
+                beginDictation: { [weak self] in
+                    self?.beginPopoverDictation()
                 }
             )
         )
@@ -260,6 +272,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentViewController = host
         self.popover = popover
         return popover
+    }
+
+    /// System dictation briefly promotes its own HUD outside Blink. A normal
+    /// transient popover interprets that as an outside interaction and closes,
+    /// destroying the target text field. Hold the popover through handoff,
+    /// then restore its normal click-away behavior once the HUD is established.
+    private func beginPopoverDictation() {
+        guard let popover, popover.isShown else { return }
+        popover.behavior = .applicationDefined
+        NSApp.sendAction(Selector(("startDictation:")), to: nil, from: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak popover] in
+            guard let popover, popover.isShown else { return }
+            popover.behavior = .transient
+        }
     }
 
     private func buildContextMenu() -> NSMenu {
