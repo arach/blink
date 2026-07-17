@@ -78,8 +78,6 @@ if [ "$DRY_RUN" -eq 0 ]; then
 fi
 
 ASSETS=()
-RELEASE_FLAGS=()
-[[ "$VERSION" == *-* ]] && RELEASE_FLAGS+=(--prerelease)
 
 # CLI binary (also what the npm package embeds).
 echo "==> Building blink CLI asset..."
@@ -124,13 +122,16 @@ elif gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
         exit 1
     fi
     echo "==> Updating release $TAG in $REPO..."
-    gh release edit "$TAG" --repo "$REPO" --title "Blink $VERSION" --notes-file "$NOTES" \
-        "${RELEASE_FLAGS[@]}"
+    EDIT_ARGS=("$TAG" --repo "$REPO" --title "Blink $VERSION" --notes-file "$NOTES")
+    if [[ "$VERSION" == *-* ]]; then EDIT_ARGS+=(--prerelease); fi
+    gh release edit "${EDIT_ARGS[@]}"
     gh release upload "$TAG" "${ASSETS[@]}" --repo "$REPO" --clobber
 else
     echo "==> Creating release $TAG in $REPO..."
-    gh release create "$TAG" "${ASSETS[@]}" --repo "$REPO" --target "$SOURCE_SHA" \
-        --title "Blink $VERSION" --notes-file "$NOTES" "${RELEASE_FLAGS[@]}"
+    CREATE_ARGS=("$TAG" "${ASSETS[@]}" --repo "$REPO" --target "$SOURCE_SHA" \
+        --title "Blink $VERSION" --notes-file "$NOTES")
+    if [[ "$VERSION" == *-* ]]; then CREATE_ARGS+=(--prerelease); fi
+    gh release create "${CREATE_ARGS[@]}"
 fi
 rm -f "$NOTES"
 NOTES=""
