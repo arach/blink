@@ -65,6 +65,15 @@ Rules:
     "staggerMs": 40,            // per-panel delay in group reveals (session restore, the blink)
     "enabled": true             // master switch — false = instant show/hide (today's behavior)
   },
+  "physics": {                  // panel physics: how a note behaves under the hand
+    "flingEnabled": true,       // throw a panel by its top band — it glides on and bounces off screen edges
+    "flingFriction": 3.2,       // exponential glide friction (1/s); higher = heavier, stops sooner
+                                // (total glide distance ≈ release speed / flingFriction)
+    "flingMinVelocity": 900,    // release speed (pt/s) that starts a glide; below it the panel just stays
+    "bounceDamping": 0.6,       // 0–1 velocity kept after an edge bounce
+    "shakeEnabled": true        // shake side-to-side during a drag to fold the panel into its band (shade);
+                                // shake again — or double-click the band — to restore
+  },
   "editor": {                   // typography & colors, applied to editor AND reader
     "fontFamily": null,         // null → system font stack; any CSS font-family string
     "monoFamily": null,         // null → ui-monospace stack
@@ -96,6 +105,9 @@ Rules:
 - `motion.*` choreographs every show/hide (see **Motion (Arrival)** below);
   applied live, so the next note you open — or the next Hyper+B — uses the new
   feel. `enabled: false` restores the instant behavior exactly.
+- `physics.*` is read at each gesture, so edits apply to the very next drag —
+  see **Panel physics** below. macOS **Reduce Motion** disables the fling and
+  shake gestures regardless of these values.
 - `editor.*` maps to the web bundle's CSS custom properties
   (`--blink-font-size`, `--blink-text`, …) and is pushed over the bridge via
   `window.blink.setTheme`. The full variable table lives in
@@ -157,6 +169,27 @@ Where the choreography shows up:
 - **Focus mode** recedes the non-key panels a hair (a subtle depth cue), so the
   note you're writing stands proud. Transform-only — window positions never
   move.
+
+## Panel physics
+
+Notes aren't just placed — they can be thrown. `physics.*` governs the two
+gestures on a panel's top band (the invisible 24pt drag strip along its top
+edge):
+
+- **Fling.** Drag a panel and release it with speed: it glides on with
+  momentum, decays exponentially (`flingFriction`), and bounces off the edges
+  of the screen it's mostly on, keeping `bounceDamping` of its speed per hit.
+  Below `flingMinVelocity` a release is just a drop. Any new grab, close, or
+  programmatic placement kills a glide mid-flight.
+- **Shake-to-shade.** Shake the panel side-to-side mid-drag (~3 reversals in
+  0.6s, ≥40pt each, little vertical travel) and it folds up into its top band,
+  windowshade-style. Shake again — or double-click the band — and it unfolds
+  back to its full frame. Resizing is pinned while shaded so nothing fights
+  the fold.
+
+Geometry is persisted only when a panel is at rest — never mid-glide — and
+always as the UNSHADED frame, so a note that was shaded when Blink quit still
+relaunches full-size. The shaded state itself is session-only.
 
 ## What does NOT live here
 

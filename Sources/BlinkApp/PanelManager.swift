@@ -492,11 +492,13 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// gates as the focus overlay, so the two backdrops never fight.
     private func updateDrape() {
         let drape = BlinkConfigStore.shared.config.drape
-        let noteScreens = panels.values.compactMap { panel -> NSScreen? in
-            guard panel.isVisible, panel.isOnActiveSpace else { return nil }
-            return panel.screen
-        }
+        let visiblePanels = panels.values.filter { $0.isVisible && $0.isOnActiveSpace }
+        let noteScreens = visiblePanels.compactMap { $0.screen }
+        // A lone note stays clean over the desktop; the drape earns its keep only
+        // once the notes form a set (config.drape.soloSuppressed, default on).
+        let soloOK = !drape.soloSuppressed || visiblePanels.count >= 2
         if drape.enabled,
+           soloOK,
            !noteScreens.isEmpty,
            !blinkHidden,
            gridOverlay?.isVisible != true {

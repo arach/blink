@@ -211,6 +211,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if event.type == .rightMouseUp {
+            // Rebuild so live state (e.g. the Background checkmark) is current.
+            contextMenu = buildContextMenu()
             contextMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
             return
         }
@@ -297,6 +299,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(.separator())
 
+        // Background: quick control over the drape (the full-screen blur/dim
+        // behind the notes) without a trip through config.json.
+        let backgroundItem = NSMenuItem(title: "Background", action: nil, keyEquivalent: "")
+        let backgroundMenu = NSMenu()
+        let level = drapeLevel(BlinkConfigStore.shared.config)
+        for (title, target) in [("Off", DrapeLevel.off), ("Light", .light), ("Full", .full)] {
+            let item = NSMenuItem(title: title, action: #selector(menuBackgroundLevel(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = target.rawValue
+            item.state = (level == target) ? .on : .off
+            backgroundMenu.addItem(item)
+        }
+        backgroundItem.submenu = backgroundMenu
+        menu.addItem(backgroundItem)
+
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -308,6 +327,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         menu.addItem(quitItem)
 
         return menu
+    }
+
+    /// The three quick background presets. `Off` kills the drape; `Light` and
+    /// `Full` set its overall presence (opacity) but leave `dim`/`material` as
+    /// configured, so a tuned drape keeps its character.
+    private enum DrapeLevel: String {
+        case off, light, full
+    }
+
+    private func drapeLevel(_ config: BlinkConfig) -> DrapeLevel {
+        guard config.drape.enabled else { return .off }
+        return config.drape.opacity <= 0.7 ? .light : .full
+    }
+
+    @objc private func menuBackgroundLevel(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let level = DrapeLevel(rawValue: raw) else { return }
+        BlinkConfigStore.shared.update { config in
+            switch level {
+            case .off:   config.drape.enabled = false
+            case .light: config.drape.enabled = true; config.drape.opacity = 0.4
+            case .full:  config.drape.enabled = true; config.drape.opacity = 1.0
+            }
+        }
     }
 
     @objc private func menuNewNote() {

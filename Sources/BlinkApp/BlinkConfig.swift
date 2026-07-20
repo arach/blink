@@ -99,6 +99,10 @@ struct BlinkConfig: Codable, Equatable {
         var dim: Double = 0.45  // 0–1 black tint over the blurred backdrop
         var opacity: Double = 1  // 0–1 overall presence; lower = a lighter veil
         var material: String = "hud"  // hud | underWindow | popover | sidebar | menu
+        /// Suppress the drape while a single note is on screen — a lone note
+        /// reads better clean over the desktop; the backdrop earns its keep only
+        /// once the notes form a set. Off restores "behind every note".
+        var soloSuppressed: Bool = true
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -107,6 +111,7 @@ struct BlinkConfig: Codable, Equatable {
             dim = try c.decodeIfPresent(Double.self, forKey: .dim) ?? 0.45
             opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
             material = try c.decodeIfPresent(String.self, forKey: .material) ?? "hud"
+            soloSuppressed = try c.decodeIfPresent(Bool.self, forKey: .soloSuppressed) ?? true
         }
 
         var visualEffectMaterial: NSVisualEffectView.Material {
@@ -141,6 +146,36 @@ struct BlinkConfig: Codable, Equatable {
             durationMs = try c.decodeIfPresent(Double.self, forKey: .durationMs) ?? 260
             staggerMs = try c.decodeIfPresent(Double.self, forKey: .staggerMs) ?? 40
             enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        }
+    }
+
+    /// Panel physics: momentum fling with edge bounce, and shake-to-shade —
+    /// how a panel behaves under the hand, as opposed to `motion`, which owns
+    /// show/hide choreography. Read at gesture time (no hot-apply needed).
+    /// Reduce Motion turns the physics gestures off entirely.
+    struct Physics: Codable, Equatable {
+        /// Master switch for the fling: release a fast drag and the panel
+        /// glides on, bouncing off the edges of the screen it's mostly on.
+        var flingEnabled: Bool = true
+        /// Exponential glide friction (1/s); higher = heavier, stops sooner.
+        /// Total glide distance is ~releaseSpeed / flingFriction.
+        var flingFriction: Double = 3.2
+        /// Release speed (pt/s) that starts a glide; below it the panel stays put.
+        var flingMinVelocity: Double = 900
+        /// Fraction of velocity kept after an edge bounce (0…1).
+        var bounceDamping: Double = 0.6
+        /// Shake the panel side-to-side during a drag to fold it into its top
+        /// band (shade); shake again — or double-click the band — to restore.
+        var shakeEnabled: Bool = true
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            flingEnabled = try c.decodeIfPresent(Bool.self, forKey: .flingEnabled) ?? true
+            flingFriction = try c.decodeIfPresent(Double.self, forKey: .flingFriction) ?? 3.2
+            flingMinVelocity = try c.decodeIfPresent(Double.self, forKey: .flingMinVelocity) ?? 900
+            bounceDamping = try c.decodeIfPresent(Double.self, forKey: .bounceDamping) ?? 0.6
+            shakeEnabled = try c.decodeIfPresent(Bool.self, forKey: .shakeEnabled) ?? true
         }
     }
 
@@ -222,6 +257,7 @@ struct BlinkConfig: Codable, Equatable {
     var focus = Focus()
     var drape = Drape()
     var motion = Motion()
+    var physics = Physics()
     var editor = Editor()
     /// Named presentation presets, referenced by a note's `blink.style`.
     var styles: [String: Treatment]?
@@ -235,6 +271,7 @@ struct BlinkConfig: Codable, Equatable {
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
         drape = try c.decodeIfPresent(Drape.self, forKey: .drape) ?? Drape()
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
+        physics = try c.decodeIfPresent(Physics.self, forKey: .physics) ?? Physics()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
         styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)
     }
