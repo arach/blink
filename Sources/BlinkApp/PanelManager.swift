@@ -371,6 +371,27 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panels[note.id] = panel
         panelContent[note.id] = note.content
 
+        // Style picked from the panel's context menu — persist to frontmatter
+        // (the panel already applied it live). Flows through the store so the
+        // canvas and any other surface see the change.
+        panel.onSheetChanged = { [weak self] sheet in
+            Task { @MainActor in
+                guard let self else { return }
+                do {
+                    try await self.store.updateSheet(id: note.id, sheet: sheet)
+                } catch {
+                    self.log.error(
+                        "[BLINK] failed to persist sheet",
+                        metadata: ["id": note.id, "error": "\(error)"]
+                    )
+                }
+            }
+        }
+
+        // Hiding a note from its context menu changes how many notes are on
+        // screen, which the drape depends on — re-evaluate its backdrops.
+        panel.onVisibilityChanged = { [weak self] in self?.updateFocusOverlay() }
+
         panel.editor.onContentChanged = { [weak self] text in
             // User input is the reveal's hard stop. Web already unmasks its
             // complete doc before posting; native mirrors that cancellation so

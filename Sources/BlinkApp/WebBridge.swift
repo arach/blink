@@ -5,6 +5,18 @@ import HudsonObservability
 import UniformTypeIdentifiers
 import WebKit
 
+/// A WKWebView that lets its host rewrite the right-click menu before it opens.
+/// WebKit's stock note-surface menu is just "Reload"; the panel swaps in
+/// Blink-relevant items (change style, hide, close) via `onWillOpenContextMenu`.
+final class BlinkEditorWebView: WKWebView {
+    var onWillOpenContextMenu: ((NSMenu) -> Void)?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        onWillOpenContextMenu?(menu)
+        super.willOpenMenu(menu, with: event)
+    }
+}
+
 /// Hosts the CodeMirror editor bundle in a WKWebView and speaks the bridge
 /// contract (see web/editor/README.md):
 ///   JS → native:  ready · contentChanged(text) · saveRequested
@@ -22,6 +34,13 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     /// A rendered `[[wiki-link]]` was clicked (`blink://open/<id>`): open or focus
     /// that note. Wired by PanelManager to the NoteStore.
     var onOpenNote: ((String) -> Void)?
+
+    /// Rewrite the WKWebView context menu before it opens — the panel drops
+    /// WebKit's stock "Reload" and appends Blink's own items (style, hide, close).
+    var onWillOpenContextMenu: ((NSMenu) -> Void)? {
+        get { (webView as? BlinkEditorWebView)?.onWillOpenContextMenu }
+        set { (webView as? BlinkEditorWebView)?.onWillOpenContextMenu = newValue }
+    }
 
     /// Serves `blink://attachments/…` from the Blink home. Held so its lifetime
     /// matches the webview; the configuration copy retains it too.
@@ -47,7 +66,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
         // copies it — scheme handlers cannot be added to a live webview.
         let handler = BlinkAssetSchemeHandler()
         configuration.setURLSchemeHandler(handler, forURLScheme: "blink")
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = BlinkEditorWebView(frame: .zero, configuration: configuration)
         assetSchemeHandler = handler
         super.init()
 

@@ -95,6 +95,31 @@ public actor NoteStore {
         return note
     }
 
+    /// Set a note's sheet template (the Blink-owned `blink.sheet` presentation
+    /// field) and persist. Like `update(content:)`, foreign frontmatter is
+    /// re-read from disk so a concurrent external edit is never clobbered;
+    /// content stays as last known (an open panel re-flushes its own edits).
+    /// Pass `nil` to clear the override and fall back to the config default.
+    @discardableResult
+    public func updateSheet(id: String, sheet: String?) throws -> Note {
+        guard var note = notes[id] else {
+            throw NoteFileStoreError.noteNotFound(id: id)
+        }
+        if let onDisk = try? fileStore.load(id: id) {
+            note.tags = onDisk.tags
+            note.pinned = onDisk.pinned
+            note.createdAt = onDisk.createdAt
+            note.extraFrontmatter = onDisk.extraFrontmatter
+        }
+        note.presentation.sheet = sheet
+        note.updatedAt = clock()
+        note = normalized(note)
+        try fileStore.save(note)
+        notes[id] = note
+        post(.blinkNoteUpdated, id: id)
+        return note
+    }
+
     /// Delete a note by id. Throws if `id` is unknown.
     public func delete(id: String) throws {
         guard notes[id] != nil else {
