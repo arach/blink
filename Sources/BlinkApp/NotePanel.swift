@@ -40,6 +40,7 @@ final class NotePanel: NSPanel {
     private var editTint: CGFloat
 
     private var modePillView: NSView?
+    private var noteIDView: NSView?
     private var focusGlyphView: NSView?
     private var closeButtonView: NSView?
     private var isHovered = false
@@ -173,6 +174,26 @@ final class NotePanel: NSPanel {
             pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
         ])
         modePillView = pill
+
+        // Edit mode exposes the note's stable slug — the same identifier the
+        // CLI and agent APIs accept. Keep it quietly visible in the top band so
+        // the user can name the exact note/window in a prompt; clicking copies
+        // the untruncated value. Read mode remains presentation-clean.
+        let noteIDHost = NSHostingView(
+            rootView: NoteIdentifierBadge(noteID: noteID) { [weak self] in
+                self?.copyNoteID()
+            }
+        )
+        noteIDHost.translatesAutoresizingMaskIntoConstraints = false
+        noteIDHost.alphaValue = 0.55
+        container.addSubview(noteIDHost)
+        NSLayoutConstraint.activate([
+            noteIDHost.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            noteIDHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            noteIDHost.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 34),
+            noteIDHost.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -68),
+        ])
+        noteIDView = noteIDHost
 
         // Close glyph (✕) mirrors the mode pill: hover-earned, top-LEFT, in the
         // title area. This (and ⌘W) is how a note is dismissed — close(), which
@@ -332,6 +353,9 @@ final class NotePanel: NSPanel {
             context.duration = 0.15
             modePillView?.animator().alphaValue = isHovered ? 1 : 0
             closeButtonView?.animator().alphaValue = isHovered ? 1 : 0
+            noteIDView?.animator().alphaValue = currentMode == "edit"
+                ? (isHovered ? 1 : 0.55)
+                : 0
             // Active focus leaves a faint trace so the state stays legible.
             focusGlyphView?.animator().alphaValue = isHovered ? 1 : (modeState.focus ? 0.35 : 0)
         }
@@ -346,6 +370,8 @@ final class NotePanel: NSPanel {
     /// (their mode contrast comes from the sheet's own CSS if needed).
     func reflectMode(_ mode: String) {
         modeState.mode = mode
+        noteIDView?.isHidden = mode != "edit"
+        noteIDView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.55) : 0
         guard !Self.isFlatSheet(sheetTemplate) else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
@@ -586,6 +612,17 @@ final class NotePanel: NSPanel {
         }
         onUserModeChange?(mode)
     }
+
+    /// Copy the exact agent-facing id, then return keyboard focus to the editor
+    /// so identifying a note never interrupts the writing flow.
+    private func copyNoteID() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(noteID, forType: .string)
+        guard currentMode == "edit" else { return }
+        makeKey()
+        makeFirstResponder(editor.webView)
+        editor.focus()
+    }
 }
 
 /// Observable mode + focus state for the SwiftUI toggle overlay.
@@ -624,6 +661,41 @@ private struct ModeToggle: View {
         }
         .buttonStyle(.plain)
         .help(help)
+    }
+}
+
+/// The note/window handle exposed only while editing. It shows the stable slug
+/// agents already use (`blink write <id>`, panel APIs) and copies the full value
+/// even when a narrow panel has to truncate the middle visually.
+private struct NoteIdentifierBadge: View {
+    let noteID: String
+    var onCopy: () -> Void
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            onCopy()
+            withAnimation(.easeOut(duration: 0.12)) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.easeOut(duration: 0.12)) { copied = false }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(copied ? "copied" : "id")
+                    .foregroundStyle(Color.primary.opacity(0.55))
+                Text(noteID)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color.primary.opacity(0.82))
+            .padding(.horizontal, 6)
+            .frame(height: 18)
+            .background(Color.primary.opacity(0.07), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Note ID: \(noteID) — click to copy for an agent")
     }
 }
 
