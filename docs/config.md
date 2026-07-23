@@ -22,6 +22,8 @@ Rules:
 
 ```jsonc
 {
+  "appearance": "auto",         // app-wide light/dark: "auto" (follow macOS) | "light" | "dark"
+                                // "auto" tracks the system live; menubar → Appearance overrides it
   "behavior": {
     "restoreSession": true,     // reopen last session's panels at launch
     "defaultMode": "read",      // "read" | "edit" — mode for notes with no remembered mode

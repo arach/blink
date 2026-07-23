@@ -64,9 +64,12 @@ export const blinkTheme: Extension = EditorView.theme(
     "&.cm-focused .cm-cursor": {
       borderLeftColor: "var(--blink-caret)",
     },
-    // Selection: works for both native and drawSelection layers.
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
-      backgroundColor: "var(--blink-selection)",
+    // `drawSelection()` ships a dark fallback that wins on translucent/light
+    // panels unless we override its painted layer explicitly. Keep native
+    // selection transparent (CodeMirror's base rule does that) and make the
+    // drawn rectangles use Blink's scheme-aware color.
+    "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground": {
+      backgroundColor: "var(--blink-selection) !important",
     },
     ".cm-selectionMatch": {
       backgroundColor: "var(--blink-selection)",

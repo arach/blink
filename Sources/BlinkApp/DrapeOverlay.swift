@@ -27,7 +27,7 @@ final class DrapeOverlay {
             // above ordinary windows such as terminals, editors, and browsers.
             window.level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue - 1)
             window.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-            window.appearance = NSAppearance(named: .darkAqua)
+            window.appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
             window.hasShadow = false
 
             blur.material = .hudWindow
@@ -51,8 +51,14 @@ final class DrapeOverlay {
         }
 
         func applyTheme(dim: CGFloat, material: NSVisualEffectView.Material) {
-            dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(dim).cgColor
-            blur.material = material
+            // Follow the app scheme: a dark stage in dark mode, a bright one in
+            // light. `.hudWindow` stays dark even under aqua, so swap it for a
+            // light glass when the veil itself has gone light.
+            let scheme = AppearanceManager.shared.scheme
+            window.appearance = NSAppearance(named: scheme.nsAppearanceName)
+            let base: NSColor = scheme.isDark ? .black : .white
+            dimView.layer?.backgroundColor = base.withAlphaComponent(dim).cgColor
+            blur.material = (scheme == .light && material == .hudWindow) ? .popover : material
         }
 
         func show(frame: NSRect, opacity: CGFloat) {

@@ -153,6 +153,15 @@ final class PanelManager: NSObject, NSWindowDelegate {
         guard let panel = panels[id], pendingText[id] == nil else { return }
         guard let note = await store.note(id: id) else { return }
 
+        // Presentation is part of the live note, not launch-only decoration.
+        // Merge the legacy sheet alias exactly as openPanel does, then update
+        // both the rendered treatment and the bottom metadata rail.
+        var presentation = note.presentation
+        if presentation.sheet == nil, let legacy = note.extraFrontmatterValue(for: "sheet") {
+            presentation.sheet = legacy
+        }
+        panel.applyPresentation(presentation)
+
         // Presentation intent must reach an open panel even when the body is
         // unchanged: `blink present --slot N` moves the panel into its grid cell.
         reconcileSlot(id: id, note: note, panel: panel)
@@ -371,6 +380,13 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panels[note.id] = panel
         panelContent[note.id] = note.content
 
+        // The panel's context menu copies the truthful in-memory document,
+        // including edits that have not reached the debounced disk save yet.
+        panel.markdownProvider = { [weak self] in
+            guard let self else { return nil }
+            return self.pendingText[note.id] ?? self.panelContent[note.id] ?? note.content
+        }
+
         // Style picked from the panel's context menu — persist to frontmatter
         // (the panel already applied it live). Flows through the store so the
         // canvas and any other surface see the change.
@@ -418,7 +434,11 @@ final class PanelManager: NSObject, NSWindowDelegate {
             ?? UserDefaults.standard.string(forKey: ConfigKeys.noteMode(note.id))
             ?? BlinkConfigStore.shared.config.behavior.defaultMode
         panel.editor.setMode(mode)
-        panel.editor.setTheme(BlinkConfigStore.shared.config.resolved(for: presentation).editorThemeVars)
+        panel.editor.setTheme(
+            BlinkConfigStore.shared.config
+                .resolved(for: presentation)
+                .editorThemeVars(scheme: AppearanceManager.shared.scheme)
+        )
         panel.reflectMode(mode)
         panel.editor.onReady = { [weak panel] in
             if mode == "edit" { panel?.editor.focus() }

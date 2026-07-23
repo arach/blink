@@ -38,6 +38,11 @@ final class NotePanel: NSPanel {
     /// many notes are visible.
     var onVisibilityChanged: (() -> Void)?
 
+    /// Supplies the latest complete markdown for context-menu copy. PanelManager
+    /// owns the truthful in-memory content (including unsaved edits), so the
+    /// panel asks rather than reading a potentially stale file from disk.
+    var markdownProvider: (() -> String?)?
+
     let modeState = PanelModeState()
     var currentMode: String { modeState.mode }
 
@@ -56,6 +61,8 @@ final class NotePanel: NSPanel {
 
     private var modePillView: NSView?
     private var noteIDView: NSView?
+    private var versionMetadataView: NSView?
+    private var styleMetadataView: NSView?
     private var focusGlyphView: NSView?
     private var closeButtonView: NSView?
     private var isHovered = false
@@ -102,9 +109,11 @@ final class NotePanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         minSize = NSSize(width: 260, height: 120)
-        // Blink's glass is dark regardless of system appearance — the editor
-        // typography (white on transparent) and the studies assume it.
-        appearance = NSAppearance(named: .darkAqua)
+        // Follow the app-wide light/dark scheme (config.appearance, resolved by
+        // AppearanceManager): the glass material, tint, and editor palette all
+        // flip with it. A scheme change re-applies via `applyTheme`.
+        appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
+        updateMetadata(theme)
 
         // Plain container is the contentView; the glass material is a sibling
         // BEHIND the content, not the content root. This lets flat sheets hide
@@ -117,7 +126,7 @@ final class NotePanel: NSPanel {
         container.layer?.cornerRadius = theme.panel.cornerRadius
         container.layer?.masksToBounds = true
 
-        glass.material = theme.panel.visualEffectMaterial
+        glass.material = Self.glassMaterial(theme, AppearanceManager.shared.scheme)
         glass.blendingMode = .behindWindow
         glass.state = .active
         glass.wantsLayer = true
@@ -134,7 +143,7 @@ final class NotePanel: NSPanel {
         hasShadow = theme.panel.shadow
 
         tintLayer.wantsLayer = true
-        tintLayer.layer?.backgroundColor = NSColor.black.cgColor
+        tintLayer.layer?.backgroundColor = Self.tintColor(AppearanceManager.shared.scheme)
         tintLayer.alphaValue = readTint
         tintLayer.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(tintLayer)
@@ -190,10 +199,36 @@ final class NotePanel: NSPanel {
         ])
         modePillView = pill
 
-        // Edit mode exposes the note's stable slug — the same identifier the
-        // CLI and agent APIs accept. Keep it quietly visible in the top band so
-        // the user can name the exact note/window in a prompt; clicking copies
-        // the untruncated value. Read mode remains presentation-clean.
+        // Edit mode exposes the stable slug at bottom-center — identity is one
+        // quiet, copyable anchor, separate from the note's treatment metadata.
+        let styleHost = NSHostingView(
+            rootView: StyleMetadataBadge(state: modeState) { [weak self] in
+                self?.showStylePicker()
+            }
+        )
+        styleHost.translatesAutoresizingMaskIntoConstraints = false
+        styleHost.alphaValue = 0.75
+        container.addSubview(styleHost)
+        NSLayoutConstraint.activate([
+            styleHost.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -30),
+            styleHost.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+            styleHost.leadingAnchor.constraint(greaterThanOrEqualTo: container.centerXAnchor, constant: 30),
+        ])
+        styleMetadataView = styleHost
+
+        let versionHost = NSHostingView(
+            rootView: AppVersionLabel(version: Self.appVersion)
+        )
+        versionHost.translatesAutoresizingMaskIntoConstraints = false
+        versionHost.alphaValue = 0.75
+        container.addSubview(versionHost)
+        NSLayoutConstraint.activate([
+            versionHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 9),
+            versionHost.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+            versionHost.trailingAnchor.constraint(lessThanOrEqualTo: container.centerXAnchor, constant: -30),
+        ])
+        versionMetadataView = versionHost
+
         let noteIDHost = NSHostingView(
             rootView: NoteIdentifierBadge(noteID: noteID) { [weak self] in
                 self?.copyNoteID()
@@ -204,9 +239,9 @@ final class NotePanel: NSPanel {
         container.addSubview(noteIDHost)
         NSLayoutConstraint.activate([
             noteIDHost.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-            noteIDHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
-            noteIDHost.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 34),
-            noteIDHost.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -68),
+            noteIDHost.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+            noteIDHost.leadingAnchor.constraint(greaterThanOrEqualTo: versionHost.trailingAnchor, constant: 8),
+            noteIDHost.trailingAnchor.constraint(lessThanOrEqualTo: styleHost.leadingAnchor, constant: -8),
         ])
         noteIDView = noteIDHost
 
@@ -279,6 +314,25 @@ final class NotePanel: NSPanel {
         }
     }
 
+    /// The glass material for a scheme. `.hudWindow` is intentionally dark even
+    /// under `.aqua`, so in light mode the default swaps to `.popover` — a
+    /// light, appearance-adaptive glass. A material the user set explicitly to
+    /// something else adapts on its own and is left alone.
+    static func glassMaterial(
+        _ config: BlinkConfig, _ scheme: AppScheme
+    ) -> NSVisualEffectView.Material {
+        let material = config.panel.visualEffectMaterial
+        if scheme == .light, material == .hudWindow { return .popover }
+        return material
+    }
+
+    /// The contrast tint painted between glass and content: black deepens the
+    /// dark glass so white text reads; white lifts the light glass so dark ink
+    /// reads. Same job, mirrored per scheme.
+    static func tintColor(_ scheme: AppScheme) -> CGColor {
+        (scheme.isDark ? NSColor.black : NSColor.white).cgColor
+    }
+
     /// Reconcile the native surface with `sheetTemplate`.
     ///
     /// - glass/card: the glass material and tint stay ON (card draws its own
@@ -288,6 +342,12 @@ final class NotePanel: NSPanel {
     ///   drop the window shadow — the web layer paints everything on a fully
     ///   transparent page.
     private func applySheetAppearance(_ config: BlinkConfig) {
+        let scheme = AppearanceManager.shared.scheme
+        // Follow the app scheme first, so the glass/tint below render in the
+        // right mode even when only the appearance flipped.
+        appearance = NSAppearance(named: scheme.nsAppearanceName)
+        tintLayer.layer?.backgroundColor = Self.tintColor(scheme)
+
         let flat = Self.isFlatSheet(sheetTemplate)
         glassView.isHidden = flat
         tintLayer.isHidden = flat
@@ -297,7 +357,7 @@ final class NotePanel: NSPanel {
             // (drawn by the web layer) defines the shape.
             container.layer?.cornerRadius = 0
         } else {
-            glassView.material = config.panel.visualEffectMaterial
+            glassView.material = Self.glassMaterial(config, scheme)
             glassView.layer?.cornerRadius = config.panel.cornerRadius
             container.layer?.cornerRadius = config.panel.cornerRadius
             hasShadow = config.panel.shadow
@@ -372,6 +432,12 @@ final class NotePanel: NSPanel {
             noteIDView?.animator().alphaValue = currentMode == "edit"
                 ? (isHovered ? 1 : 0.55)
                 : 0
+            styleMetadataView?.animator().alphaValue = currentMode == "edit"
+                ? (isHovered ? 1 : 0.75)
+                : 0
+            versionMetadataView?.animator().alphaValue = currentMode == "edit"
+                ? (isHovered ? 1 : 0.75)
+                : 0
             // Active focus leaves a faint trace so the state stays legible.
             focusGlyphView?.animator().alphaValue = isHovered ? 1 : (modeState.focus ? 0.35 : 0)
         }
@@ -388,6 +454,10 @@ final class NotePanel: NSPanel {
         modeState.mode = mode
         noteIDView?.isHidden = mode != "edit"
         noteIDView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.55) : 0
+        styleMetadataView?.isHidden = mode != "edit"
+        styleMetadataView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.75) : 0
+        versionMetadataView?.isHidden = mode != "edit"
+        versionMetadataView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.75) : 0
         guard !Self.isFlatSheet(sheetTemplate) else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
@@ -404,6 +474,7 @@ final class NotePanel: NSPanel {
         let theme = config.resolved(for: notePresentation)
         readTint = theme.panel.tintRead
         editTint = theme.panel.tintEdit
+        updateMetadata(theme)
 
         if theme.panel.sheet != sheetTemplate {
             sheetTemplate = theme.panel.sheet
@@ -416,7 +487,7 @@ final class NotePanel: NSPanel {
         if !Self.isFlatSheet(sheetTemplate) {
             tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
         }
-        editor.setTheme(theme.editorThemeVars)
+        editor.setTheme(theme.editorThemeVars(scheme: AppearanceManager.shared.scheme))
     }
 
     /// Change this note's sheet template live from the context menu: re-derive
@@ -429,16 +500,115 @@ final class NotePanel: NSPanel {
         applyTheme(BlinkConfigStore.shared.config)
     }
 
+    /// Reconcile externally-authored presentation metadata (agent/CLI/file
+    /// edits) into the live panel and its metadata rail.
+    func applyPresentation(_ presentation: NotePresentation) {
+        guard presentation != notePresentation else { return }
+        notePresentation = presentation
+        applyTheme(BlinkConfigStore.shared.config)
+    }
+
+    private func updateMetadata(_ theme: BlinkConfig) {
+        modeState.sheet = theme.panel.sheet
+        modeState.style = notePresentation.style
+        modeState.font = Self.displayFontName(theme.editor.fontFamily)
+        modeState.fontSize = theme.editor.fontSize
+    }
+
+    private static func displayFontName(_ cssFamily: String?) -> String {
+        guard let first = cssFamily?.split(separator: ",", maxSplits: 1).first else {
+            return "System"
+        }
+        return first.trimmingCharacters(in: CharacterSet(charactersIn: " \\\"'"))
+    }
+
+    private static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
     // MARK: - Context menu
 
-    /// Rewrite WebKit's right-click menu into Blink's: drop the stock "Reload",
-    /// then offer a live style picker, a soft hide (re-show from the menubar
-    /// canvas), and a real close (removes the note from the open session).
+    /// Rewrite WebKit's right-click menu into a note-aware action surface. Keep
+    /// useful selection/edit commands, drop stock Reload, then group identity,
+    /// file, presentation, and window actions from least to most consequential.
     private func decorateContextMenu(_ menu: NSMenu) {
-        menu.items.removeAll { $0.identifier?.rawValue == "WKMenuItemIdentifierReload" }
+        let noisyWebKitGroups: Set<String> = [
+            "Spelling and Grammar", "Substitutions", "Transformations", "Font",
+            "Speech", "Paragraph Direction", "Selection Direction", "AutoFill",
+        ]
+        menu.items.removeAll { item in
+            if item.identifier?.rawValue == "WKMenuItemIdentifierReload" { return true }
+            if noisyWebKitGroups.contains(item.title) { return true }
+            // Context menus should not advertise actions that cannot currently
+            // act. Selection/link commands remain when WebKit enables them.
+            return !item.isEnabled && item.submenu == nil
+        }
+        normalizeMenuSeparators(menu)
         if !menu.items.isEmpty { menu.addItem(.separator()) }
 
+        menu.addItem(contextItem(
+            "Copy Note ID",
+            symbol: "number",
+            action: #selector(contextCopyNoteID(_:))
+        ))
+        let copyMarkdown = contextItem(
+            "Copy Entire Note as Markdown",
+            symbol: "doc.on.doc",
+            action: #selector(contextCopyMarkdown(_:))
+        )
+        copyMarkdown.isEnabled = markdownProvider != nil
+        menu.addItem(copyMarkdown)
+        menu.addItem(contextItem(
+            "Copy File Path",
+            symbol: "link",
+            action: #selector(contextCopyFilePath(_:))
+        ))
+
+        menu.addItem(.separator())
+        menu.addItem(contextItem(
+            "Open Markdown File",
+            symbol: "doc.text",
+            action: #selector(contextOpenMarkdownFile(_:))
+        ))
+        menu.addItem(contextItem(
+            "Reveal in Finder",
+            symbol: "folder",
+            action: #selector(contextRevealInFinder(_:))
+        ))
+
+        menu.addItem(.separator())
+        let nextMode = currentMode == "edit" ? "Read" : "Edit"
+        menu.addItem(contextItem(
+            "Switch to \(nextMode) Mode",
+            symbol: currentMode == "edit" ? "book" : "pencil",
+            action: #selector(contextToggleMode(_:))
+        ))
+        menu.addItem(contextItem(
+            "Focus Mode",
+            symbol: "circle.dashed",
+            action: #selector(contextToggleFocus(_:)),
+            state: focusEnabled ? .on : .off
+        ))
+
         let styleItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")
+        styleItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
+        styleItem.submenu = makeStyleMenu()
+        menu.addItem(styleItem)
+
+        menu.addItem(.separator())
+        menu.addItem(contextItem(
+            "Hide Note",
+            symbol: "eye.slash",
+            action: #selector(contextHideNote(_:))
+        ))
+        menu.addItem(contextItem(
+            "Close Note",
+            symbol: "xmark",
+            action: #selector(contextCloseNote(_:))
+        ))
+    }
+
+    private func makeStyleMenu() -> NSMenu {
         let styleMenu = NSMenu()
         for sheet in Self.availableSheets {
             let item = NSMenuItem(
@@ -451,22 +621,84 @@ final class NotePanel: NSPanel {
             item.state = (sheet == sheetTemplate) ? .on : .off
             styleMenu.addItem(item)
         }
-        styleItem.submenu = styleMenu
-        menu.addItem(styleItem)
+        return styleMenu
+    }
 
-        menu.addItem(.separator())
-        let hide = NSMenuItem(title: "Hide Note", action: #selector(contextHideNote(_:)), keyEquivalent: "")
-        hide.target = self
-        menu.addItem(hide)
-        let close = NSMenuItem(title: "Close Note", action: #selector(contextCloseNote(_:)), keyEquivalent: "")
-        close.target = self
-        menu.addItem(close)
+    private func showStylePicker() {
+        guard let anchor = styleMetadataView else { return }
+        makeStyleMenu().popUp(
+            positioning: nil,
+            at: NSPoint(x: anchor.bounds.minX, y: anchor.bounds.maxY + 4),
+            in: anchor
+        )
+    }
+
+    private func normalizeMenuSeparators(_ menu: NSMenu) {
+        var hasLeadingItem = false
+        var previousWasSeparator = false
+        for item in menu.items {
+            guard item.isSeparatorItem else {
+                hasLeadingItem = true
+                previousWasSeparator = false
+                continue
+            }
+            if !hasLeadingItem || previousWasSeparator {
+                menu.removeItem(item)
+            } else {
+                previousWasSeparator = true
+            }
+        }
+        if let last = menu.items.last, last.isSeparatorItem {
+            menu.removeItem(last)
+        }
+    }
+
+    private func contextItem(
+        _ title: String,
+        symbol: String,
+        action: Selector,
+        state: NSControl.StateValue = .off
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        item.state = state
+        return item
     }
 
     @objc private func contextSelectSheet(_ sender: NSMenuItem) {
         guard let sheet = sender.representedObject as? String else { return }
         applySheet(sheet)
         onSheetChanged?(sheet)
+    }
+
+    @objc private func contextCopyNoteID(_ sender: NSMenuItem) {
+        copyNoteID()
+    }
+
+    @objc private func contextCopyMarkdown(_ sender: NSMenuItem) {
+        guard let markdown = markdownProvider?() else { return }
+        copyToPasteboard(markdown)
+    }
+
+    @objc private func contextCopyFilePath(_ sender: NSMenuItem) {
+        copyToPasteboard(noteFileURL.path)
+    }
+
+    @objc private func contextOpenMarkdownFile(_ sender: NSMenuItem) {
+        NSWorkspace.shared.open(noteFileURL)
+    }
+
+    @objc private func contextRevealInFinder(_ sender: NSMenuItem) {
+        NSWorkspace.shared.activateFileViewerSelecting([noteFileURL])
+    }
+
+    @objc private func contextToggleMode(_ sender: NSMenuItem) {
+        selectMode(currentMode == "edit" ? "read" : "edit")
+    }
+
+    @objc private func contextToggleFocus(_ sender: NSMenuItem) {
+        toggleFocus()
     }
 
     /// Soft hide: tuck the panel away but keep it in the session, so clicking
@@ -937,20 +1169,32 @@ final class NotePanel: NSPanel {
     /// Copy the exact agent-facing id, then return keyboard focus to the editor
     /// so identifying a note never interrupts the writing flow.
     private func copyNoteID() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(noteID, forType: .string)
+        copyToPasteboard(noteID)
         guard currentMode == "edit" else { return }
         makeKey()
         makeFirstResponder(editor.webView)
         editor.focus()
     }
+
+    private var noteFileURL: URL {
+        BlinkPaths.notes().appendingPathComponent("\(noteID).md", isDirectory: false)
+    }
+
+    private func copyToPasteboard(_ string: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(string, forType: .string)
+    }
 }
 
-/// Observable mode + focus state for the SwiftUI toggle overlay.
+/// Observable state shared by the panel's SwiftUI chrome.
 @MainActor
 final class PanelModeState: ObservableObject {
     @Published var mode: String = "edit"
     @Published var focus: Bool = false
+    @Published var sheet: String = "glass"
+    @Published var style: String?
+    @Published var font: String = "System"
+    @Published var fontSize: Double = 13
 }
 
 /// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right.
@@ -985,9 +1229,7 @@ private struct ModeToggle: View {
     }
 }
 
-/// The note/window handle exposed only while editing. It shows the stable slug
-/// agents already use (`blink write <id>`, panel APIs) and copies the full value
-/// even when a narrow panel has to truncate the middle visually.
+/// The stable, copyable note/window identity at bottom-center in edit mode.
 private struct NoteIdentifierBadge: View {
     let noteID: String
     var onCopy: () -> Void
@@ -1020,6 +1262,68 @@ private struct NoteIdentifierBadge: View {
     }
 }
 
+/// A tiny build signature at bottom-left, balancing identity and treatment.
+private struct AppVersionLabel: View {
+    let version: String
+
+    var body: some View {
+        Text("blink v\(version)")
+            .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color.primary.opacity(0.34))
+            .lineLimit(1)
+            .frame(height: 18)
+            .help("Blink \(version)")
+    }
+}
+
+/// Read-mostly treatment metadata at bottom-right. It stays quieter than the
+/// centered identity; clicking jumps straight into the sheet picker.
+private struct StyleMetadataBadge: View {
+    @ObservedObject var state: PanelModeState
+    var onTap: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: onTap) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) {
+                    styleLabel
+                    Text("·").foregroundStyle(Color.primary.opacity(0.25))
+                    Text("\(state.font) \(formattedFontSize)")
+                        .lineLimit(1)
+                }
+                styleLabel
+            }
+            .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color.primary.opacity(hovering ? 0.70 : 0.42))
+            .padding(.horizontal, 5)
+            .frame(height: 18)
+            .background(Color.primary.opacity(hovering ? 0.07 : 0.025), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help("Style: \(state.sheet) — click to change")
+    }
+
+    private var styleLabel: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "paintpalette")
+                .font(.system(size: 8))
+            if let style = state.style {
+                Text("\(style)/\(state.sheet)").lineLimit(1)
+            } else {
+                Text(state.sheet).lineLimit(1)
+            }
+        }
+    }
+
+    private var formattedFontSize: String {
+        state.fontSize.rounded() == state.fontSize
+            ? String(Int(state.fontSize))
+            : String(format: "%.1f", state.fontSize)
+    }
+}
+
 /// The focus ring: a small dashed circle, alone in the bottom-right corner —
 /// deliberately not a peer of the mode segments. Fills in while focus is on.
 private struct FocusGlyph: View {
@@ -1048,10 +1352,51 @@ private struct FocusGlyph: View {
 /// feels exactly like the native one — the cursor keeps its grip point.
 private final class DragHandle: NSView {
     private var isDragging = false
+    private var isHovering = false
+    private var tracking: NSTrackingArea?
     private var grabMouse = NSPoint.zero   // screen point at mouseDown
     private var grabOrigin = NSPoint.zero  // window origin at mouseDown
     private var tracker = DragVelocityTracker()
     private var shake = ShakeDetector()
+
+    override var isOpaque: Bool { false }
+
+    override func updateTrackingAreas() {
+        if let tracking { removeTrackingArea(tracking) }
+        let next = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .cursorUpdate, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(next)
+        tracking = next
+        super.updateTrackingAreas()
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // A hairline grip keeps the borderless panel discoverably movable
+        // without turning the strip into visible window chrome.
+        let alpha: CGFloat = isDragging ? 0.38 : (isHovering ? 0.24 : 0.08)
+        NSColor.labelColor.withAlphaComponent(alpha).setFill()
+        let grip = NSRect(x: bounds.midX - 12, y: bounds.maxY - 5, width: 24, height: 2)
+        NSBezierPath(roundedRect: grip, xRadius: 1, yRadius: 1).fill()
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        NSCursor.openHand.set()
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        if !isDragging { needsDisplay = true }
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        (isDragging ? NSCursor.closedHand : NSCursor.openHand).set()
+    }
 
     override func mouseDown(with event: NSEvent) {
         guard let panel = window as? NotePanel else { return }
@@ -1069,6 +1414,8 @@ private final class DragHandle: NSView {
         tracker.reset()
         shake.reset()
         isDragging = true
+        NSCursor.closedHand.set()
+        needsDisplay = true
     }
 
     override func mouseDragged(with event: NSEvent) {
@@ -1095,6 +1442,8 @@ private final class DragHandle: NSView {
     override func mouseUp(with event: NSEvent) {
         guard isDragging, let panel = window as? NotePanel else { return }
         isDragging = false
+        NSCursor.openHand.set()
+        needsDisplay = true
         tracker.add(panel.frame.origin, at: event.timestamp)
         panel.endManualDrag(velocity: tracker.velocity())
     }

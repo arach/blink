@@ -12,8 +12,11 @@ final class BlinkEditorWebView: WKWebView {
     var onWillOpenContextMenu: ((NSMenu) -> Void)?
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
-        onWillOpenContextMenu?(menu)
         super.willOpenMenu(menu, with: event)
+        // Let WebKit finish contributing context-dependent entries (including
+        // AutoFill) before Blink curates the final menu. Calling the hook first
+        // left late WebKit additions stranded below Blink's closing actions.
+        onWillOpenContextMenu?(menu)
     }
 }
 

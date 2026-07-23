@@ -52,11 +52,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
         }
 
+        // Light/dark: resolve the config's appearance axis before the first
+        // theme pass, and re-theme AppKit surfaces on a system-driven flip
+        // (the SwiftUI popover observes AppearanceManager itself).
+        AppearanceManager.shared.apply(BlinkConfigStore.shared.config.appearance)
+        AppearanceManager.shared.onChange = { [weak self] _ in
+            self?.panelManager.applyTheme(BlinkConfigStore.shared.config)
+        }
+
         // Agent-first config: hot-apply file edits to every live surface.
         BlinkConfigStore.shared.onChange = { [weak self] config in
+            // Appearance first, so applyTheme paints the resolved scheme.
+            AppearanceManager.shared.apply(config.appearance)
             self?.panelManager.applyTheme(config)
             self?.applyHotkeys(config)
             self?.applyLoginItem(config)
+            // Reflect an appearance change (or any state) in the menu checkmarks.
+            self?.contextMenu = self?.buildContextMenu()
         }
 
         Task {
@@ -247,7 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.appearance = NSAppearance(named: .darkAqua)
+        popover.appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
         popover.contentSize = CapturePopoverView.contentSize
         let host = NSHostingController(
             rootView: CapturePopoverView(
@@ -314,6 +326,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         backgroundItem.submenu = backgroundMenu
         menu.addItem(backgroundItem)
 
+        // Appearance: light/dark override (or Auto to follow macOS), without a
+        // trip through config.json. Mirrors config.appearance.
+        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        let current = BlinkConfigStore.shared.config.appearance.lowercased()
+        let activeAppearance = (current == "light" || current == "dark") ? current : "auto"
+        for (title, value) in [("Auto", "auto"), ("Light", "light"), ("Dark", "dark")] {
+            let item = NSMenuItem(title: title, action: #selector(menuAppearance(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = (activeAppearance == value) ? .on : .off
+            appearanceMenu.addItem(item)
+        }
+        appearanceItem.submenu = appearanceMenu
+        menu.addItem(appearanceItem)
+
         menu.addItem(.separator())
 
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
@@ -353,6 +381,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
     }
 
+    @objc private func menuAppearance(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        BlinkConfigStore.shared.update { $0.appearance = value }
+    }
+
     @objc private func menuNewNote() {
         newNote()
     }
@@ -373,7 +406,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let window = NSWindow(contentViewController: host)
             window.title = "Blink Settings"
             window.styleMask = [.titled, .closable]
-            window.appearance = NSAppearance(named: .darkAqua)
+            // No explicit appearance — inherit NSApp.appearance, which
+            // AppearanceManager pins (light/dark) or clears (auto → the OS).
             window.isReleasedWhenClosed = false
             window.setFrameAutosaveName("blink.settings")
             if window.frame.origin == .zero { window.center() }

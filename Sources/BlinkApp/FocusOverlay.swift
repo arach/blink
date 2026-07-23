@@ -8,9 +8,14 @@ final class FocusOverlay {
     private let window: NSWindow
     private let dimView = NSView()
 
-    /// Themable dim strength (config.json → focus.dim).
+    /// Themable dim strength (config.json → focus.dim). The veil follows the app
+    /// scheme: black recedes the world in dark mode, white in light mode — same
+    /// "quiet the surroundings" job, mirrored.
     func applyTheme(dim: Double) {
-        dimView.layer?.backgroundColor = NSColor.black.withAlphaComponent(dim).cgColor
+        let scheme = AppearanceManager.shared.scheme
+        window.appearance = NSAppearance(named: scheme.nsAppearanceName)
+        let base: NSColor = scheme.isDark ? .black : .white
+        dimView.layer?.backgroundColor = base.withAlphaComponent(dim).cgColor
     }
 
     init() {
@@ -25,7 +30,7 @@ final class FocusOverlay {
         w.ignoresMouseEvents = true
         w.level = .floating
         w.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-        w.appearance = NSAppearance(named: .darkAqua)
+        w.appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
         w.hasShadow = false
 
         let blur = NSVisualEffectView()

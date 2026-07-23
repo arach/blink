@@ -251,6 +251,10 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// App-wide light/dark axis: "auto" (follow macOS) | "light" | "dark".
+    /// Resolved to an effective `AppScheme` by `AppearanceManager`; every
+    /// surface paints by that. "auto" is the default and tracks the OS live.
+    var appearance = "auto"
     var behavior = Behavior()
     var hotkeys = Hotkeys()
     var panel = Panel()
@@ -265,6 +269,7 @@ struct BlinkConfig: Codable, Equatable {
     init() {}
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        appearance = try c.decodeIfPresent(String.self, forKey: .appearance) ?? "auto"
         behavior = try c.decodeIfPresent(Behavior.self, forKey: .behavior) ?? Behavior()
         hotkeys = try c.decodeIfPresent(Hotkeys.self, forKey: .hotkeys) ?? Hotkeys()
         panel = try c.decodeIfPresent(Panel.self, forKey: .panel) ?? Panel()
@@ -323,15 +328,28 @@ struct BlinkConfig: Codable, Equatable {
     }
 
     /// Map editor settings onto the web bundle's CSS variable contract
-    /// (see web/editor/README.md). Only non-default values are sent; the
-    /// stylesheet's own defaults cover the rest.
-    var editorThemeVars: [String: String] {
+    /// (see web/editor/README.md). The bundle's own `:root` defaults are dark;
+    /// in light mode we push a full "paper" palette (dark ink on light) BEFORE
+    /// the user's explicit `editor.*` colors, which always win. Only non-default
+    /// values are sent; the stylesheet covers the rest.
+    func editorThemeVars(scheme: AppScheme) -> [String: String] {
         var vars: [String: String] = [
             "--blink-font-size": "\(editor.fontSize)px",
             "--blink-line-height": "\(editor.lineHeight)",
             "--blink-pad-x": "\(editor.paddingX)px",
             "--blink-pad-y": "\(editor.paddingY)px",
         ]
+        if scheme == .light {
+            // Light "paper" defaults — dark ink on the now-light glass. Any
+            // explicit editor.* color below overrides these per note/theme.
+            vars["--blink-text"] = "rgba(28,26,24,0.86)"
+            vars["--blink-text-strong"] = "rgba(18,17,16,0.98)"
+            vars["--blink-text-muted"] = "rgba(60,56,52,0.55)"
+            vars["--blink-accent"] = "#c2410c"  // deepened amber; reads on light
+            vars["--blink-code-bg"] = "rgba(20,18,16,0.06)"
+            vars["--blink-caret"] = "#c2410c"
+            vars["--blink-selection"] = "rgba(194,65,12,0.22)"
+        }
         if let v = editor.fontFamily { vars["--blink-font-family"] = v }
         if let v = editor.monoFamily { vars["--blink-mono-family"] = v }
         if let v = editor.textColor { vars["--blink-text"] = v }
