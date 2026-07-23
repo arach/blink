@@ -63,6 +63,11 @@ else
   echo "warning: web/editor/dist/editor.html missing — note panels will not load an editor" >&2
 fi
 
+# Keep local bundles truthful: the same package version drives the CLI, npm,
+# releases, and the in-panel build signature.
+package_version="$(bun -p 'require("./packages/npm/package.json").version')"
+marketing_version="${package_version%%-*}"
+
 cat > "$app_path/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -85,9 +90,9 @@ cat > "$app_path/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>2.0.0</string>
+  <string>${marketing_version}</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>${marketing_version}</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
   <key>LSUIElement</key>

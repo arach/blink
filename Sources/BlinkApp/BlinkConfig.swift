@@ -99,6 +99,10 @@ struct BlinkConfig: Codable, Equatable {
         var dim: Double = 0.45  // 0–1 black tint over the blurred backdrop
         var opacity: Double = 1  // 0–1 overall presence; lower = a lighter veil
         var material: String = "hud"  // hud | underWindow | popover | sidebar | menu
+        /// Suppress the drape while a single note is on screen — a lone note
+        /// reads better clean over the desktop; the backdrop earns its keep only
+        /// once the notes form a set. Off restores "behind every note".
+        var soloSuppressed: Bool = true
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -107,6 +111,7 @@ struct BlinkConfig: Codable, Equatable {
             dim = try c.decodeIfPresent(Double.self, forKey: .dim) ?? 0.45
             opacity = try c.decodeIfPresent(Double.self, forKey: .opacity) ?? 1
             material = try c.decodeIfPresent(String.self, forKey: .material) ?? "hud"
+            soloSuppressed = try c.decodeIfPresent(Bool.self, forKey: .soloSuppressed) ?? true
         }
 
         var visualEffectMaterial: NSVisualEffectView.Material {
@@ -141,6 +146,36 @@ struct BlinkConfig: Codable, Equatable {
             durationMs = try c.decodeIfPresent(Double.self, forKey: .durationMs) ?? 260
             staggerMs = try c.decodeIfPresent(Double.self, forKey: .staggerMs) ?? 40
             enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        }
+    }
+
+    /// Panel physics: momentum fling with edge bounce, and shake-to-shade —
+    /// how a panel behaves under the hand, as opposed to `motion`, which owns
+    /// show/hide choreography. Read at gesture time (no hot-apply needed).
+    /// Reduce Motion turns the physics gestures off entirely.
+    struct Physics: Codable, Equatable {
+        /// Master switch for the fling: release a fast drag and the panel
+        /// glides on, bouncing off the edges of the screen it's mostly on.
+        var flingEnabled: Bool = true
+        /// Exponential glide friction (1/s); higher = heavier, stops sooner.
+        /// Total glide distance is ~releaseSpeed / flingFriction.
+        var flingFriction: Double = 3.2
+        /// Release speed (pt/s) that starts a glide; below it the panel stays put.
+        var flingMinVelocity: Double = 900
+        /// Fraction of velocity kept after an edge bounce (0…1).
+        var bounceDamping: Double = 0.6
+        /// Shake the panel side-to-side during a drag to fold it into its top
+        /// band (shade); shake again — or double-click the band — to restore.
+        var shakeEnabled: Bool = true
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            flingEnabled = try c.decodeIfPresent(Bool.self, forKey: .flingEnabled) ?? true
+            flingFriction = try c.decodeIfPresent(Double.self, forKey: .flingFriction) ?? 3.2
+            flingMinVelocity = try c.decodeIfPresent(Double.self, forKey: .flingMinVelocity) ?? 900
+            bounceDamping = try c.decodeIfPresent(Double.self, forKey: .bounceDamping) ?? 0.6
+            shakeEnabled = try c.decodeIfPresent(Bool.self, forKey: .shakeEnabled) ?? true
         }
     }
 
@@ -216,12 +251,17 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// App-wide light/dark axis: "auto" (follow macOS) | "light" | "dark".
+    /// Resolved to an effective `AppScheme` by `AppearanceManager`; every
+    /// surface paints by that. "auto" is the default and tracks the OS live.
+    var appearance = "auto"
     var behavior = Behavior()
     var hotkeys = Hotkeys()
     var panel = Panel()
     var focus = Focus()
     var drape = Drape()
     var motion = Motion()
+    var physics = Physics()
     var editor = Editor()
     /// Named presentation presets, referenced by a note's `blink.style`.
     var styles: [String: Treatment]?
@@ -229,12 +269,14 @@ struct BlinkConfig: Codable, Equatable {
     init() {}
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        appearance = try c.decodeIfPresent(String.self, forKey: .appearance) ?? "auto"
         behavior = try c.decodeIfPresent(Behavior.self, forKey: .behavior) ?? Behavior()
         hotkeys = try c.decodeIfPresent(Hotkeys.self, forKey: .hotkeys) ?? Hotkeys()
         panel = try c.decodeIfPresent(Panel.self, forKey: .panel) ?? Panel()
         focus = try c.decodeIfPresent(Focus.self, forKey: .focus) ?? Focus()
         drape = try c.decodeIfPresent(Drape.self, forKey: .drape) ?? Drape()
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
+        physics = try c.decodeIfPresent(Physics.self, forKey: .physics) ?? Physics()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
         styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)
     }
@@ -286,15 +328,28 @@ struct BlinkConfig: Codable, Equatable {
     }
 
     /// Map editor settings onto the web bundle's CSS variable contract
-    /// (see web/editor/README.md). Only non-default values are sent; the
-    /// stylesheet's own defaults cover the rest.
-    var editorThemeVars: [String: String] {
+    /// (see web/editor/README.md). The bundle's own `:root` defaults are dark;
+    /// in light mode we push a full "paper" palette (dark ink on light) BEFORE
+    /// the user's explicit `editor.*` colors, which always win. Only non-default
+    /// values are sent; the stylesheet covers the rest.
+    func editorThemeVars(scheme: AppScheme) -> [String: String] {
         var vars: [String: String] = [
             "--blink-font-size": "\(editor.fontSize)px",
             "--blink-line-height": "\(editor.lineHeight)",
             "--blink-pad-x": "\(editor.paddingX)px",
             "--blink-pad-y": "\(editor.paddingY)px",
         ]
+        if scheme == .light {
+            // Light "paper" defaults — dark ink on the now-light glass. Any
+            // explicit editor.* color below overrides these per note/theme.
+            vars["--blink-text"] = "rgba(28,26,24,0.86)"
+            vars["--blink-text-strong"] = "rgba(18,17,16,0.98)"
+            vars["--blink-text-muted"] = "rgba(60,56,52,0.55)"
+            vars["--blink-accent"] = "#c2410c"  // deepened amber; reads on light
+            vars["--blink-code-bg"] = "rgba(20,18,16,0.06)"
+            vars["--blink-caret"] = "#c2410c"
+            vars["--blink-selection"] = "rgba(194,65,12,0.22)"
+        }
         if let v = editor.fontFamily { vars["--blink-font-family"] = v }
         if let v = editor.monoFamily { vars["--blink-mono-family"] = v }
         if let v = editor.textColor { vars["--blink-text"] = v }

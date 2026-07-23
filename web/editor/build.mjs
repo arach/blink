@@ -104,6 +104,13 @@ const PAGE_CSS = `
    * the keyframes well-defined if an entrance ever fires without one. */
   --blink-enter-ms: 260ms;
 }
+
+/* Reader mode uses native DOM selection rather than CodeMirror's painted
+ * selection layer. Give it the same quiet, themeable treatment. */
+::selection {
+  background: var(--blink-selection);
+}
+
 * { box-sizing: border-box; }
 html, body {
   margin: 0;

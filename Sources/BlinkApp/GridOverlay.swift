@@ -84,6 +84,12 @@ private final class GridOverlayView: NSView {
 
     override var isOpaque: Bool { false }
 
+    /// The guide "ink" follows the app scheme so the constellation reads on
+    /// either backdrop: luminous white in dark mode, near-black in light.
+    private var ink: NSColor {
+        AppearanceManager.shared.scheme.isDark ? .white : NSColor(white: 0.12, alpha: 1)
+    }
+
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         NSColor.black.withAlphaComponent(0.15).setFill()
@@ -111,7 +117,7 @@ private final class GridOverlayView: NSView {
             }
             x += spacing
         }
-        NSColor.white.withAlphaComponent(0.08).setFill()
+        ink.withAlphaComponent(0.08).setFill()
         dots.fill()
     }
 
@@ -120,7 +126,7 @@ private final class GridOverlayView: NSView {
         let letterFont = NSFont.monospacedSystemFont(ofSize: 48, weight: .thin)
         let letterAttributes: [NSAttributedString.Key: Any] = [
             .font: letterFont,
-            .foregroundColor: NSColor.white.withAlphaComponent(0.09),
+            .foregroundColor: ink.withAlphaComponent(0.09),
         ]
 
         for slot in GridSlot.allCases {
@@ -128,7 +134,7 @@ private final class GridOverlayView: NSView {
             let outline = NSBezierPath(roundedRect: rect, xRadius: 16, yRadius: 16)
             outline.lineWidth = 1
             outline.setLineDash(dash, count: dash.count, phase: 0)
-            NSColor.white.withAlphaComponent(0.13).setStroke()
+            ink.withAlphaComponent(0.13).setStroke()
             outline.stroke()
 
             let label = slot.rawValue as NSString
@@ -146,7 +152,7 @@ private final class GridOverlayView: NSView {
             let outline = NSBezierPath(roundedRect: looseRect, xRadius: 14, yRadius: 14)
             outline.lineWidth = 1.2
             outline.lineCapStyle = .round
-            NSColor.white.withAlphaComponent(0.31).setStroke()
+            ink.withAlphaComponent(0.31).setStroke()
             outline.stroke()
 
             // A barely offset second pass keeps the line from reading as a
@@ -157,7 +163,7 @@ private final class GridOverlayView: NSView {
                 yRadius: 14
             )
             echo.lineWidth = 0.55
-            NSColor.white.withAlphaComponent(0.10).setStroke()
+            ink.withAlphaComponent(0.10).setStroke()
             echo.stroke()
         }
     }
@@ -186,10 +192,10 @@ private final class GridOverlayView: NSView {
             )
             threadPath.lineWidth = 1.5
             threadPath.lineCapStyle = .round
-            NSColor.white.withAlphaComponent(0.35).setStroke()
+            ink.withAlphaComponent(0.35).setStroke()
             threadPath.stroke()
 
-            NSColor.white.withAlphaComponent(0.45).setFill()
+            ink.withAlphaComponent(0.45).setFill()
             for point in [start, end] {
                 NSBezierPath(
                     ovalIn: NSRect(x: point.x - 2.5, y: point.y - 2.5, width: 5, height: 5)
@@ -268,7 +274,7 @@ final class GridOverlay {
         overlayWindow.ignoresMouseEvents = true
         overlayWindow.level = .floating
         overlayWindow.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
-        overlayWindow.appearance = NSAppearance(named: .darkAqua)
+        overlayWindow.appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
         overlayWindow.hasShadow = false
         overlayWindow.contentView = drawingView
         window = overlayWindow

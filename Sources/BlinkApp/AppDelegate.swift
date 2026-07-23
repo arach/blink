@@ -52,11 +52,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
         }
 
+        // Light/dark: resolve the config's appearance axis before the first
+        // theme pass, and re-theme AppKit surfaces on a system-driven flip
+        // (the SwiftUI popover observes AppearanceManager itself).
+        AppearanceManager.shared.apply(BlinkConfigStore.shared.config.appearance)
+        AppearanceManager.shared.onChange = { [weak self] _ in
+            self?.panelManager.applyTheme(BlinkConfigStore.shared.config)
+        }
+
         // Agent-first config: hot-apply file edits to every live surface.
         BlinkConfigStore.shared.onChange = { [weak self] config in
+            // Appearance first, so applyTheme paints the resolved scheme.
+            AppearanceManager.shared.apply(config.appearance)
             self?.panelManager.applyTheme(config)
             self?.applyHotkeys(config)
             self?.applyLoginItem(config)
+            // Reflect an appearance change (or any state) in the menu checkmarks.
+            self?.contextMenu = self?.buildContextMenu()
         }
 
         Task {
@@ -211,6 +223,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         if event.type == .rightMouseUp {
+            // Rebuild so live state (e.g. the Background checkmark) is current.
+            contextMenu = buildContextMenu()
             contextMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
             return
         }
@@ -245,7 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.appearance = NSAppearance(named: .darkAqua)
+        popover.appearance = NSAppearance(named: AppearanceManager.shared.scheme.nsAppearanceName)
         popover.contentSize = CapturePopoverView.contentSize
         let host = NSHostingController(
             rootView: CapturePopoverView(
@@ -297,6 +311,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(.separator())
 
+        // Background: quick control over the drape (the full-screen blur/dim
+        // behind the notes) without a trip through config.json.
+        let backgroundItem = NSMenuItem(title: "Background", action: nil, keyEquivalent: "")
+        let backgroundMenu = NSMenu()
+        let level = drapeLevel(BlinkConfigStore.shared.config)
+        for (title, target) in [("Off", DrapeLevel.off), ("Light", .light), ("Full", .full)] {
+            let item = NSMenuItem(title: title, action: #selector(menuBackgroundLevel(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = target.rawValue
+            item.state = (level == target) ? .on : .off
+            backgroundMenu.addItem(item)
+        }
+        backgroundItem.submenu = backgroundMenu
+        menu.addItem(backgroundItem)
+
+        // Appearance: light/dark override (or Auto to follow macOS), without a
+        // trip through config.json. Mirrors config.appearance.
+        let appearanceItem = NSMenuItem(title: "Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        let current = BlinkConfigStore.shared.config.appearance.lowercased()
+        let activeAppearance = (current == "light" || current == "dark") ? current : "auto"
+        for (title, value) in [("Auto", "auto"), ("Light", "light"), ("Dark", "dark")] {
+            let item = NSMenuItem(title: title, action: #selector(menuAppearance(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = (activeAppearance == value) ? .on : .off
+            appearanceMenu.addItem(item)
+        }
+        appearanceItem.submenu = appearanceMenu
+        menu.addItem(appearanceItem)
+
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -308,6 +355,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         menu.addItem(quitItem)
 
         return menu
+    }
+
+    /// The three quick background presets. `Off` kills the drape; `Light` and
+    /// `Full` set its overall presence (opacity) but leave `dim`/`material` as
+    /// configured, so a tuned drape keeps its character.
+    private enum DrapeLevel: String {
+        case off, light, full
+    }
+
+    private func drapeLevel(_ config: BlinkConfig) -> DrapeLevel {
+        guard config.drape.enabled else { return .off }
+        return config.drape.opacity <= 0.7 ? .light : .full
+    }
+
+    @objc private func menuBackgroundLevel(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let level = DrapeLevel(rawValue: raw) else { return }
+        BlinkConfigStore.shared.update { config in
+            switch level {
+            case .off:   config.drape.enabled = false
+            case .light: config.drape.enabled = true; config.drape.opacity = 0.4
+            case .full:  config.drape.enabled = true; config.drape.opacity = 1.0
+            }
+        }
+    }
+
+    @objc private func menuAppearance(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? String else { return }
+        BlinkConfigStore.shared.update { $0.appearance = value }
     }
 
     @objc private func menuNewNote() {
@@ -330,7 +406,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             let window = NSWindow(contentViewController: host)
             window.title = "Blink Settings"
             window.styleMask = [.titled, .closable]
-            window.appearance = NSAppearance(named: .darkAqua)
+            // No explicit appearance — inherit NSApp.appearance, which
+            // AppearanceManager pins (light/dark) or clears (auto → the OS).
             window.isReleasedWhenClosed = false
             window.setFrameAutosaveName("blink.settings")
             if window.frame.origin == .zero { window.center() }

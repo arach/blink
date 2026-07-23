@@ -16,13 +16,27 @@ struct CapturePopoverView: View {
     var showGrid: () -> Void
     var beginDictation: () -> Void
 
+    @ObservedObject private var appearance = AppearanceManager.shared
+
     @State private var query = ""
     @State private var selectedNoteID: String?
     @State private var canvasMode: CanvasMode = .constellation
     @State private var canvasExpanded = false
     @FocusState private var fieldFocused: Bool
 
-    private let amber = Color(red: 0.96, green: 0.58, blue: 0.08)
+    /// The resolved palette for the current app scheme (from "Capture
+    /// Window.dc.html"; accent is Talkie's #ff5822). Follows a light/dark flip
+    /// live because `appearance` is observed.
+    private var pal: PopoverPalette { .forScheme(appearance.scheme) }
+    private var amber: Color { pal.accent }
+    private var amberBright: Color { pal.accentBright }
+    private var live: Color { pal.live }
+
+    /// The design is set in IBM Plex Mono weight 200. SF Mono at a light weight
+    /// is the closest native match (bundling IBM Plex Mono would be exact).
+    private func mono(_ size: CGFloat, _ weight: Font.Weight = .light) -> Font {
+        .system(size: size, weight: weight, design: .monospaced)
+    }
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -54,7 +68,7 @@ struct CapturePopoverView: View {
             HStack(spacing: 0) {
                 if !canvasExpanded {
                     recentSidebar
-                        .frame(width: 390)
+                        .frame(width: 262)
                     verticalHairline
                 }
                 canvasPane
@@ -64,7 +78,9 @@ struct CapturePopoverView: View {
         }
         .frame(width: Self.contentSize.width, height: Self.contentSize.height)
         .background(popoverBackground)
-        .preferredColorScheme(.dark)
+        .overlay(PopoutCorners())
+        .environment(\.popoverPalette, pal)
+        .preferredColorScheme(appearance.scheme == .dark ? .dark : .light)
         .background(
             Button("") { createFromQuery() }
                 .keyboardShortcut(.return, modifiers: .command)
@@ -81,54 +97,88 @@ struct CapturePopoverView: View {
 
     private var popoverBackground: some View {
         ZStack {
-            Color(red: 0.055, green: 0.065, blue: 0.082)
-            LinearGradient(
+            pal.bgBase
+            RadialGradient(
                 colors: [
-                    Color(red: 0.16, green: 0.19, blue: 0.24).opacity(0.62),
-                    Color(red: 0.07, green: 0.08, blue: 0.105).opacity(0.82),
+                    pal.bgGrad1,  // #17191c
+                    pal.bgGrad2,  // #0c0e10
+                    pal.bgGrad3,  // #050607
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                center: UnitPoint(x: 0.78, y: 0.0),
+                startRadius: 0,
+                endRadius: 820
             )
+            TerminalGrid(step: 40, opacity: 0.02)
         }
     }
 
     private var searchHeader: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 13) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.white.opacity(0.46))
+                .font(.system(size: 15, weight: .light))
+                .foregroundStyle(pal.inkMuted)  // #6b7072
 
             TextField("Search or capture…", text: $query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 19, weight: .regular))
-                .foregroundStyle(.white.opacity(0.88))
+                .font(mono(15, .light))
+                .foregroundStyle(pal.inkBright)  // #e6e8e6
                 .tint(amber)
                 .focused($fieldFocused)
                 .onSubmit { openFirstOrCreate() }
 
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(live)
+                    .frame(width: 6, height: 6)
+                    .shadow(color: live.opacity(0.8), radius: 4)
+                Text("LIVE")
+                    .font(mono(10.5))
+                    .tracking(1.6)
+                    .foregroundStyle(live)
+            }
+            .padding(.trailing, 4)
+
+            KeyBadge(text: "⌘K")
+
             Button(action: startSystemDictation) {
-                Image(systemName: "mic")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.42))
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 14, weight: .light))
+                    .foregroundStyle(amberBright)
                     .frame(width: 30, height: 30)
+                    .background(amber.opacity(0.18))
+                    .overlay(Rectangle().stroke(amber.opacity(0.65), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .help("Dictate into capture")
         }
-        .padding(.horizontal, 28)
-        .frame(height: 74)
+        .padding(.horizontal, 18)
+        .frame(height: 56)
+    }
+
+    private var numberedNotes: [(index: Int, note: Note)] {
+        filtered.enumerated().map { (index: $0.offset + 1, note: $0.element) }
+    }
+    private var todayItems: [(index: Int, note: Note)] {
+        numberedNotes.filter { Calendar.current.isDateInToday($0.note.updatedAt) }
+    }
+    private var earlierItems: [(index: Int, note: Note)] {
+        numberedNotes.filter { !Calendar.current.isDateInToday($0.note.updatedAt) }
     }
 
     private var recentSidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(trimmedQuery.isEmpty ? "RECENT" : "MATCHES")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .tracking(4)
-                .foregroundStyle(.white.opacity(0.34))
-                .padding(.horizontal, 28)
-                .padding(.top, 23)
-                .padding(.bottom, 14)
+            HStack {
+                Text(trimmedQuery.isEmpty ? "LOG" : "MATCHES")
+                    .font(mono(10)).tracking(1.8).textCase(.uppercase)
+                    .foregroundStyle(pal.inkMuted)
+                Spacer()
+                Text("\(filtered.count) REC")
+                    .font(mono(10)).tracking(1)
+                    .foregroundStyle(pal.inkGhost)
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 15)
+            .padding(.bottom, 10)
 
             if model.notes.isEmpty {
                 emptyState("No notes yet — create your first thought.")
@@ -136,63 +186,88 @@ struct CapturePopoverView: View {
                 emptyState("No matches — Return creates “\(trimmedQuery)”.")
             } else {
                 ScrollView(.vertical) {
-                    LazyVStack(spacing: 2) {
-                        ForEach(filtered, id: \.id) { note in
-                            RecentNoteRow(
-                                note: note,
-                                accent: noteAccent(note),
-                                selected: note.id == selectedNote?.id,
-                                onSelect: { selectedNoteID = note.id },
-                                onOpen: { open(note) },
-                                onCopyMarkdown: { copyToPasteboard(note.content) },
-                                onCopyPath: {
-                                    copyToPasteboard(
-                                        AppDelegate.notesDirectory()
-                                            .appendingPathComponent("\(note.id).md").path
-                                    )
-                                },
-                                onDelete: { delete(note) }
-                            )
+                    LazyVStack(alignment: .leading, spacing: 1) {
+                        if !todayItems.isEmpty {
+                            sidebarSection("Today")
+                            ForEach(todayItems, id: \.note.id) { sidebarRow($0, earlier: false) }
+                        }
+                        if !earlierItems.isEmpty {
+                            sidebarSection("Earlier")
+                            ForEach(earlierItems, id: \.note.id) { sidebarRow($0, earlier: true) }
                         }
                     }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 12)
                 }
                 .background(SubtleScroller())
             }
         }
     }
 
+    private func sidebarSection(_ title: String) -> some View {
+        Text(title)
+            .font(mono(9)).tracking(2).textCase(.uppercase)
+            .foregroundStyle(pal.inkGhost)
+            .padding(.horizontal, 8)
+            .padding(.top, 12)
+            .padding(.bottom, 6)
+    }
+
+    @ViewBuilder
+    private func sidebarRow(_ item: (index: Int, note: Note), earlier: Bool) -> some View {
+        RecentNoteRow(
+            index: item.index,
+            note: item.note,
+            amber: amber,
+            selected: item.note.id == selectedNote?.id,
+            earlier: earlier,
+            onSelect: { selectedNoteID = item.note.id },
+            onOpen: { open(item.note) },
+            onCopyMarkdown: { copyToPasteboard(item.note.content) },
+            onCopyPath: {
+                copyToPasteboard(
+                    AppDelegate.notesDirectory()
+                        .appendingPathComponent("\(item.note.id).md").path
+                )
+            },
+            onDelete: { delete(item.note) }
+        )
+    }
+
     private var canvasPane: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("CANVAS  \(filtered.count) \(filtered.count == 1 ? "NOTE" : "NOTES")")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(4)
-                    .foregroundStyle(.white.opacity(0.32))
+                (
+                    Text("CANVAS ")
+                        .foregroundColor(pal.inkMid)  // #7f8587
+                    + Text("/ ")
+                        .foregroundColor(pal.inkGhost)  // #3d4143
+                    + Text("\(String(format: "%02d", filtered.count)) NODES")
+                        .foregroundColor(amberBright)
+                )
+                .font(mono(10)).tracking(1.6)
 
                 Spacer()
 
                 CanvasModePicker(selection: $canvasMode, amber: amber)
 
+                Rectangle().fill(pal.strokeBase.opacity(0.1)).frame(width: 1, height: 14).padding(.horizontal, 4)
+
                 Button {
                     withAnimation(.easeInOut(duration: 0.18)) { canvasExpanded.toggle() }
                 } label: {
                     Image(systemName: canvasExpanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.48))
-                        .frame(width: 38, height: 38)
-                        .background(.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 11))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 11)
-                                .stroke(.white.opacity(0.08), lineWidth: 1)
-                        )
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundStyle(pal.ink)  // #c4c8c6
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(canvasExpanded ? "Show recents" : "Expand canvas")
                 .accessibilityLabel(canvasExpanded ? "Show recents" : "Expand canvas")
             }
-            .padding(.horizontal, 24)
-            .frame(height: 78)
+            .padding(.horizontal, 20)
+            .frame(height: 42)
 
             Group {
                 if filtered.isEmpty {
@@ -211,7 +286,7 @@ struct CapturePopoverView: View {
                         NoteConstellation(
                             notes: filtered,
                             selectedNoteID: selectedNote?.id,
-                            accent: noteAccent,
+                            amber: amber,
                             onSelect: { selectedNoteID = $0.id },
                             onOpen: open
                         )
@@ -235,24 +310,24 @@ struct CapturePopoverView: View {
         VStack(spacing: 10) {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.system(size: 30, weight: .light))
-                .foregroundStyle(.white.opacity(0.18))
+                .foregroundStyle(pal.strokeBase.opacity(0.18))
             Text(trimmedQuery.isEmpty ? "Your notes will gather here" : "No notes on this canvas")
                 .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.36))
+                .foregroundStyle(pal.strokeBase.opacity(0.36))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CanvasSurface())
     }
 
     private var footer: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 7) {
             Button { createFromQuery() } label: {
-                HStack(spacing: 10) {
+                HStack(spacing: 7) {
                     KeyCap(symbol: "⌘")
-                    KeyCap(symbol: "↵")
-                    Text("new note")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.64))
+                    KeyCap(symbol: "↩")
+                    Text("New node")
+                        .font(mono(10.5)).tracking(1).textCase(.uppercase)
+                        .foregroundStyle(pal.inkMuted)
                 }
             }
             .buttonStyle(.plain)
@@ -260,40 +335,40 @@ struct CapturePopoverView: View {
 
             Spacer()
 
-            FooterAction(systemName: "house", label: "⌘H", help: "Settings", action: openSettings)
-            footerDivider
-            FooterAction(systemName: "eye", label: "⌥Space", help: "Blink notes", action: toggleBlink)
-            footerDivider
-            FooterAction(
-                systemName: "point.3.connected.trianglepath.dotted",
-                label: nil,
-                help: "Show spatial grid",
-                action: showGrid
-            )
-        }
-        .padding(.horizontal, 22)
-        .frame(height: 58)
-    }
+            Text("STATUS · READY")
+                .font(mono(10.5)).tracking(1)
+                .foregroundStyle(pal.inkFaint)
 
-    private var footerDivider: some View {
-        Rectangle()
-            .fill(.white.opacity(0.10))
-            .frame(width: 1, height: 26)
-            .padding(.horizontal, 4)
+            Button(action: toggleBlink) {
+                HStack(spacing: 6) {
+                    Image(systemName: "eye")
+                        .font(.system(size: 12, weight: .light))
+                    Text("⌥Space")
+                        .font(mono(10))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .overlay(Rectangle().stroke(pal.strokeBase.opacity(0.1), lineWidth: 1))
+                }
+                .foregroundStyle(pal.inkMid)  // #a6acae
+            }
+            .buttonStyle(.plain)
+            .help("Blink notes (⌥Space)")
+        }
+        .padding(.horizontal, 18)
+        .frame(height: 38)
     }
 
     private var hairline: some View {
-        Rectangle().fill(.white.opacity(0.09)).frame(height: 1)
+        Rectangle().fill(pal.strokeBase.opacity(0.09)).frame(height: 1)
     }
 
     private var verticalHairline: some View {
-        Rectangle().fill(.white.opacity(0.09)).frame(width: 1)
+        Rectangle().fill(pal.strokeBase.opacity(0.09)).frame(width: 1)
     }
 
     private func emptyState(_ message: String) -> some View {
         Text(message)
             .font(.system(size: 11))
-            .foregroundStyle(.white.opacity(0.38))
+            .foregroundStyle(pal.strokeBase.opacity(0.38))
             .padding(.horizontal, 28)
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -370,43 +445,45 @@ private enum CanvasMode: String, CaseIterable, Identifiable {
 }
 
 private struct CanvasModePicker: View {
+    @Environment(\.popoverPalette) private var pal
     @Binding var selection: CanvasMode
     let amber: Color
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 5) {
             ForEach(CanvasMode.allCases) { mode in
                 Button { selection = mode } label: {
                     Image(systemName: mode.icon)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(selection == mode ? amber : .white.opacity(0.42))
-                        .frame(width: 40, height: 34)
-                        .background(
-                            selection == mode ? amber.opacity(0.12) : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 9)
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundStyle(
+                            selection == mode
+                                ? pal.accentBright         // #ff7a4d
+                                : pal.ink        // #c4c8c6
                         )
+                        .frame(width: 24, height: 24)
+                        .background(selection == mode ? amber.opacity(0.1) : .clear)  // sharp
                         .overlay {
                             if selection == mode {
-                                RoundedRectangle(cornerRadius: 9)
-                                    .stroke(amber.opacity(0.55), lineWidth: 1)
+                                Rectangle().stroke(amber.opacity(0.3), lineWidth: 1)
                             }
                         }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(mode.rawValue.capitalized)
                 .accessibilityLabel("\(mode.rawValue.capitalized) view")
             }
         }
-        .padding(3)
-        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
 private struct RecentNoteRow: View {
+    @Environment(\.popoverPalette) private var pal
+    let index: Int
     let note: Note
-    let accent: Color
+    let amber: Color
     let selected: Bool
+    let earlier: Bool
     var onSelect: () -> Void
     var onOpen: () -> Void
     var onCopyMarkdown: () -> Void
@@ -415,38 +492,51 @@ private struct RecentNoteRow: View {
 
     @State private var hovered = false
 
+    // Tiered ink: the active row is warm, today rows read clear, earlier ones recede.
+    private var numberColor: Color {
+        if selected { return pal.accentBright }   // #ff7a4d
+        return earlier ? pal.inkGhost       // #3d4143
+                       : pal.inkFaint       // #54595b
+    }
+    private var titleColor: Color {
+        if selected { return pal.inkStrong } // #fbeee8
+        return earlier ? pal.inkMid       // #7f8587
+                       : pal.ink       // #d2d5d3
+    }
+    private var timeColor: Color {
+        if selected { return pal.warmSel } // #c8935f
+        return earlier ? pal.inkFaint       // #54595b
+                       : pal.inkMuted          // #6b7072
+    }
+
     var body: some View {
         Button(action: onSelect) {
-            HStack(spacing: 13) {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 10, height: 10)
-                    .shadow(color: accent.opacity(selected ? 0.75 : 0), radius: 7)
+            HStack(spacing: 10) {
+                Text(String(format: "%02d", index))
+                    .font(.system(size: 10.5, weight: .light, design: .monospaced))
+                    .foregroundStyle(numberColor)
 
                 Text(note.title)
-                    .font(.system(size: 14, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(.white.opacity(selected ? 0.94 : 0.72))
+                    .font(.system(size: 12, weight: .light, design: .monospaced))
+                    .foregroundStyle(titleColor)
                     .lineLimit(1)
+                    .truncationMode(.tail)
 
-                Spacer(minLength: 10)
+                Spacer(minLength: 8)
 
                 Text(note.updatedAt.blinkCompactRelative)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.30))
+                    .font(.system(size: 10.5, weight: .light, design: .monospaced))
+                    .foregroundStyle(timeColor)
                     .lineLimit(1)
             }
-            .padding(.horizontal, 16)
-            .frame(height: 44)
+            .padding(.horizontal, 10)
+            .frame(height: 32)
             .background(
-                selected ? accent.opacity(0.15) : (hovered ? .white.opacity(0.05) : .clear),
-                in: RoundedRectangle(cornerRadius: 11)
+                selected ? amber.opacity(0.08) : (hovered ? pal.strokeBase.opacity(0.04) : .clear)
             )
             .overlay(alignment: .leading) {
                 if selected {
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(accent)
-                        .frame(width: 3, height: 32)
-                        .offset(x: -1)
+                    Rectangle().fill(amber).frame(width: 2)  // inset left bar
                 }
             }
             .contentShape(Rectangle())
@@ -466,9 +556,10 @@ private struct RecentNoteRow: View {
 }
 
 private struct NoteConstellation: View {
+    @Environment(\.popoverPalette) private var pal
     let notes: [Note]
     let selectedNoteID: String?
-    let accent: (Note) -> Color
+    let amber: Color
     let onSelect: (Note) -> Void
     let onOpen: (Note) -> Void
 
@@ -486,18 +577,19 @@ private struct NoteConstellation: View {
                         path.addLine(to: end)
                         context.stroke(
                             path,
-                            with: .color(.white.opacity(0.105)),
+                            with: .color(pal.strokeBase.opacity(0.08)),
                             style: StrokeStyle(lineWidth: 1, dash: [5, 7])
                         )
                     }
                 }
                 .allowsHitTesting(false)
 
-                ForEach(notes, id: \.id) { note in
+                ForEach(Array(notes.enumerated()), id: \.element.id) { offset, note in
                     if let point = points[note.id] {
                         ConstellationNode(
+                            index: offset + 1,
                             note: note,
-                            accent: accent(note),
+                            amber: amber,
                             selected: note.id == selectedNoteID,
                             onSelect: { onSelect(note) },
                             onOpen: { onOpen(note) }
@@ -505,54 +597,86 @@ private struct NoteConstellation: View {
                         .position(point)
                     }
                 }
-
-                if let note = notes.first(where: { $0.id == selectedNoteID }),
-                   let point = points[note.id] {
-                    NotePreviewCard(
-                        note: note,
-                        accent: accent(note),
-                        coordinate: ConstellationLayout.label(for: point, in: geometry.size),
-                        onOpen: { onOpen(note) }
-                    )
-                    .frame(width: min(330, geometry.size.width * 0.54))
-                    .padding(16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 15))
+            .clipShape(Rectangle())
         }
     }
 }
 
 private struct ConstellationNode: View {
+    @Environment(\.popoverPalette) private var pal
+    let index: Int
     let note: Note
-    let accent: Color
+    let amber: Color
     let selected: Bool
     let onSelect: () -> Void
     let onOpen: () -> Void
 
     @State private var hovered = false
 
+    // Recency tier drives prominence: A (freshest) → B → C recede into the board.
+    private var tier: Int { index <= 3 ? 0 : (index <= 6 ? 1 : 2) }
+
+    private var bgColor: Color {
+        if selected { return pal.nodeSelBg }  // #121011
+        switch tier {
+        case 0: return pal.nodeBg0          // paper card
+        case 1: return pal.nodeBg1
+        default: return pal.nodeBg2
+        }
+    }
+    private var borderColor: Color {
+        if selected { return amber.opacity(0.55) }
+        switch tier {
+        case 0: return pal.strokeBase.opacity(hovered ? 0.25 : 0.11)
+        case 1: return pal.strokeBase.opacity(hovered ? 0.18 : 0.08)
+        default: return pal.strokeBase.opacity(hovered ? 0.12 : 0.05)
+        }
+    }
+    private var titleColor: Color {
+        if selected { return pal.strokeBase }
+        switch tier {
+        case 0: return pal.inkBright           // #e6e8e6
+        case 1: return pal.inkMid          // #83898b
+        default: return pal.inkFaint         // #54595b
+        }
+    }
+    private var numberColor: Color {
+        if selected { return pal.accentBright }    // #ff7a4d
+        switch tier {
+        case 0: return pal.inkFaint          // #54595b
+        case 1: return pal.inkGhost          // #43484b
+        default: return pal.inkGhost            // #33383a
+        }
+    }
+
     var body: some View {
         Button(action: onSelect) {
             HStack(spacing: 8) {
-                Circle().fill(accent).frame(width: 9, height: 9)
+                Text(String(format: "%02d", index))
+                    .font(.system(size: selected ? 10.5 : (tier == 0 ? 10 : 9.5), weight: .light, design: .monospaced))
+                    .foregroundStyle(numberColor)
                 Text(note.title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(.white.opacity(selected ? 0.94 : 0.73))
+                    .font(.system(size: selected ? 12 : (tier == 0 ? 11.5 : 11), weight: .light, design: .monospaced))
+                    .foregroundStyle(titleColor)
                     .lineLimit(1)
+                if selected {
+                    Text(note.updatedAt.blinkCompactRelative)
+                        .font(.system(size: 10, weight: .light, design: .monospaced))
+                        .foregroundStyle(pal.inkMuted)
+                }
             }
-            .padding(.horizontal, 13)
-            .frame(height: 33)
-            .background(
-                selected ? accent.opacity(0.16) : Color(red: 0.11, green: 0.12, blue: 0.15).opacity(0.92),
-                in: RoundedRectangle(cornerRadius: 11)
+            .padding(.horizontal, selected ? 13 : (tier == 0 ? 12 : 11))
+            .padding(.vertical, selected ? 8 : (tier == 0 ? 7 : 6))
+            .background(bgColor)                                 // sharp corners
+            .overlay(Rectangle().stroke(borderColor, lineWidth: 1))
+            .overlay { if selected { CornerTicks(color: amber) } }
+            .shadow(
+                color: selected ? amber.opacity(0.35) : .black.opacity(0.2),
+                radius: selected ? 14 : 4, x: 0, y: selected ? 6 : 2
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 11)
-                    .stroke(selected ? accent.opacity(0.82) : .white.opacity(hovered ? 0.18 : 0.10), lineWidth: selected ? 1.5 : 1)
-            )
-            .shadow(color: selected ? accent.opacity(0.30) : .black.opacity(0.18), radius: selected ? 18 : 5)
+            .offset(y: hovered && !selected ? -2 : 0)
+            .animation(.easeOut(duration: 0.12), value: hovered)
         }
         .buttonStyle(.plain)
         .onHover { hovered = $0 }
@@ -561,62 +685,31 @@ private struct ConstellationNode: View {
     }
 }
 
-private struct NotePreviewCard: View {
-    let note: Note
-    let accent: Color
-    let coordinate: String
-    let onOpen: () -> Void
+/// Amber L-brackets just outside a node's four corners — the "locked/active"
+/// framing from the design.
+private struct CornerTicks: View {
+    let color: Color
+    var len: CGFloat = 7
+    var lineWidth: CGFloat = 1.5
+    var out: CGFloat = 3
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(note.title)
-                    .font(.system(size: 20, weight: .semibold, design: .serif).italic())
-                    .foregroundStyle(.white.opacity(0.94))
-                    .lineLimit(1)
-                Spacer(minLength: 12)
-                Text(coordinate)
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(accent.opacity(0.86))
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height
+            Path { p in
+                p.move(to: CGPoint(x: -out, y: -out + len)); p.addLine(to: CGPoint(x: -out, y: -out)); p.addLine(to: CGPoint(x: -out + len, y: -out))
+                p.move(to: CGPoint(x: w + out - len, y: -out)); p.addLine(to: CGPoint(x: w + out, y: -out)); p.addLine(to: CGPoint(x: w + out, y: -out + len))
+                p.move(to: CGPoint(x: -out, y: h + out - len)); p.addLine(to: CGPoint(x: -out, y: h + out)); p.addLine(to: CGPoint(x: -out + len, y: h + out))
+                p.move(to: CGPoint(x: w + out - len, y: h + out)); p.addLine(to: CGPoint(x: w + out, y: h + out)); p.addLine(to: CGPoint(x: w + out, y: h + out - len))
             }
-
-            Text(note.blinkExcerpt)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(.white.opacity(0.59))
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack {
-                Text(note.updatedAt.blinkLongRelative)
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.30))
-                Spacer()
-                Button(action: onOpen) {
-                    HStack(spacing: 8) {
-                        KeyCap(symbol: "↵")
-                        Text("open")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    }
-                    .foregroundStyle(.white.opacity(0.72))
-                }
-                .buttonStyle(.plain)
-            }
+            .stroke(color, lineWidth: lineWidth)
         }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [Color(red: 0.12, green: 0.125, blue: 0.15), Color(red: 0.085, green: 0.09, blue: 0.11)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 15)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 15).stroke(accent.opacity(0.34), lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 7)
+        .allowsHitTesting(false)
     }
 }
 
 private struct NoteCardGrid: View {
+    @Environment(\.popoverPalette) private var pal
     let notes: [Note]
     let selectedNoteID: String?
     let accent: (Note) -> Color
@@ -635,24 +728,24 @@ private struct NoteCardGrid: View {
                                 Circle().fill(accent(note)).frame(width: 9, height: 9)
                                 Text(note.title)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.84))
+                                    .foregroundStyle(pal.strokeBase.opacity(0.84))
                                     .lineLimit(1)
                                 Spacer()
                                 Text(note.updatedAt.blinkCompactRelative)
                                     .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(.white.opacity(0.28))
+                                    .foregroundStyle(pal.strokeBase.opacity(0.28))
                             }
                             Text(note.blinkExcerpt)
                                 .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.43))
+                                .foregroundStyle(pal.strokeBase.opacity(0.43))
                                 .lineLimit(3)
                                 .frame(maxWidth: .infinity, minHeight: 46, alignment: .topLeading)
                         }
                         .padding(14)
-                        .background(.white.opacity(note.id == selectedNoteID ? 0.075 : 0.035), in: RoundedRectangle(cornerRadius: 12))
+                        .background(pal.strokeBase.opacity(note.id == selectedNoteID ? 0.075 : 0.035), in: RoundedRectangle(cornerRadius: 12))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(note.id == selectedNoteID ? accent(note).opacity(0.55) : .white.opacity(0.07), lineWidth: 1)
+                                .stroke(note.id == selectedNoteID ? accent(note).opacity(0.55) : pal.strokeBase.opacity(0.07), lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -667,6 +760,7 @@ private struct NoteCardGrid: View {
 }
 
 private struct CanvasNoteList: View {
+    @Environment(\.popoverPalette) private var pal
     let notes: [Note]
     let selectedNoteID: String?
     let accent: (Note) -> Color
@@ -683,24 +777,24 @@ private struct CanvasNoteList: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(note.title)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white.opacity(0.82))
+                                    .foregroundStyle(pal.strokeBase.opacity(0.82))
                                     .lineLimit(1)
                                 Text(note.blinkExcerpt)
                                     .font(.system(size: 10))
-                                    .foregroundStyle(.white.opacity(0.35))
+                                    .foregroundStyle(pal.strokeBase.opacity(0.35))
                                     .lineLimit(1)
                             }
                             Spacer()
                             Text(note.updatedAt.blinkCompactRelative)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.28))
+                                .foregroundStyle(pal.strokeBase.opacity(0.28))
                             Image(systemName: "arrow.up.forward.app")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.28))
+                                .foregroundStyle(pal.strokeBase.opacity(0.28))
                         }
                         .padding(.horizontal, 14)
                         .frame(height: 50)
-                        .background(.white.opacity(note.id == selectedNoteID ? 0.07 : 0.025), in: RoundedRectangle(cornerRadius: 10))
+                        .background(pal.strokeBase.opacity(note.id == selectedNoteID ? 0.07 : 0.025), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                     .simultaneousGesture(TapGesture(count: 2).onEnded { onOpen(note) })
@@ -746,19 +840,21 @@ private final class SubtleScrollerProbe: NSView {
 }
 
 private struct CanvasSurface: View {
+    @Environment(\.popoverPalette) private var pal
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 15)
-                .fill(Color(red: 0.025, green: 0.031, blue: 0.041).opacity(0.93))
+                .fill(pal.canvasFill)
             DotGrid()
                 .clipShape(RoundedRectangle(cornerRadius: 15))
             RoundedRectangle(cornerRadius: 15)
-                .stroke(.white.opacity(0.065), lineWidth: 1)
+                .stroke(pal.strokeBase.opacity(0.065), lineWidth: 1)
         }
     }
 }
 
 private struct DotGrid: View {
+    @Environment(\.popoverPalette) private var pal
     var body: some View {
         Canvas { context, size in
             let step: CGFloat = 28
@@ -768,7 +864,7 @@ private struct DotGrid: View {
                 while y < size.height {
                     context.fill(
                         Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2)),
-                        with: .color(.white.opacity(0.055))
+                        with: .color(pal.strokeBase.opacity(0.055))
                     )
                     y += step
                 }
@@ -779,43 +875,75 @@ private struct DotGrid: View {
     }
 }
 
-private struct FooterAction: View {
-    let systemName: String
-    let label: String?
-    let help: String
-    let action: () -> Void
+/// The faint 1px line grid that underlays the whole popout.
+private struct TerminalGrid: View {
+    @Environment(\.popoverPalette) private var pal
+    var step: CGFloat = 40
+    var opacity: Double = 0.02
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: systemName)
-                    .font(.system(size: 15, weight: .medium))
-                if let label {
-                    Text(label)
-                        .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .padding(.horizontal, 8)
-                        .frame(height: 25)
-                        .background(.white.opacity(0.065), in: RoundedRectangle(cornerRadius: 6))
-                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(.white.opacity(0.08), lineWidth: 1))
-                }
+        Canvas { context, size in
+            let color = pal.strokeBase.opacity(opacity)
+            var x: CGFloat = 0
+            while x < size.width {
+                context.stroke(Path { $0.move(to: CGPoint(x: x, y: 0)); $0.addLine(to: CGPoint(x: x, y: size.height)) }, with: .color(color), lineWidth: 1)
+                x += step
             }
-            .foregroundStyle(.white.opacity(0.48))
+            var y: CGFloat = 0
+            while y < size.height {
+                context.stroke(Path { $0.move(to: CGPoint(x: 0, y: y)); $0.addLine(to: CGPoint(x: size.width, y: y)) }, with: .color(color), lineWidth: 1)
+                y += step
+            }
         }
-        .buttonStyle(.plain)
-        .help(help)
+        .allowsHitTesting(false)
+    }
+}
+
+/// The four L-brackets framing the popout, per the design's terminal chrome.
+private struct PopoutCorners: View {
+    @Environment(\.popoverPalette) private var pal
+    var len: CGFloat = 13
+    var body: some View {
+        let color = pal.popoutCorner  // #5a6063
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height
+            Path { p in
+                p.move(to: CGPoint(x: 0, y: len)); p.addLine(to: CGPoint(x: 0, y: 0)); p.addLine(to: CGPoint(x: len, y: 0))
+                p.move(to: CGPoint(x: w - len, y: 0)); p.addLine(to: CGPoint(x: w, y: 0)); p.addLine(to: CGPoint(x: w, y: len))
+                p.move(to: CGPoint(x: 0, y: h - len)); p.addLine(to: CGPoint(x: 0, y: h)); p.addLine(to: CGPoint(x: len, y: h))
+                p.move(to: CGPoint(x: w - len, y: h)); p.addLine(to: CGPoint(x: w, y: h)); p.addLine(to: CGPoint(x: w, y: h - len))
+            }
+            .stroke(color, lineWidth: 1)
+        }
+        .allowsHitTesting(false)
     }
 }
 
 private struct KeyCap: View {
+    @Environment(\.popoverPalette) private var pal
     let symbol: String
 
     var body: some View {
         Text(symbol)
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.62))
-            .frame(minWidth: 23, minHeight: 23)
-            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(.white.opacity(0.09), lineWidth: 1))
+            .font(.system(size: 11, weight: .light, design: .monospaced))
+            .foregroundStyle(pal.ink)  // #d2d5d3
+            .frame(minWidth: 20, minHeight: 20)
+            .overlay(Rectangle().stroke(pal.strokeBase.opacity(0.1), lineWidth: 1))   // sharp
+    }
+}
+
+/// A bordered inline key hint (e.g. ⌘K) — sharp, thin, per the design.
+private struct KeyBadge: View {
+    @Environment(\.popoverPalette) private var pal
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10.5, weight: .light, design: .monospaced))
+            .foregroundStyle(pal.inkMuted)  // #6b7072
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .overlay(Rectangle().stroke(pal.strokeBase.opacity(0.1), lineWidth: 1))
     }
 }
 
@@ -958,5 +1086,106 @@ private extension Color {
             green: Double((number >> 8) & 0xff) / 255,
             blue: Double(number & 0xff) / 255
         )
+    }
+}
+
+// MARK: - Appearance palette
+
+/// The popover's full color set for one appearance. `strokeBase` collapses the
+/// terminal chrome — every hairline, border, dot, grid line, and hover fill is
+/// that color at some opacity, and it doubles as ink-on-surface text — so light
+/// mode is mostly "flip white → near-black." The opaque mono inks and the paper
+/// backgrounds carry explicit light values. Accents (amber, LIVE green) are
+/// shared: both read on paper as well as on black.
+private struct PopoverPalette {
+    let accent = Color(red: 1.0, green: 0.345, blue: 0.133)        // #ff5822
+    let accentBright = Color(red: 1.0, green: 0.478, blue: 0.302)  // #ff7a4d
+
+    var live: Color
+    /// White in dark, near-black in light: base for all opacity-based chrome
+    /// and for ink-on-surface text.
+    var strokeBase: Color
+
+    // Tiered mono ink, brightest → faintest.
+    var inkStrong: Color   // selected titles
+    var inkBright: Color   // input text, freshest node title
+    var ink: Color         // icons, keycaps, today rows
+    var inkMid: Color      // earlier titles, footer, mid-tier nodes
+    var inkMuted: Color    // magnifier, section labels, key badges
+    var inkFaint: Color    // row numbers, status line
+    var inkGhost: Color    // counts, receded numbers, the "/" divider
+    var warmSel: Color     // a selected row's timestamp (warm tan)
+
+    // Opaque surfaces.
+    var bgBase: Color
+    var bgGrad1: Color
+    var bgGrad2: Color
+    var bgGrad3: Color
+    var canvasFill: Color
+    var nodeSelBg: Color
+    var nodeBg0: Color
+    var nodeBg1: Color
+    var nodeBg2: Color
+    var popoutCorner: Color
+
+    static let dark = PopoverPalette(
+        live: Color(red: 0.353, green: 0.820, blue: 0.608),        // #5ad19b
+        strokeBase: .white,
+        inkStrong: Color(red: 0.984, green: 0.933, blue: 0.910),   // #fbeee8
+        inkBright: Color(red: 0.902, green: 0.910, blue: 0.902),   // #e6e8e6
+        ink: Color(red: 0.824, green: 0.835, blue: 0.827),         // #d2d5d3
+        inkMid: Color(red: 0.498, green: 0.522, blue: 0.529),      // #7f8587
+        inkMuted: Color(red: 0.420, green: 0.440, blue: 0.450),    // #6b7072
+        inkFaint: Color(red: 0.329, green: 0.349, blue: 0.357),    // #54595b
+        inkGhost: Color(red: 0.239, green: 0.255, blue: 0.263),    // #3d4143
+        warmSel: Color(red: 0.784, green: 0.576, blue: 0.373),     // #c8935f
+        bgBase: Color(red: 0.039, green: 0.043, blue: 0.047),      // #0a0b0c
+        bgGrad1: Color(red: 0.090, green: 0.098, blue: 0.110),     // #17191c
+        bgGrad2: Color(red: 0.047, green: 0.055, blue: 0.063),     // #0c0e10
+        bgGrad3: Color(red: 0.020, green: 0.024, blue: 0.027),     // #050607
+        canvasFill: Color(red: 0.025, green: 0.031, blue: 0.041).opacity(0.93),
+        nodeSelBg: Color(red: 0.071, green: 0.063, blue: 0.067),   // #121011
+        nodeBg0: Color(red: 0.055, green: 0.059, blue: 0.067),     // #0e0f11
+        nodeBg1: Color(red: 0.039, green: 0.043, blue: 0.047),     // #0a0b0c
+        nodeBg2: Color(red: 0.031, green: 0.035, blue: 0.039),     // #08090a
+        popoutCorner: Color(red: 0.353, green: 0.376, blue: 0.388)  // #5a6063
+    )
+
+    static let light = PopoverPalette(
+        live: Color(red: 0.106, green: 0.580, blue: 0.404),        // #1b9367
+        strokeBase: Color(red: 0.086, green: 0.078, blue: 0.070),  // warm near-black
+        inkStrong: Color(red: 0.090, green: 0.075, blue: 0.063),   // #17130f
+        inkBright: Color(red: 0.130, green: 0.116, blue: 0.102),   // #211d1a
+        ink: Color(red: 0.205, green: 0.185, blue: 0.165),         // #342f2a
+        inkMid: Color(red: 0.360, green: 0.335, blue: 0.310),      // #5c554f
+        inkMuted: Color(red: 0.460, green: 0.435, blue: 0.405),    // #756f67
+        inkFaint: Color(red: 0.560, green: 0.535, blue: 0.505),    // #8f8880
+        inkGhost: Color(red: 0.680, green: 0.655, blue: 0.622),    // #ada79e
+        warmSel: Color(red: 0.600, green: 0.380, blue: 0.180),     // #99612e
+        bgBase: Color(red: 0.949, green: 0.941, blue: 0.925),      // #f2f0ec paper
+        bgGrad1: Color(red: 0.988, green: 0.980, blue: 0.965),     // #fcfaf6
+        bgGrad2: Color(red: 0.949, green: 0.941, blue: 0.925),     // #f2f0ec
+        bgGrad3: Color(red: 0.910, green: 0.898, blue: 0.874),     // #e8e5df
+        canvasFill: Color(red: 1.0, green: 0.996, blue: 0.988).opacity(0.72),
+        nodeSelBg: Color(red: 1.0, green: 1.0, blue: 1.0),         // white card
+        nodeBg0: Color(red: 0.988, green: 0.984, blue: 0.973),     // #fcfbf8
+        nodeBg1: Color(red: 0.957, green: 0.949, blue: 0.933),     // #f4f2ee
+        nodeBg2: Color(red: 0.929, green: 0.918, blue: 0.898),     // #ede9e5
+        popoutCorner: Color(red: 0.660, green: 0.635, blue: 0.600)  // #a8a29a
+    )
+
+    static func forScheme(_ scheme: AppScheme) -> PopoverPalette {
+        scheme == .dark ? .dark : .light
+    }
+}
+
+private struct PopoverPaletteKey: EnvironmentKey {
+    static let defaultValue = PopoverPalette.dark
+}
+
+private extension EnvironmentValues {
+    var popoverPalette: PopoverPalette {
+        get { self[PopoverPaletteKey.self] }
+        set { self[PopoverPaletteKey.self] = newValue }
     }
 }
