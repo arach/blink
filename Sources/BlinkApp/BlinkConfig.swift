@@ -56,6 +56,13 @@ struct BlinkConfig: Codable, Equatable {
         var shadow: Bool = true
         var defaultWidth: Double = 420
         var defaultHeight: Double = 340
+        /// Optional CSS surface color painted by the web sheet. `nil` keeps
+        /// glass transparent; treatments can supply an opaque brand canvas.
+        var background: String?
+        /// Optional identity mark shown in the panel's top-left chrome. Relative
+        /// paths resolve under `$BLINK_HOME/attachments`; note markdown never
+        /// needs to carry presentation-only brand assets.
+        var mark: String?
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -68,6 +75,8 @@ struct BlinkConfig: Codable, Equatable {
             shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow) ?? true
             defaultWidth = try c.decodeIfPresent(Double.self, forKey: .defaultWidth) ?? 420
             defaultHeight = try c.decodeIfPresent(Double.self, forKey: .defaultHeight) ?? 340
+            background = try c.decodeIfPresent(String.self, forKey: .background)
+            mark = try c.decodeIfPresent(String.self, forKey: .mark)
         }
 
         var visualEffectMaterial: NSVisualEffectView.Material {
@@ -182,6 +191,7 @@ struct BlinkConfig: Codable, Equatable {
     struct Editor: Codable, Equatable {
         var fontFamily: String?
         var monoFamily: String?
+        var titleFamily: String?
         var fontSize: Double = 13
         var lineHeight: Double = 1.75
         var paddingX: Double = 20
@@ -189,8 +199,12 @@ struct BlinkConfig: Codable, Equatable {
         var textColor: String?
         var textStrongColor: String?
         var textMutedColor: String?
+        var dimColor: String?
+        var borderColor: String?
         var accentColor: String?
+        var accentDimColor: String?
         var codeBackground: String?
+        var codeTextColor: String?
         var caretColor: String?
         var selectionColor: String?
         var h1Size: Double?
@@ -202,6 +216,7 @@ struct BlinkConfig: Codable, Equatable {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             fontFamily = try c.decodeIfPresent(String.self, forKey: .fontFamily)
             monoFamily = try c.decodeIfPresent(String.self, forKey: .monoFamily)
+            titleFamily = try c.decodeIfPresent(String.self, forKey: .titleFamily)
             fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize) ?? 13
             lineHeight = try c.decodeIfPresent(Double.self, forKey: .lineHeight) ?? 1.75
             paddingX = try c.decodeIfPresent(Double.self, forKey: .paddingX) ?? 20
@@ -209,8 +224,12 @@ struct BlinkConfig: Codable, Equatable {
             textColor = try c.decodeIfPresent(String.self, forKey: .textColor)
             textStrongColor = try c.decodeIfPresent(String.self, forKey: .textStrongColor)
             textMutedColor = try c.decodeIfPresent(String.self, forKey: .textMutedColor)
+            dimColor = try c.decodeIfPresent(String.self, forKey: .dimColor)
+            borderColor = try c.decodeIfPresent(String.self, forKey: .borderColor)
             accentColor = try c.decodeIfPresent(String.self, forKey: .accentColor)
+            accentDimColor = try c.decodeIfPresent(String.self, forKey: .accentDimColor)
             codeBackground = try c.decodeIfPresent(String.self, forKey: .codeBackground)
+            codeTextColor = try c.decodeIfPresent(String.self, forKey: .codeTextColor)
             caretColor = try c.decodeIfPresent(String.self, forKey: .caretColor)
             selectionColor = try c.decodeIfPresent(String.self, forKey: .selectionColor)
             h1Size = try c.decodeIfPresent(Double.self, forKey: .h1Size)
@@ -228,26 +247,56 @@ struct BlinkConfig: Codable, Equatable {
     struct Treatment: Codable, Equatable {
         var sheet: String?
         var accent: String?
+        var accentDim: String?
         var font: String?
+        var mono: String?
+        var titleFont: String?
         var fontSize: Double?
         var lineHeight: Double?
+        var background: String?
+        var text: String?
+        var textStrong: String?
+        var textMuted: String?
+        var dim: String?
+        var border: String?
+        var codeBackground: String?
+        var codeText: String?
+        var caret: String?
+        var selection: String?
         var tint: Double?
         var tintRead: Double?
         var tintEdit: Double?
         var radius: Double?
+        /// Relative path under `$BLINK_HOME/attachments` for a restrained
+        /// identity mark in the panel's top-left chrome.
+        var mark: String?
 
         init() {}
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             sheet = try c.decodeIfPresent(String.self, forKey: .sheet)
             accent = try c.decodeIfPresent(String.self, forKey: .accent)
+            accentDim = try c.decodeIfPresent(String.self, forKey: .accentDim)
             font = try c.decodeIfPresent(String.self, forKey: .font)
+            mono = try c.decodeIfPresent(String.self, forKey: .mono)
+            titleFont = try c.decodeIfPresent(String.self, forKey: .titleFont)
             fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize)
             lineHeight = try c.decodeIfPresent(Double.self, forKey: .lineHeight)
+            background = try c.decodeIfPresent(String.self, forKey: .background)
+            text = try c.decodeIfPresent(String.self, forKey: .text)
+            textStrong = try c.decodeIfPresent(String.self, forKey: .textStrong)
+            textMuted = try c.decodeIfPresent(String.self, forKey: .textMuted)
+            dim = try c.decodeIfPresent(String.self, forKey: .dim)
+            border = try c.decodeIfPresent(String.self, forKey: .border)
+            codeBackground = try c.decodeIfPresent(String.self, forKey: .codeBackground)
+            codeText = try c.decodeIfPresent(String.self, forKey: .codeText)
+            caret = try c.decodeIfPresent(String.self, forKey: .caret)
+            selection = try c.decodeIfPresent(String.self, forKey: .selection)
             tint = try c.decodeIfPresent(Double.self, forKey: .tint)
             tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead)
             tintEdit = try c.decodeIfPresent(Double.self, forKey: .tintEdit)
             radius = try c.decodeIfPresent(Double.self, forKey: .radius)
+            mark = try c.decodeIfPresent(String.self, forKey: .mark)
         }
     }
 
@@ -302,14 +351,28 @@ struct BlinkConfig: Codable, Equatable {
     mutating func apply(treatment t: Treatment) {
         if let v = t.sheet { panel.sheet = v }
         if let v = t.accent { editor.accentColor = v }
+        if let v = t.accentDim { editor.accentDimColor = v }
         if let v = t.font { editor.fontFamily = v }
+        if let v = t.mono { editor.monoFamily = v }
+        if let v = t.titleFont { editor.titleFamily = v }
         if let v = t.fontSize { editor.fontSize = clamp(v, 6, 48) }
         if let v = t.lineHeight { editor.lineHeight = clamp(v, 0.8, 3.0) }
+        if let v = t.background { panel.background = v }
+        if let v = t.text { editor.textColor = v }
+        if let v = t.textStrong { editor.textStrongColor = v }
+        if let v = t.textMuted { editor.textMutedColor = v }
+        if let v = t.dim { editor.dimColor = v }
+        if let v = t.border { editor.borderColor = v }
+        if let v = t.codeBackground { editor.codeBackground = v }
+        if let v = t.codeText { editor.codeTextColor = v }
+        if let v = t.caret { editor.caretColor = v }
+        if let v = t.selection { editor.selectionColor = v }
         // `tint` is shorthand for both; explicit read/edit win over it.
         if let v = t.tint { let c = clamp(v, 0, 1); panel.tintRead = c; panel.tintEdit = c }
         if let v = t.tintRead { panel.tintRead = clamp(v, 0, 1) }
         if let v = t.tintEdit { panel.tintEdit = clamp(v, 0, 1) }
         if let v = t.radius { panel.cornerRadius = clamp(v, 0, 40) }
+        if let v = t.mark { panel.mark = v }
     }
 
     /// The loose per-note overrides as a treatment (everything but `style`/`slot`).
@@ -336,7 +399,9 @@ struct BlinkConfig: Codable, Equatable {
         var vars: [String: String] = [
             "--blink-font-size": "\(editor.fontSize)px",
             "--blink-line-height": "\(editor.lineHeight)",
-            "--blink-pad-x": "\(editor.paddingX)px",
+            // A top-left identity mark earns a small content gutter so the
+            // chrome never overlaps the first heading or editor source.
+            "--blink-pad-x": "\(panel.mark == nil ? editor.paddingX : max(editor.paddingX, 56))px",
             "--blink-pad-y": "\(editor.paddingY)px",
         ]
         if scheme == .light {
@@ -352,11 +417,24 @@ struct BlinkConfig: Codable, Equatable {
         }
         if let v = editor.fontFamily { vars["--blink-font-family"] = v }
         if let v = editor.monoFamily { vars["--blink-mono-family"] = v }
+        if let v = editor.titleFamily { vars["--blink-title-family"] = v }
+        if let v = panel.background { vars["--blink-sheet-bg"] = v }
         if let v = editor.textColor { vars["--blink-text"] = v }
         if let v = editor.textStrongColor { vars["--blink-text-strong"] = v }
-        if let v = editor.textMutedColor { vars["--blink-text-muted"] = v }
+        if let v = editor.textMutedColor {
+            vars["--blink-text-muted"] = v
+            vars["--blink-quote-text"] = v
+        }
+        if let v = editor.dimColor { vars["--blink-marker"] = v }
+        if let v = editor.borderColor {
+            vars["--blink-quote-border"] = v
+            vars["--blink-rule"] = v
+            vars["--blink-frame"] = v
+        }
         if let v = editor.accentColor { vars["--blink-accent"] = v }
+        if let v = editor.accentDimColor { vars["--blink-accent-dim"] = v }
         if let v = editor.codeBackground { vars["--blink-code-bg"] = v }
+        if let v = editor.codeTextColor { vars["--blink-code-text"] = v }
         if let v = editor.caretColor { vars["--blink-caret"] = v }
         if let v = editor.selectionColor { vars["--blink-selection"] = v }
         if let v = editor.h1Size { vars["--blink-h1-size"] = "\(v)px" }

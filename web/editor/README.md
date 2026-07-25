@@ -2,10 +2,11 @@
 
 A vanilla [CodeMirror 6](https://codemirror.net/) markdown editor **plus a
 rendered read mode**, built to a single self-contained `dist/editor.html` and
-hosted inside a native macOS NSPanel via `WKWebView`. The page paints no surface
-of its own — the native glass panel behind the web view provides the background,
-blur, and shadow, so html/body and every editor/reader layer are fully
-transparent.
+hosted inside a native macOS NSPanel via `WKWebView`. By default the page paints
+no surface of its own — the native glass panel behind the web view provides the
+background, blur, and shadow. A reusable treatment may opt into an exact sheet
+canvas with `--blink-sheet-bg`; every editor/reader content layer remains
+transparent over it.
 
 Two surfaces flip **in place** on the same glass:
 
@@ -75,10 +76,12 @@ hard-coded values. Native code overrides them at runtime via
 | --- | --- | --- |
 | `--blink-font-family` | `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif` | Body/UI font (editor + reader). |
 | `--blink-mono-family` | `ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace` | Monospace font (inline + block code). |
+| `--blink-title-family` | `var(--blink-font-family)` | Heading/title font in editor and reader. |
 | `--blink-font-size` | `13px` | Base text size (editor, reader, marker reset, empty placeholder). |
 | `--blink-line-height` | `1.75` | Base line height (editor scroller + reader). |
 | `--blink-pad-x` | `20px` | Horizontal content padding (editor + reader + placeholder). |
 | `--blink-pad-y` | `16px` | Vertical content padding (editor + reader + placeholder). |
+| `--blink-sheet-bg` | `transparent` | Optional exact sheet canvas; transparent preserves native glass. |
 | `--blink-text` | `rgba(255,255,255,0.85)` | Body text; also editor emphasis (`em`). |
 | `--blink-text-strong` | `rgba(255,255,255,0.96)` | Headings, `strong`, table headers. |
 | `--blink-text-muted` | `rgba(255,255,255,0.45)` | List content + markers, `del`/strikethrough, gutter. |

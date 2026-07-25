@@ -4,6 +4,50 @@ import HudsonObservability
 import SwiftUI
 import WebKit
 
+/// Root panel surface that owns hover tracking across all descendants,
+/// including WKWebView. It also reconciles the current pointer after launch so
+/// a panel opened underneath the cursor does not wait for a synthetic re-entry.
+@MainActor
+private final class PanelHoverView: NSView {
+    var onHoverChanged: ((Bool) -> Void)?
+
+    private var hoverTrackingArea: NSTrackingArea?
+    private var pointerInside = false
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+        let next = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(next)
+        hoverTrackingArea = next
+        DispatchQueue.main.async { [weak self] in self?.syncPointerLocation() }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        DispatchQueue.main.async { [weak self] in self?.syncPointerLocation() }
+    }
+
+    override func mouseEntered(with event: NSEvent) { setPointerInside(true) }
+    override func mouseExited(with event: NSEvent) { setPointerInside(false) }
+
+    private func syncPointerLocation() {
+        guard let window else { return }
+        let windowPoint = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+        setPointerInside(bounds.contains(convert(windowPoint, from: nil)))
+    }
+
+    private func setPointerInside(_ inside: Bool) {
+        guard inside != pointerInside else { return }
+        pointerInside = inside
+        onHoverChanged?(inside)
+    }
+}
+
 /// A floating glass panel that IS a note — Blink's atomic unit.
 /// Glass material + a transparent CodeMirror/reader webview; chrome is minimal.
 /// Geometry persists via frame autosave (full spatial state lands in M3).
@@ -55,11 +99,12 @@ final class NotePanel: NSPanel {
     private let glassView = NSVisualEffectView()
     /// Plain root content view; the glass material is a sibling behind the
     /// content so flat sheets can hide the glass without hiding the webview.
-    private let container = NSView()
+    private let container = PanelHoverView()
     private var readTint: CGFloat
     private var editTint: CGFloat
 
     private var modePillView: NSView?
+    private var themeMarkView: NSView?
     private var noteIDView: NSView?
     private var versionMetadataView: NSView?
     private var styleMetadataView: NSView?
@@ -103,6 +148,7 @@ final class NotePanel: NSPanel {
         isFloatingPanel = true
         level = .floating
         hidesOnDeactivate = false
+        acceptsMouseMovedEvents = true
         isMovableByWindowBackground = true
         // Title never renders (borderless) but names the window for AX/scripts.
         self.title = title
@@ -194,8 +240,10 @@ final class NotePanel: NSPanel {
         pill.alphaValue = 0
         container.addSubview(pill)
         NSLayoutConstraint.activate([
-            pill.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -8),
-            pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+            pill.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -16),
+            pill.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
+            pill.widthAnchor.constraint(equalToConstant: 50),
+            pill.heightAnchor.constraint(equalToConstant: 22),
         ])
         modePillView = pill
 
@@ -229,6 +277,20 @@ final class NotePanel: NSPanel {
         ])
         versionMetadataView = versionHost
 
+        // One stable 24pt cell in the TOP-LEFT CHROME: brand at rest, close on
+        // hover. The content gutter stays fixed, so chrome never shifts text.
+        let markHost = NSHostingView(rootView: ThemeMarkBadge(state: modeState))
+        markHost.translatesAutoresizingMaskIntoConstraints = false
+        markHost.alphaValue = modeState.hasThemeMark ? 0.94 : 0
+        container.addSubview(markHost)
+        NSLayoutConstraint.activate([
+            markHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            markHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 17),
+            markHost.widthAnchor.constraint(equalToConstant: 24),
+            markHost.heightAnchor.constraint(equalToConstant: 24),
+        ])
+        themeMarkView = markHost
+
         let noteIDHost = NSHostingView(
             rootView: NoteIdentifierBadge(noteID: noteID) { [weak self] in
                 self?.copyNoteID()
@@ -245,9 +307,7 @@ final class NotePanel: NSPanel {
         ])
         noteIDView = noteIDHost
 
-        // Close glyph (✕) mirrors the mode pill: hover-earned, top-LEFT, in the
-        // title area. This (and ⌘W) is how a note is dismissed — close(), which
-        // still runs the windowWillClose flush path.
+        // Close occupies the exact same fixed cell as the resting brand.
         let closeHost = NSHostingView(
             rootView: CloseGlyph { [weak self] in
                 self?.close()
@@ -257,8 +317,10 @@ final class NotePanel: NSPanel {
         closeHost.alphaValue = 0
         container.addSubview(closeHost)
         NSLayoutConstraint.activate([
-            closeHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 8),
-            closeHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
+            closeHost.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            closeHost.topAnchor.constraint(equalTo: container.topAnchor, constant: 17),
+            closeHost.widthAnchor.constraint(equalToConstant: 24),
+            closeHost.heightAnchor.constraint(equalToConstant: 24),
         ])
         closeButtonView = closeHost
 
@@ -276,13 +338,12 @@ final class NotePanel: NSPanel {
         ])
         focusGlyphView = focusHost
 
-        container.addTrackingArea(
-            NSTrackingArea(
-                rect: .zero,
-                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-                owner: self
-            )
-        )
+        container.onHoverChanged = { [weak self] _ in
+            // WKWebView can make an ancestor tracking area report a transient
+            // exit while the pointer is still inside the panel. Screen-frame
+            // containment is the authoritative state.
+            self?.syncHoveredFromPointer()
+        }
 
         contentView = container
 
@@ -414,21 +475,35 @@ final class NotePanel: NSPanel {
 
     // MARK: - Hover-earned chrome
 
-    override func mouseEntered(with event: NSEvent) {
-        isHovered = true
-        updateChromeVisibility()
+    override func sendEvent(_ event: NSEvent) {
+        switch event.type {
+        case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+            syncHoveredFromPointer()
+        default:
+            break
+        }
+        super.sendEvent(event)
     }
 
-    override func mouseExited(with event: NSEvent) {
-        isHovered = false
+    private func syncHoveredFromPointer() {
+        setHovered(frame.contains(NSEvent.mouseLocation))
+    }
+
+    private func setHovered(_ hovered: Bool) {
+        guard hovered != isHovered else { return }
+        isHovered = hovered
         updateChromeVisibility()
     }
 
     private func updateChromeVisibility() {
+        // NSHostingView can fail to animate out of an initial zero alpha; make
+        // the mode control deterministic and reserve animation for the
+        // same-cell brand/close crossfade.
+        modePillView?.alphaValue = isHovered ? 1 : 0
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.15
-            modePillView?.animator().alphaValue = isHovered ? 1 : 0
             closeButtonView?.animator().alphaValue = isHovered ? 1 : 0
+            themeMarkView?.animator().alphaValue = isHovered || !modeState.hasThemeMark ? 0 : 0.94
             noteIDView?.animator().alphaValue = currentMode == "edit"
                 ? (isHovered ? 1 : 0.55)
                 : 0
@@ -513,6 +588,8 @@ final class NotePanel: NSPanel {
         modeState.style = notePresentation.style
         modeState.font = Self.displayFontName(theme.editor.fontFamily)
         modeState.fontSize = theme.editor.fontSize
+        modeState.mark = theme.panel.mark
+        themeMarkView?.alphaValue = isHovered || !modeState.hasThemeMark ? 0 : 0.94
     }
 
     private static func displayFontName(_ cssFamily: String?) -> String {
@@ -1195,6 +1272,11 @@ final class PanelModeState: ObservableObject {
     @Published var style: String?
     @Published var font: String = "System"
     @Published var fontSize: Double = 13
+    @Published var mark: String?
+
+    var hasThemeMark: Bool {
+        mark != nil
+    }
 }
 
 /// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right.
@@ -1262,7 +1344,8 @@ private struct NoteIdentifierBadge: View {
     }
 }
 
-/// A tiny build signature at bottom-left, balancing identity and treatment.
+/// A tiny build signature at bottom-left. Theme identity never lives here;
+/// `ThemeMarkBadge` owns the top-left chrome cell above.
 private struct AppVersionLabel: View {
     let version: String
 
@@ -1273,6 +1356,55 @@ private struct AppVersionLabel: View {
             .lineLimit(1)
             .frame(height: 18)
             .help("Blink \(version)")
+    }
+}
+
+/// Theme identity in the panel's top-left chrome.
+private struct ThemeMarkBadge: View {
+    @ObservedObject var state: PanelModeState
+
+    var body: some View {
+        Group {
+            if let image = ThemeMarkLoader.image(named: state.mark) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
+                    .accessibilityLabel("Theme mark")
+            }
+        }
+        .frame(width: 24, height: 24)
+        .allowsHitTesting(false)
+        .help("Theme identity")
+    }
+}
+
+/// Resolve theme marks from Blink's attachment store, never from note markdown.
+/// Relative-only + symlink containment mirrors the web asset handler's boundary:
+/// a theme typo becomes an absent mark, not an arbitrary file read.
+private enum ThemeMarkLoader {
+    static func image(named raw: String?) -> NSImage? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("/") else { return nil }
+
+        let relative: String
+        if trimmed.hasPrefix("blink://attachments/") {
+            relative = String(trimmed.dropFirst("blink://attachments/".count))
+        } else {
+            relative = trimmed
+        }
+
+        let root = BlinkPaths.attachments().standardizedFileURL.resolvingSymlinksInPath()
+        let candidate = root.appendingPathComponent(relative)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        guard candidate.path.hasPrefix(root.path + "/"),
+              let values = try? candidate.resourceValues(forKeys: [.isRegularFileKey]),
+              values.isRegularFile == true
+        else { return nil }
+        return NSImage(contentsOf: candidate)
     }
 }
 
@@ -1457,12 +1589,13 @@ private struct CloseGlyph: View {
     var body: some View {
         Button(action: onTap) {
             Image(systemName: "xmark")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.55))
-                .frame(width: 18, height: 18)
+                .frame(width: 20, height: 20)
                 .background(.white.opacity(0.08), in: Circle())
         }
         .buttonStyle(.plain)
+        .frame(width: 24, height: 24)
         .help("Close (⌘W)")
     }
 }
