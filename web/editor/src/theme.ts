@@ -128,41 +128,52 @@ export const blinkHighlight: Extension = syntaxHighlighting(
     {
       tag: t.heading1,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "700",
       fontSize: "calc(var(--blink-h1-size) - 3px)",
     },
     {
       tag: t.heading2,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "650",
       fontSize: "calc(var(--blink-h2-size) - 3px)",
     },
     {
       tag: t.heading3,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "600",
       fontSize: "calc(var(--blink-h3-size) - 3px)",
     },
     {
       tag: t.heading4,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "600",
       fontSize: "calc(var(--blink-h3-size) - 3px)",
     },
     {
       tag: t.heading5,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "600",
       fontSize: "calc(var(--blink-h3-size) - 3px)",
     },
     {
       tag: t.heading6,
       color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
       fontWeight: "600",
       fontSize: "calc(var(--blink-h3-size) - 3px)",
     },
     // Generic heading fallback (Setext bodies not covered above).
-    { tag: t.heading, color: "var(--blink-text-strong)", fontWeight: "600" },
+    {
+      tag: t.heading,
+      color: "var(--blink-text-strong)",
+      fontFamily: "var(--blink-title-family)",
+      fontWeight: "600",
+    },
 
     // Formatting markers (#, *, _, `, >, list bullets, link brackets) — dimmed.
     // Reset weight/size to base so a marker inside a heading stays small & light.

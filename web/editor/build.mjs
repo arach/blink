@@ -43,12 +43,17 @@ const PAGE_CSS = `
   /* Typography */
   --blink-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --blink-mono-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, "Cascadia Code", monospace;
+  --blink-title-family: var(--blink-font-family);
   --blink-font-size: 13px;
   --blink-line-height: 1.75;
 
   /* Content padding */
   --blink-pad-x: 20px;
   --blink-pad-y: 16px;
+
+  /* Sheet surface. Transparent preserves the native glass default; reusable
+   * treatments can paint an exact brand canvas without choosing card/serif. */
+  --blink-sheet-bg: transparent;
 
   /* Text colors */
   --blink-text: rgba(255, 255, 255, 0.85);
@@ -117,11 +122,12 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100vh;
-  background: transparent;
   overflow: hidden;
   /* Prevent the WKWebView from painting an opaque backdrop. */
   -webkit-user-select: text;
 }
+html { background: transparent; }
+body { background: var(--blink-sheet-bg); }
 #editor {
   width: 100%;
   height: 100vh;
@@ -168,6 +174,7 @@ html, body {
 .blink-reader h4,
 .blink-reader h5,
 .blink-reader h6 {
+  font-family: var(--blink-title-family);
   font-weight: 600;
   line-height: 1.3;
   margin: 1.4em 0 0.5em;
@@ -707,10 +714,12 @@ async function main() {
   const THEME_VARS = [
     "--blink-font-family",
     "--blink-mono-family",
+    "--blink-title-family",
     "--blink-font-size",
     "--blink-line-height",
     "--blink-pad-x",
     "--blink-pad-y",
+    "--blink-sheet-bg",
     "--blink-text",
     "--blink-text-strong",
     "--blink-text-muted",

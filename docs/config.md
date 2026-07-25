@@ -50,7 +50,9 @@ Rules:
     "tintEdit": 0.28,           // 0–1 tint in edit mode (focused writing surface)
     "shadow": true,             // window drop shadow
     "defaultWidth": 420,        // size for panels opening for the first time
-    "defaultHeight": 340
+    "defaultHeight": 340,
+    "background": null,         // optional CSS color; null keeps the glass sheet transparent
+    "mark": null                // optional identity mark from $BLINK_HOME/attachments
   },
   "focus": {
     "dim": 0.30                 // 0–1 strength of the focus-mode veil over everything else
@@ -79,6 +81,7 @@ Rules:
   "editor": {                   // typography & colors, applied to editor AND reader
     "fontFamily": null,         // null → system font stack; any CSS font-family string
     "monoFamily": null,         // null → ui-monospace stack
+    "titleFamily": null,        // null → body stack; headings/titles only
     "fontSize": 13,             // px
     "lineHeight": 1.75,
     "paddingX": 20,             // px
@@ -86,8 +89,12 @@ Rules:
     "textColor": null,          // any CSS color; null → rgba(255,255,255,0.85)
     "textStrongColor": null,    // headings/bold; default rgba(255,255,255,0.96)
     "textMutedColor": null,     // markers/list bullets; default rgba(255,255,255,0.45)
+    "dimColor": null,           // Markdown syntax markers
+    "borderColor": null,        // rules, quote borders, sheet frame
     "accentColor": null,        // links; default rgba(158,203,255,0.9)
+    "accentDimColor": null,      // source-mode link targets
     "codeBackground": null,     // default rgba(255,255,255,0.07)
+    "codeTextColor": null,       // inline + block code ink
     "caretColor": null,         // default white
     "selectionColor": null,     // default rgba(255,255,255,0.18)
     "h1Size": null,             // px, reader scale; default 20 (editor derives slightly smaller)
@@ -139,6 +146,50 @@ Maximum-contrast writing mode:
   "focus": { "dim": 0.45 }
 }
 ```
+
+Reusable treatment with a restrained identity mark:
+
+```json
+{
+  "styles": {
+    "scout-control": {
+      "background": "#070908",
+      "text": "#f2f4ef",
+      "textStrong": "#f2f4ef",
+      "textMuted": "#aab1a7",
+      "dim": "#777e75",
+      "border": "rgba(239,244,237,.09)",
+      "accent": "#a6ef87",
+      "accentDim": "rgba(166,239,135,.58)",
+      "font": "\"JetBrains Mono\", ui-monospace, Menlo, monospace",
+      "mono": "\"JetBrains Mono\", ui-monospace, Menlo, monospace",
+      "titleFont": "\"JetBrains Mono\", ui-monospace, Menlo, monospace",
+      "codeBackground": "#111411",
+      "codeText": "#f2f4ef",
+      "caret": "#a6ef87",
+      "selection": "rgba(166,239,135,.1)",
+      "radius": 6,
+      "mark": "theme-marks/openscout-scout-hex.svg"
+    }
+  }
+}
+```
+
+`panel.mark` and `styles.<name>.mark` are relative paths under
+`$BLINK_HOME/attachments` (or the default Blink attachments directory). The
+mark appears at 20px in a 24pt top-left chrome cell and yields that position to
+the close control on hover. Marked themes receive a compact content gutter so
+the identity never overlaps the first heading or editor source. Keeping it in
+the treatment instead of the markdown body preserves the note as portable,
+presentation-free Markdown. Absolute paths and paths escaping the attachments
+directory are ignored.
+
+Treatments are partial overlays. In addition to the original
+`sheet`/`accent`/`font`/`fontSize`/`lineHeight`/`tint*`/`radius` fields, they
+accept `background`, `text`, `textStrong`, `textMuted`, `accentDim`, `mono`,
+`titleFont`, `dim`, `border`, `codeBackground`, `codeText`, `caret`, and
+`selection`. These map to the same editor and sheet variables as their global
+config counterparts, but apply only to notes that reference that named style.
 
 ## Motion (Arrival)
 
