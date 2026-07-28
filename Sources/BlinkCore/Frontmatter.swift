@@ -74,6 +74,7 @@ public enum Frontmatter {
         let p = note.presentation
         guard !p.isEmpty || !note.extraBlink.isEmpty else { return }
         lines.append("blink:")
+        if let v = p.workspace { lines.append("  workspace: \(quoteIfNeeded(v))") }
         if let v = p.style { lines.append("  style: \(v)") }
         if let v = p.sheet { lines.append("  sheet: \(v)") }
         if let v = p.accent { lines.append("  accent: \(quoteIfNeeded(v))") }
@@ -212,6 +213,7 @@ public enum Frontmatter {
             )
             guard !value.isEmpty else { unknown.append(raw); continue }
             switch key {
+            case "workspace": presentation.workspace = value
             case "style": presentation.style = value
             case "sheet": presentation.sheet = value
             case "accent": presentation.accent = value

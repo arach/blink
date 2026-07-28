@@ -571,6 +571,48 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// The panel that currently has key focus, if any.
     var keyNotePanel: NotePanel? { panels.values.first { $0.isKeyWindow } }
 
+    /// The note panel an app-level command should act on. Opening an interstitial
+    /// palette makes that palette key, so commands must fall back to the most
+    /// recently focused note instead of losing their target during presentation.
+    var commandNotePanel: NotePanel? {
+        keyNotePanel
+            ?? mostRecentKeyPanelID.flatMap { panels[$0] }
+            ?? NSApp.orderedWindows.compactMap { $0 as? NotePanel }.first { panel in
+                panels[panel.noteID] === panel
+            }
+    }
+
+    var hasCommandNotePanel: Bool { commandNotePanel != nil }
+
+    func toggleCommandNoteMode() {
+        guard let panel = commandNotePanel else { return }
+        panel.selectMode(panel.currentMode == "edit" ? "read" : "edit")
+    }
+
+    func toggleCommandNoteFocus() {
+        commandNotePanel?.toggleFocus()
+    }
+
+    func hideCommandNote() {
+        guard let panel = commandNotePanel else { return }
+        panel.orderOut(nil)
+        panel.onVisibilityChanged?()
+    }
+
+    /// Uses the panel's normal close path. `windowWillClose` still owns the
+    /// mandatory pending-save flush, so invoking Close from the palette cannot
+    /// bypass Blink's data-safety invariant.
+    func closeCommandNote() {
+        commandNotePanel?.close()
+    }
+
+    func chooseCommandNoteStyle() { commandNotePanel?.showCommandStylePicker() }
+    func copyCommandNoteID() { commandNotePanel?.copyCommandNoteID() }
+    func copyCommandNoteMarkdown() { commandNotePanel?.copyCommandMarkdown() }
+    func copyCommandNoteFilePath() { commandNotePanel?.copyCommandFilePath() }
+    func openCommandNoteFile() { commandNotePanel?.openCommandMarkdownFile() }
+    func revealCommandNoteInFinder() { commandNotePanel?.revealCommandNoteInFinder() }
+
     /// Turn the desk into one drawn page. The overlay owns its scoped key
     /// registrations; this manager supplies the live panel set and remembers
     /// which panel should move after Blink (or another app) takes key focus.
@@ -595,11 +637,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     }
 
     private var placementPanel: NotePanel? {
-        keyNotePanel
-            ?? mostRecentKeyPanelID.flatMap { panels[$0] }
-            ?? NSApp.orderedWindows.compactMap { $0 as? NotePanel }.first { panel in
-                panels[panel.noteID] === panel
-            }
+        commandNotePanel
     }
 
     /// Hot-apply a config change to every live surface.

@@ -240,65 +240,18 @@ struct BlinkConfig: Codable, Equatable {
 
     /// A named, reusable presentation preset — a *partial* overlay onto the
     /// panel/editor defaults, every field optional. A note references one by name
-    /// via its `blink.style`; the studio's treatments live here. Typed (not
-    /// passed-through) so it survives a config re-encode.
-    /// Field → surface mapping is in `apply(treatment:)`; see
+    /// via its `blink.style`, and a workspace brands every one of its notes with
+    /// one (see `BlinkCore.Workspace`).
+    ///
+    /// The type itself lives in BlinkCore so the app, the `blink` CLI, and tests
+    /// share one brand vocabulary. Field → surface mapping is in
+    /// `apply(treatment:)`; see `docs/workspaces.md` and
     /// `docs/notes-representation.md` Appendix A.
-    struct Treatment: Codable, Equatable {
-        var sheet: String?
-        var accent: String?
-        var accentDim: String?
-        var font: String?
-        var mono: String?
-        var titleFont: String?
-        var fontSize: Double?
-        var lineHeight: Double?
-        var background: String?
-        var text: String?
-        var textStrong: String?
-        var textMuted: String?
-        var dim: String?
-        var border: String?
-        var codeBackground: String?
-        var codeText: String?
-        var caret: String?
-        var selection: String?
-        var tint: Double?
-        var tintRead: Double?
-        var tintEdit: Double?
-        var radius: Double?
-        /// Relative path under `$BLINK_HOME/attachments` for a restrained
-        /// identity mark in the panel's top-left chrome.
-        var mark: String?
+    typealias Treatment = BlinkCore.Treatment
 
-        init() {}
-        init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
-            sheet = try c.decodeIfPresent(String.self, forKey: .sheet)
-            accent = try c.decodeIfPresent(String.self, forKey: .accent)
-            accentDim = try c.decodeIfPresent(String.self, forKey: .accentDim)
-            font = try c.decodeIfPresent(String.self, forKey: .font)
-            mono = try c.decodeIfPresent(String.self, forKey: .mono)
-            titleFont = try c.decodeIfPresent(String.self, forKey: .titleFont)
-            fontSize = try c.decodeIfPresent(Double.self, forKey: .fontSize)
-            lineHeight = try c.decodeIfPresent(Double.self, forKey: .lineHeight)
-            background = try c.decodeIfPresent(String.self, forKey: .background)
-            text = try c.decodeIfPresent(String.self, forKey: .text)
-            textStrong = try c.decodeIfPresent(String.self, forKey: .textStrong)
-            textMuted = try c.decodeIfPresent(String.self, forKey: .textMuted)
-            dim = try c.decodeIfPresent(String.self, forKey: .dim)
-            border = try c.decodeIfPresent(String.self, forKey: .border)
-            codeBackground = try c.decodeIfPresent(String.self, forKey: .codeBackground)
-            codeText = try c.decodeIfPresent(String.self, forKey: .codeText)
-            caret = try c.decodeIfPresent(String.self, forKey: .caret)
-            selection = try c.decodeIfPresent(String.self, forKey: .selection)
-            tint = try c.decodeIfPresent(Double.self, forKey: .tint)
-            tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead)
-            tintEdit = try c.decodeIfPresent(Double.self, forKey: .tintEdit)
-            radius = try c.decodeIfPresent(Double.self, forKey: .radius)
-            mark = try c.decodeIfPresent(String.self, forKey: .mark)
-        }
-    }
+    /// A named group of notes plus the brand they render under. Defined here;
+    /// *membership* lives in each note's `blink.workspace` frontmatter key.
+    typealias Workspace = BlinkCore.Workspace
 
     /// App-wide light/dark axis: "auto" (follow macOS) | "light" | "dark".
     /// Resolved to an effective `AppScheme` by `AppearanceManager`; every
@@ -312,8 +265,12 @@ struct BlinkConfig: Codable, Equatable {
     var motion = Motion()
     var physics = Physics()
     var editor = Editor()
-    /// Named presentation presets, referenced by a note's `blink.style`.
+    /// Named presentation presets, referenced by a note's `blink.style` and
+    /// reusable as a workspace's brand base.
     var styles: [String: Treatment]?
+    /// Named workspaces, referenced by a note's `blink.workspace`. Absent by
+    /// default — an unbranded Blink is the baseline, not a special case.
+    var workspaces: [String: Workspace]?
 
     init() {}
     init(from decoder: Decoder) throws {
@@ -328,21 +285,29 @@ struct BlinkConfig: Codable, Equatable {
         physics = try c.decodeIfPresent(Physics.self, forKey: .physics) ?? Physics()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
         styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)
+        workspaces = try c.decodeIfPresent([String: Workspace].self, forKey: .workspaces)
     }
 
     // MARK: - Per-note presentation resolution
 
     /// Resolve a note's `blink:` presentation onto this config, producing the
     /// effective config *for that note*:
-    /// `configDefaults ← styles[name] ← loose overrides` (Appendix A).
-    /// A missing/unknown style name is ignored (defaults stand); loose overrides
-    /// always win. Never throws — a bad value is clamped, never fatal.
+    /// `configDefaults ← workspaces[ws].brand ← styles[name] ← loose overrides`
+    /// (Appendix A, extended by `docs/workspaces.md`).
+    ///
+    /// The workspace brand sits between the global defaults and the note's own
+    /// style so a note inherits its workspace's identity for free, while keeping
+    /// every existing escape hatch: a per-note `style` still overrides the brand,
+    /// and loose `blink:` keys still beat both. A missing or unknown workspace
+    /// or style name is ignored and the defaults stand — never throws, and a bad
+    /// value is clamped rather than fatal.
     func resolved(for presentation: NotePresentation) -> BlinkConfig {
         var c = self
-        if let name = presentation.style, let treatment = styles?[name] {
+        for treatment in PresentationResolver.chain(
+            for: presentation, styles: styles, workspaces: workspaces
+        ) {
             c.apply(treatment: treatment)
         }
-        c.apply(treatment: BlinkConfig.treatment(from: presentation))
         return c
     }
 
@@ -373,21 +338,6 @@ struct BlinkConfig: Codable, Equatable {
         if let v = t.tintEdit { panel.tintEdit = clamp(v, 0, 1) }
         if let v = t.radius { panel.cornerRadius = clamp(v, 0, 40) }
         if let v = t.mark { panel.mark = v }
-    }
-
-    /// The loose per-note overrides as a treatment (everything but `style`/`slot`).
-    private static func treatment(from p: NotePresentation) -> Treatment {
-        var t = Treatment()
-        t.sheet = p.sheet
-        t.accent = p.accent
-        t.font = p.font
-        t.fontSize = p.fontSize
-        t.lineHeight = p.lineHeight
-        t.tint = p.tint
-        t.tintRead = p.tintRead
-        t.tintEdit = p.tintEdit
-        t.radius = p.radius
-        return t
     }
 
     /// Map editor settings onto the web bundle's CSS variable contract

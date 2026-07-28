@@ -12,11 +12,14 @@ struct CapturePopoverView: View {
     @ObservedObject var model: AppModel
     var dismiss: () -> Void
     var openSettings: () -> Void
+    var openGuide: () -> Void
+    var showCommands: () -> Void
     var toggleBlink: () -> Void
     var showGrid: () -> Void
     var beginDictation: () -> Void
 
     @ObservedObject private var appearance = AppearanceManager.shared
+    @ObservedObject private var configStore = BlinkConfigStore.shared
 
     @State private var query = ""
     @State private var selectedNoteID: String?
@@ -31,6 +34,10 @@ struct CapturePopoverView: View {
     private var amber: Color { pal.accent }
     private var amberBright: Color { pal.accentBright }
     private var live: Color { pal.live }
+    private var blinkShortcut: String {
+        KeyChord.parse(configStore.config.hotkeys.blink)?.display
+            ?? configStore.config.hotkeys.blink
+    }
 
     /// The design is set in IBM Plex Mono weight 200. SF Mono at a light weight
     /// is the closest native match (bundling IBM Plex Mono would be exact).
@@ -138,7 +145,12 @@ struct CapturePopoverView: View {
             }
             .padding(.trailing, 4)
 
-            KeyBadge(text: "⌘K")
+            Button(action: showCommands) {
+                KeyBadge(text: "⌘K")
+            }
+            .buttonStyle(.plain)
+            .help("Commands and notes")
+            .accessibilityLabel("Open commands")
 
             Button(action: startSystemDictation) {
                 Image(systemName: "mic.fill")
@@ -343,7 +355,7 @@ struct CapturePopoverView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "eye")
                         .font(.system(size: 12, weight: .light))
-                    Text("⌥Space")
+                    Text(blinkShortcut)
                         .font(mono(10))
                         .padding(.horizontal, 5).padding(.vertical, 1)
                         .overlay(Rectangle().stroke(pal.strokeBase.opacity(0.1), lineWidth: 1))
@@ -351,10 +363,72 @@ struct CapturePopoverView: View {
                 .foregroundStyle(pal.inkMid)  // #a6acae
             }
             .buttonStyle(.plain)
-            .help("Blink notes (⌥Space)")
+            .help("Show or hide all notes (\(blinkShortcut))")
+            .accessibilityLabel("Show or hide all notes")
+
+            footerIconButton(
+                icon: "square.grid.3x3",
+                label: "Grid",
+                help: "Show the spatial grid",
+                action: showGrid
+            )
+
+            Button(action: showCommands) {
+                HStack(spacing: 5) {
+                    Image(systemName: "command")
+                    Text("K")
+                        .font(mono(10))
+                        .padding(.horizontal, 5).padding(.vertical, 1)
+                        .overlay(Rectangle().stroke(pal.strokeBase.opacity(0.1), lineWidth: 1))
+                }
+                .font(.system(size: 12, weight: .light))
+                .foregroundStyle(pal.inkMid)
+            }
+            .buttonStyle(.plain)
+            .help("Open commands and notes (⌘K)")
+            .accessibilityLabel("Open commands and notes")
+
+            footerIconButton(
+                icon: "questionmark.circle",
+                label: nil,
+                help: "Blink Guide — activities and shortcuts",
+                action: openGuide
+            )
+
+            footerIconButton(
+                icon: "gearshape",
+                label: nil,
+                help: "Settings (⌘,)",
+                action: openSettings
+            )
         }
         .padding(.horizontal, 18)
         .frame(height: 38)
+    }
+
+    private func footerIconButton(
+        icon: String,
+        label: String?,
+        help: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .light))
+                if let label {
+                    Text(label.uppercased())
+                        .font(mono(9.5))
+                        .tracking(0.7)
+                }
+            }
+            .foregroundStyle(pal.inkMid)
+            .frame(minWidth: 24, minHeight: 24)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(help)
     }
 
     private var hairline: some View {

@@ -255,6 +255,66 @@ struct FrontmatterTests {
         #expect(reDecoded.content == "# Body")
     }
 
+    // MARK: - Workspace membership
+
+    @Test("blink block: workspace membership decodes and round-trips")
+    func workspaceRoundTrip() throws {
+        let raw = """
+        ---
+        id: q3-planning
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          workspace: acme-docs
+          slot: 6
+        ---
+        # Q3 Planning
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.presentation.workspace == "acme-docs")
+        #expect(decoded.presentation.slot == 6)
+
+        let reDecoded = try Frontmatter.decode(Frontmatter.encode(decoded))
+        #expect(reDecoded.presentation == decoded.presentation)
+        #expect(reDecoded.content == "# Q3 Planning")
+    }
+
+    /// The portability contract: a note in a branded workspace carries the
+    /// workspace *name* and nothing else. No color, font, or asset path ever
+    /// reaches the markdown — so the file stays a plain, portable note.
+    @Test("Workspace membership adds one name, never presentation bytes")
+    func workspaceCarriesNoBranding() throws {
+        var note = sampleNote(content: "# Branded\n")
+        note.presentation.workspace = "acme-docs"
+        let encoded = Frontmatter.encode(note)
+
+        #expect(encoded.contains("  workspace: acme-docs"))
+        let blinkLines = encoded
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .filter { $0.hasPrefix("  ") }
+        #expect(blinkLines == ["  workspace: acme-docs"])
+    }
+
+    @Test("Workspace is emitted first in the blink block")
+    func workspaceOrdering() throws {
+        var note = sampleNote(content: "c")
+        note.presentation.workspace = "acme"
+        note.presentation.style = "focus"
+        let lines = Frontmatter.encode(note).split(separator: "\n").map(String.init)
+        let workspaceIdx = try #require(lines.firstIndex(of: "  workspace: acme"))
+        let styleIdx = try #require(lines.firstIndex(of: "  style: focus"))
+        #expect(workspaceIdx < styleIdx)
+    }
+
+    @Test("A workspace name needing quotes round-trips intact")
+    func workspaceQuoting() throws {
+        var note = sampleNote(content: "c")
+        // Defensive: names are normally slugs, but a hand-edited file may not be.
+        note.presentation.workspace = "acme: docs"
+        let decoded = try Frontmatter.decode(Frontmatter.encode(note))
+        #expect(decoded.presentation.workspace == "acme: docs")
+    }
+
     @Test("blink block: a #hex accent is emitted quoted")
     func blinkAccentQuoted() throws {
         var note = sampleNote(content: "x")

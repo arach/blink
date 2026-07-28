@@ -147,12 +147,13 @@ Maximum-contrast writing mode:
 }
 ```
 
-Reusable treatment with a restrained identity mark:
+Reusable treatment with a restrained identity mark (a neutral house style —
+substitute your own colors, faces, and mark):
 
 ```json
 {
   "styles": {
-    "scout-control": {
+    "terminal": {
       "background": "#070908",
       "text": "#f2f4ef",
       "textStrong": "#f2f4ef",
@@ -169,20 +170,21 @@ Reusable treatment with a restrained identity mark:
       "caret": "#a6ef87",
       "selection": "rgba(166,239,135,.1)",
       "radius": 6,
-      "mark": "theme-marks/openscout-scout-hex.svg"
+      "mark": "marks/terminal.svg"
     }
   }
 }
 ```
 
-`panel.mark` and `styles.<name>.mark` are relative paths under
-`$BLINK_HOME/attachments` (or the default Blink attachments directory). The
-mark appears at 20px in a 24pt top-left chrome cell and yields that position to
-the close control on hover. Marked themes receive a compact content gutter so
-the identity never overlaps the first heading or editor source. Keeping it in
-the treatment instead of the markdown body preserves the note as portable,
-presentation-free Markdown. Absolute paths and paths escaping the attachments
-directory are ignored.
+`panel.mark`, `styles.<name>.mark`, and a workspace brand's `mark` are relative
+paths under `$BLINK_HOME/attachments` (or the default Blink attachments
+directory). The mark appears at 20px in a 24pt top-left chrome cell and yields
+that position to the close control on hover. Marked themes receive a compact
+content gutter so the identity never overlaps the first heading or editor
+source. Keeping it in the treatment instead of the markdown body preserves the
+note as portable, presentation-free Markdown. Absolute paths and paths escaping
+the attachments directory are ignored — `blink workspace brand … --install-mark`
+copies an asset into bounds for you.
 
 Treatments are partial overlays. In addition to the original
 `sheet`/`accent`/`font`/`fontSize`/`lineHeight`/`tint*`/`radius` fields, they
@@ -190,6 +192,46 @@ accept `background`, `text`, `textStrong`, `textMuted`, `accentDim`, `mono`,
 `titleFont`, `dim`, `border`, `codeBackground`, `codeText`, `caret`, and
 `selection`. These map to the same editor and sheet variables as their global
 config counterparts, but apply only to notes that reference that named style.
+
+## Workspaces
+
+A **workspace** is a named group of notes plus the brand they render under. The
+definition lives here; membership lives in each note's `blink.workspace`
+frontmatter key, so note markdown never carries a color, face, or asset path.
+
+```json
+{
+  "workspaces": {
+    "acme-docs": {
+      "title": "Acme Documentation",
+      "style": "terminal",
+      "brand": {
+        "accent": "#7aa2f7",
+        "background": "#0b0d0c",
+        "radius": 6,
+        "mark": "marks/acme-docs.svg"
+      }
+    }
+  }
+}
+```
+
+`style` names an entry in `styles` to use as a base; `brand` is a treatment
+overlaid on top of it, so several workspaces can share one house style and tint
+it differently. Both are optional — a workspace with neither is unbranded, and
+its notes render with Blink's defaults.
+
+A note's look resolves least-specific first, so **later wins**:
+
+```
+config defaults ← workspaces[blink.workspace].brand ← styles[blink.style] ← loose blink: keys
+```
+
+Unknown workspace and style names contribute nothing rather than failing, so a
+note whose workspace was forgotten still opens — just unbranded. Agents should
+drive this through `blink workspace` (see `docs/workspaces.md`) rather than
+hand-editing, because the CLI writes only the `workspaces` key and leaves every
+other config key byte-for-byte intact.
 
 ## Motion (Arrival)
 

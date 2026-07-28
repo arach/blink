@@ -13,6 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var panelManager: PanelManager!
     private var model: AppModel!
     private var settingsWindow: NSWindow?
+    private var guideWindow: NSWindow?
+    private var commandPaletteController: BlinkCommandPaletteController?
+    private var activityCatalog: BlinkActivityCatalog?
+    private var commandRequestObserver: NSObjectProtocol?
     private var notesWatcher: DirectoryWatcher?
     private let log = HudLogger(category: "blink.app")
 
@@ -30,6 +34,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
         panelManager.startObservingStore()
+        configureDiscovery()
+        commandRequestObserver = NotificationCenter.default.addObserver(
+            forName: .blinkCommandPaletteRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.toggleCommandPalette(from: nil)
+            }
+        }
 
         // The filesystem is the API: external writers (the blink CLI, agents)
         // touch the Notes directory; reconcile diffs disk against memory and
@@ -96,6 +110,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// responder chain. Without this menu, WKWebView never receives them.
     private func installMainMenu() {
         let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Blink")
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        func appItem(
+            _ title: String,
+            action: Selector,
+            keyEquivalent: String,
+            modifiers: NSEvent.ModifierFlags = .command
+        ) {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+            item.target = self
+            item.keyEquivalentModifierMask = modifiers
+            appMenu.addItem(item)
+        }
+
+        appItem("Commands…", action: #selector(menuCommands), keyEquivalent: "k")
+        appItem("Blink Guide", action: #selector(menuGuide), keyEquivalent: "?", modifiers: [.command])
+        appMenu.addItem(.separator())
+        appItem("Settings…", action: #selector(menuSettings), keyEquivalent: ",")
+        appMenu.addItem(.separator())
+        appItem("Quit Blink", action: #selector(menuQuit), keyEquivalent: "q")
+
         let editMenuItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         editMenuItem.submenu = editMenu
@@ -209,6 +248,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         HotkeyManager.shared.unregisterAll()
+        if let commandRequestObserver {
+            NotificationCenter.default.removeObserver(commandRequestObserver)
+        }
     }
 
     private func newNote() {
@@ -268,6 +310,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 openSettings: { [weak self] in
                     self?.popover?.performClose(nil)
                     self?.openSettings()
+                },
+                openGuide: { [weak self] in
+                    self?.popover?.performClose(nil)
+                    self?.openGuide()
+                },
+                showCommands: { [weak self] in
+                    let invocationWindow = self?.popover?.contentViewController?.view.window
+                    self?.popover?.performClose(nil)
+                    self?.toggleCommandPalette(from: invocationWindow)
                 },
                 toggleBlink: { [weak self] in
                     self?.popover?.performClose(nil)
@@ -394,8 +445,72 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         openSettings()
     }
 
+    @objc private func menuCommands() {
+        toggleCommandPalette(from: NSApp.keyWindow)
+    }
+
+    @objc private func menuGuide() {
+        openGuide()
+    }
+
     @objc private func menuQuit() {
         NSApp.terminate(nil)
+    }
+
+    private func configureDiscovery() {
+        let handlers = BlinkActivityCatalog.Handlers(
+            newNote: { [weak self] in self?.newNote() },
+            toggleBlink: { [weak self] in self?.panelManager.toggleBlink() },
+            showGrid: { [weak self] in self?.panelManager.toggleGridOverlay() },
+            openSettings: { [weak self] in self?.openSettings() },
+            openGuide: { [weak self] in self?.openGuide() },
+            revealNotesFolder: {
+                NSWorkspace.shared.activateFileViewerSelecting([Self.notesDirectory()])
+            },
+            openConfigFile: {
+                NSWorkspace.shared.open(BlinkConfigStore.shared.fileURL)
+            },
+            toggleCurrentNoteMode: { [weak self] in self?.panelManager.toggleCommandNoteMode() },
+            toggleCurrentNoteFocus: { [weak self] in self?.panelManager.toggleCommandNoteFocus() },
+            chooseCurrentNoteStyle: { [weak self] in self?.panelManager.chooseCommandNoteStyle() },
+            hideCurrentNote: { [weak self] in self?.panelManager.hideCommandNote() },
+            closeCurrentNote: { [weak self] in self?.panelManager.closeCommandNote() },
+            copyCurrentNoteID: { [weak self] in self?.panelManager.copyCommandNoteID() },
+            copyCurrentNoteMarkdown: { [weak self] in self?.panelManager.copyCommandNoteMarkdown() },
+            copyCurrentNoteFilePath: { [weak self] in self?.panelManager.copyCommandNoteFilePath() },
+            openCurrentNoteFile: { [weak self] in self?.panelManager.openCommandNoteFile() },
+            revealCurrentNoteInFinder: { [weak self] in self?.panelManager.revealCommandNoteInFinder() },
+            currentNoteAvailable: { [weak self] in self?.panelManager.hasCommandNotePanel ?? false }
+        )
+        let catalog = BlinkActivityCatalog(handlers: handlers)
+        activityCatalog = catalog
+        commandPaletteController = BlinkCommandPaletteController(
+            model: model,
+            activities: { [weak self] in self?.activityCatalog?.paletteActivities ?? [] }
+        )
+    }
+
+    private func toggleCommandPalette(from invocationWindow: NSWindow?) {
+        popover?.performClose(nil)
+        commandPaletteController?.toggle(from: invocationWindow)
+    }
+
+    private func openGuide() {
+        guard let activities = activityCatalog?.activities else { return }
+        if guideWindow == nil {
+            let host = NSHostingController(rootView: BlinkGuideView(activities: activities))
+            let window = NSWindow(contentViewController: host)
+            window.title = "Blink Guide"
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 780, height: 610))
+            window.contentMinSize = NSSize(width: 720, height: 520)
+            window.isReleasedWhenClosed = false
+            window.setFrameAutosaveName("blink.guide")
+            if window.frame.origin == .zero { window.center() }
+            guideWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        guideWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func openSettings() {
@@ -405,7 +520,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             )
             let window = NSWindow(contentViewController: host)
             window.title = "Blink Settings"
-            window.styleMask = [.titled, .closable]
+            window.styleMask = [.titled, .closable, .resizable]
+            window.setContentSize(NSSize(width: 760, height: 640))
+            window.contentMinSize = NSSize(width: 604, height: 540)
             // No explicit appearance — inherit NSApp.appearance, which
             // AppearanceManager pins (light/dark) or clears (auto → the OS).
             window.isReleasedWhenClosed = false
@@ -416,4 +533,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
+}
+
+extension Notification.Name {
+    static let blinkCommandPaletteRequested = Notification.Name("blink.commandPaletteRequested")
 }
