@@ -41,7 +41,27 @@ blink write <id> [text ...] [--json]   # replace content wholesale, silently (no
 blink search <query> [--json]     # case-insensitive substring over title + content
 blink rm <id> [--json]            # delete a note
 blink path [<id>]                 # the notes directory, or a note's file path
+blink workspace <subcommand>      # named groups of notes + their brand
 ```
+
+`workspace` is the grouping/branding verb set — see `docs/workspaces.md` for the
+full guide:
+
+```sh
+blink workspace init <name> [--title T] [brand flags…]   # create (idempotent)
+blink workspace ls                                       # list + note counts
+blink workspace show <name>                              # definition + effective brand
+blink workspace brand <name> [brand flags…]              # mark, palette, type, corners
+blink workspace add <name> <id>…                         # put notes in it
+blink workspace remove <id>…                             # take notes out
+blink workspace notes <name>                             # list member notes
+blink workspace rm <name> [--detach]                     # forget the definition
+```
+
+`new` and `present` also take `--workspace <name>` so a note can be filed on
+creation. Membership is one `blink.workspace:` key in the note's frontmatter;
+the brand itself lives in `config.json`, so note markdown stays portable and
+free of presentation-only branding.
 
 `present` is the compound arrival verb: it sets a note's markdown **and** its
 `blink:` presentation (see `notes-representation.md`) in one write, get-or-create
@@ -71,6 +91,11 @@ blink write standup < revised-standup.md       # replace the body, no animation
 blink cat grocery-run
 blink search standup --json | jq '.[0].id'
 open "$(blink path grocery-run)"           # hand the file to anything
+
+blink workspace init "Acme Docs"                     # a named, brandable group
+blink new --workspace acme-docs "# Q3 Planning"      # file a note into it
+blink workspace brand acme-docs --accent "#7aa2f7" --install-mark ~/acme.svg
+blink workspace notes acme-docs --json | jq -r '.[].id'
 ```
 
 ## JSON shape

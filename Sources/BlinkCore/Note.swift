@@ -9,6 +9,11 @@ import Foundation
 /// (a non-numeric `slot`, say) is never coerced or dropped — it is preserved
 /// verbatim in `Note.extraBlink` and simply not surfaced here (never-erase).
 public struct NotePresentation: Equatable, Sendable, Codable {
+    /// The workspace this note belongs to — a name defined in `config.json` →
+    /// `workspaces.<name>`. Membership only: the brand itself never enters the
+    /// markdown, so the file stays portable and presentation-free. An unknown
+    /// or absent name renders unbranded.
+    public var workspace: String?
     /// Named treatment defined in `config.json` → `styles.<name>`.
     public var style: String?
     /// Sheet template: glass | card | dotted | bracket | marginalia.
@@ -32,7 +37,7 @@ public struct NotePresentation: Equatable, Sendable, Codable {
 
     /// True when no field is set — nothing for the codec to emit.
     public var isEmpty: Bool {
-        style == nil && sheet == nil && accent == nil && font == nil
+        workspace == nil && style == nil && sheet == nil && accent == nil && font == nil
             && fontSize == nil && lineHeight == nil && tint == nil
             && tintRead == nil && tintEdit == nil && radius == nil && slot == nil
     }

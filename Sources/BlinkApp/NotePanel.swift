@@ -444,6 +444,10 @@ final class NotePanel: NSPanel {
             return true
         }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == [.command], event.charactersIgnoringModifiers?.lowercased() == "k" {
+            NotificationCenter.default.post(name: .blinkCommandPaletteRequested, object: self)
+            return true
+        }
         if flags == [.command], event.charactersIgnoringModifiers?.lowercased() == "w" {
             close()  // borderless: performClose would beep (no close button)
             return true
@@ -708,6 +712,21 @@ final class NotePanel: NSPanel {
             at: NSPoint(x: anchor.bounds.minX, y: anchor.bounds.maxY + 4),
             in: anchor
         )
+    }
+
+    /// App-level command-palette counterparts to the note context menu. These
+    /// deliberately reuse the same truthful providers and file URLs instead of
+    /// reimplementing note actions in the palette layer.
+    func showCommandStylePicker() { showStylePicker() }
+    func copyCommandNoteID() { copyNoteID() }
+    func copyCommandMarkdown() {
+        guard let markdown = markdownProvider?() else { return }
+        copyToPasteboard(markdown)
+    }
+    func copyCommandFilePath() { copyToPasteboard(noteFileURL.path) }
+    func openCommandMarkdownFile() { NSWorkspace.shared.open(noteFileURL) }
+    func revealCommandNoteInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([noteFileURL])
     }
 
     private func normalizeMenuSeparators(_ menu: NSMenu) {
@@ -1282,12 +1301,18 @@ final class PanelModeState: ObservableObject {
 /// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right.
 private struct ModeToggle: View {
     @ObservedObject var state: PanelModeState
+    @ObservedObject private var configStore = BlinkConfigStore.shared
     var onSelect: (String) -> Void
+
+    private var shortcut: String {
+        KeyChord.parse(configStore.config.hotkeys.toggleMode)?.display
+            ?? configStore.config.hotkeys.toggleMode
+    }
 
     var body: some View {
         HStack(spacing: 2) {
-            segment(icon: "pencil", mode: "edit", help: "Edit (⌘⇧P)")
-            segment(icon: "book", mode: "read", help: "Read (⌘⇧P)")
+            segment(icon: "pencil", mode: "edit", help: "Edit (\(shortcut))")
+            segment(icon: "book", mode: "read", help: "Read (\(shortcut))")
         }
         .padding(2)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
@@ -1381,30 +1406,13 @@ private struct ThemeMarkBadge: View {
 }
 
 /// Resolve theme marks from Blink's attachment store, never from note markdown.
-/// Relative-only + symlink containment mirrors the web asset handler's boundary:
-/// a theme typo becomes an absent mark, not an arbitrary file read.
+/// The relative-only + symlink containment rule lives in
+/// `BlinkPaths.attachment(named:)` so the app and the `blink` CLI enforce one
+/// boundary: a theme typo becomes an absent mark, not an arbitrary file read.
 private enum ThemeMarkLoader {
     static func image(named raw: String?) -> NSImage? {
-        guard let raw else { return nil }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !trimmed.hasPrefix("/") else { return nil }
-
-        let relative: String
-        if trimmed.hasPrefix("blink://attachments/") {
-            relative = String(trimmed.dropFirst("blink://attachments/".count))
-        } else {
-            relative = trimmed
-        }
-
-        let root = BlinkPaths.attachments().standardizedFileURL.resolvingSymlinksInPath()
-        let candidate = root.appendingPathComponent(relative)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard candidate.path.hasPrefix(root.path + "/"),
-              let values = try? candidate.resourceValues(forKeys: [.isRegularFileKey]),
-              values.isRegularFile == true
-        else { return nil }
-        return NSImage(contentsOf: candidate)
+        guard let url = BlinkPaths.attachment(named: raw) else { return nil }
+        return NSImage(contentsOf: url)
     }
 }
 
@@ -1460,7 +1468,13 @@ private struct StyleMetadataBadge: View {
 /// deliberately not a peer of the mode segments. Fills in while focus is on.
 private struct FocusGlyph: View {
     @ObservedObject var state: PanelModeState
+    @ObservedObject private var configStore = BlinkConfigStore.shared
     var onTap: () -> Void
+
+    private var shortcut: String {
+        KeyChord.parse(configStore.config.hotkeys.focus)?.display
+            ?? configStore.config.hotkeys.focus
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -1469,7 +1483,7 @@ private struct FocusGlyph: View {
                 .foregroundStyle(state.focus ? .white : .white.opacity(0.5))
         }
         .buttonStyle(.plain)
-        .help("Focus — quiet everything else (⌘.)")
+        .help("Focus — quiet everything else (\(shortcut))")
     }
 }
 

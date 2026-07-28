@@ -18,6 +18,11 @@ The v1 Tauri app remains at tag `v1-final` — port lessons, not code.
   (local, untracked)
 - Notes CLI (agent-first): `docs/cli.md` — `blink ls/cat/new/search/rm/path`
   over the same files; the app reconciles external writes live.
+- Notes Workspaces (agent-first): `docs/workspaces.md` — `blink workspace`
+  creates a named group of notes and brands it. Definition (title + brand) in
+  `config.json`; membership is one `blink.workspace` frontmatter key, so note
+  markdown stays portable. Brands are generic treatments — never hardcode a
+  specific product's identity into the app.
 
 ## Commands
 

@@ -16,10 +16,10 @@ struct BlinkCommand: AsyncParsableCommand {
         else ~/Library/Application Support/Blink/Notes. Every command takes \
         --json for structured output.
         """,
-        version: "2.0.3",
+        version: "2.0.4",
         subcommands: [
             Ls.self, Cat.self, New.self, Present.self, Append.self, Type.self, Write.self,
-            Search.self, Rm.self, PathCommand.self,
+            Search.self, Rm.self, PathCommand.self, WorkspaceCommand.self,
         ]
     )
 }
@@ -66,6 +66,8 @@ struct New: AsyncParsableCommand {
         discussion: "The first line becomes the title; the id is a unique slug derived from it."
     )
 
+    @Option(help: "Create the note inside this workspace (blink.workspace).")
+    var workspace: String?
     @Argument(parsing: .remaining, help: "Note content (omit to read stdin).")
     var content: [String] = []
     @Flag(help: "Structured output.") var json = false
@@ -77,7 +79,13 @@ struct New: AsyncParsableCommand {
                 decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self
             )
         }
-        let note = try await loadedStore().create(content: text)
+        var note = try await loadedStore().create(content: text)
+        // Membership is a second write rather than a create parameter: the store
+        // owns slug assignment, and this keeps `create` a single-purpose verb.
+        if let workspace {
+            note.presentation.workspace = try WorkspaceStore.normalize(workspace)
+            try fileStore().save(note)
+        }
         if json {
             try printJSON(NoteJSON(note, full: false))
         } else {
@@ -102,6 +110,7 @@ struct Present: AsyncParsableCommand {
     @Argument(parsing: .allUnrecognized, help: "Markdown content (omit to keep existing / read stdin).")
     var content: [String] = []
 
+    @Option(help: "Workspace to file this note under (blink.workspace).") var workspace: String?
     @Option(help: "Named style preset from config (blink.style).") var style: String?
     @Option(help: "Sheet template (blink.sheet).") var sheet: String?
     @Option(help: "Accent color, e.g. #9ece6a (blink.accent).") var accent: String?
@@ -140,6 +149,7 @@ struct Present: AsyncParsableCommand {
 
         // Overlay only the presentation fields provided — never erase the rest.
         var p = note.presentation
+        if let workspace { p.workspace = try WorkspaceStore.normalize(workspace) }
         if let style { p.style = style }
         if let sheet { p.sheet = sheet }
         if let accent { p.accent = accent }
@@ -284,11 +294,11 @@ struct PathCommand: ParsableCommand {
 
 // MARK: - Shared plumbing
 
-private func fileStore() -> NoteFileStore {
+func fileStore() -> NoteFileStore {
     NoteFileStore(directory: BlinkPaths.notes())
 }
 
-private func loadedStore() async throws -> NoteStore {
+func loadedStore() async throws -> NoteStore {
     let store = NoteStore(fileStore: fileStore())
     try await store.load()
     return store
@@ -324,7 +334,7 @@ struct NoteNotFound: Error, CustomStringConvertible {
     var description: String { "no note with id '\(id)' in \(BlinkPaths.notes().path)" }
 }
 
-private func existingNote(id: String) throws -> Note {
+func existingNote(id: String) throws -> Note {
     do {
         return try fileStore().load(id: id)
     } catch {
@@ -357,7 +367,7 @@ struct NoteJSON: Encodable {
     }
 }
 
-private func output(_ notes: [Note], json: Bool) throws {
+func output(_ notes: [Note], json: Bool) throws {
     if json {
         try printJSON(notes.map { NoteJSON($0, full: false) })
     } else if notes.isEmpty {
@@ -373,7 +383,7 @@ private func output(_ notes: [Note], json: Bool) throws {
     }
 }
 
-private func printJSON(_ value: some Encodable) throws {
+func printJSON(_ value: some Encodable) throws {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
     encoder.dateEncodingStrategy = .custom { date, encoder in
