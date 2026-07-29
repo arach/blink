@@ -1,4 +1,50 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+/* ------------------------------ scroll reveal ----------------------------- */
+
+/** Fades/rises content in when it enters the viewport (once). SSR renders it
+ *  fully visible — the hidden state is only armed on the client, so no-JS and
+ *  first paint are never blank. Reduced motion is handled by the global CSS. */
+export function Reveal({
+  children,
+  className = '',
+  delay = 0,
+}: {
+  children: ReactNode
+  className?: string
+  delay?: number
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [armed, setArmed] = useState(false)
+  const [inView, setInView] = useState(false)
+
+  useEffect(() => {
+    setArmed(true)
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -6% 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={ref}
+      className={`${armed ? 'reveal' : ''} ${inView ? 'reveal-in' : ''} ${className}`}
+      style={delay ? { transitionDelay: `${delay}ms` } : undefined}
+    >
+      {children}
+    </div>
+  )
+}
 
 /* ---------------------------------- kbd ---------------------------------- */
 
@@ -30,31 +76,30 @@ export function Chord({ keys }: { keys: string[] }) {
 /* ------------------------------ section header ---------------------------- */
 
 export function SectionHeader({
-  index,
   tag,
   title,
   sub,
 }: {
-  index: string
-  tag: string
+  tag?: string
   title: ReactNode
   sub?: ReactNode
 }) {
   return (
-    <div className="mb-12 md:mb-16">
-      <div className="label-x mb-5 flex items-center gap-3">
-        <span className="text-acc">{'//'}</span>
-        <span>
-          {index} — {tag}
-        </span>
-        <span className="h-px flex-1 bg-[var(--line)]" />
-        <span className="hidden sm:inline text-[var(--ghost)]">blink(1)</span>
-      </div>
-      <h2 className="text-[26px] md:text-[38px] font-bold leading-[1.12] tracking-[-0.02em] text-[var(--text)] max-w-3xl">
+    <div className="mb-10 md:mb-12">
+      {tag && (
+        <div className="label-x mb-4 flex items-center gap-3">
+          <span className="text-acc" aria-hidden>
+            {'//'}
+          </span>
+          <span>{tag}</span>
+          <span className="h-px flex-1 bg-[var(--line)]" aria-hidden />
+        </div>
+      )}
+      <h2 className="text-[24px] md:text-[32px] font-bold leading-[1.15] tracking-[-0.02em] text-[var(--text)] max-w-2xl text-balance">
         {title}
       </h2>
       {sub && (
-        <p className="mt-4 max-w-2xl text-[13px] md:text-[14px] leading-[1.75] text-dimx">{sub}</p>
+        <div className="mt-3 max-w-xl text-[13px] md:text-[14px] leading-[1.7] text-dimx">{sub}</div>
       )}
     </div>
   )
@@ -74,7 +119,7 @@ export function PrimaryButton({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="group inline-flex h-11 items-center gap-2.5 rounded-[6px] bg-[var(--acc)] px-5 text-[13px] font-bold text-[var(--on-acc)] transition-all hover:brightness-110 hover:shadow-[0_0_28px_rgba(var(--acc-rgb),0.35)]"
+      className="group inline-flex h-11 items-center gap-2.5 rounded-[6px] bg-[var(--acc)] px-5 text-[13px] font-bold text-[var(--on-acc)] transition-[filter,box-shadow,transform] duration-150 hover:brightness-110 hover:shadow-[0_10px_28px_-8px_rgba(var(--acc-rgb),0.55)] active:translate-y-px"
     >
       {children}
     </a>
@@ -93,7 +138,7 @@ export function GhostButton({
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="inline-flex h-11 items-center gap-2.5 rounded-[6px] border border-line2x bg-[var(--panel)] px-5 text-[13px] font-medium text-dimx transition-all hover:border-[#3f3f48] hover:text-[var(--text)]"
+      className="inline-flex h-11 items-center gap-2.5 rounded-[6px] border border-line2x bg-[var(--panel)] px-5 text-[13px] font-medium text-dimx transition-colors duration-150 hover:border-[var(--line-2)] hover:bg-panel2x hover:text-[var(--text)] active:translate-y-px"
     >
       {children}
     </a>
@@ -106,7 +151,7 @@ export function Chip({ children, tone = 'default' }: { children: ReactNode; tone
   const tones = {
     default: 'border-line2x text-dimx',
     acc: 'border-[rgba(var(--acc-rgb),0.35)] text-acc bg-[var(--acc-soft)]',
-    amber: 'border-[rgba(255,195,95,0.35)] text-amberx bg-[rgba(255,195,95,0.08)]',
+    amber: 'border-[rgba(var(--acc-rgb),0.35)] text-acc bg-[var(--acc-soft)]',
   }
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-[3px] text-[11px] ${tones[tone]}`}>

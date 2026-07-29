@@ -35,11 +35,11 @@ export default function RootLayout({
     // React hydrates, so the server markup and client DOM intentionally differ.
     <html lang="en" className={jetBrainsMono.variable} suppressHydrationWarning>
       <body>
-        {/* Apply the saved/URL theme before paint — no flash of the default. */}
+        {/* Apply cream (default) or black before paint — no flash. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('blink-theme');if(p){try{localStorage.setItem('blink-theme',p)}catch(e){}}if(t&&t!=='amber')document.documentElement.setAttribute('data-theme',t);else document.documentElement.removeAttribute('data-theme')}catch(e){}",
+              "try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('blink-theme');if(p){try{localStorage.setItem('blink-theme',p==='black'?'black':'cream')}catch(e){}}if(t==='black')document.documentElement.setAttribute('data-theme','black');else document.documentElement.removeAttribute('data-theme')}catch(e){}",
           }}
         />
         {children}

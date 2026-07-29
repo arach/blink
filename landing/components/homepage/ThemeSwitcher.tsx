@@ -2,32 +2,37 @@
 
 import { useEffect, useState } from 'react'
 
-/** Full-palette themes. `amber` is the default (:root), so it clears the attribute.
- *  Each swatch shows the theme's background (fill) + accent (ring). */
+/** Cream (default :root) or black. */
 const THEMES = [
-  { id: 'amber', bg: '#0a0a0b', acc: '#f0b45a' },
-  { id: 'green', bg: '#060907', acc: '#6ee787' },
-  { id: 'blue', bg: '#070a10', acc: '#7cc7e8' },
-  { id: 'violet', bg: '#0a0810', acc: '#c792ea' },
-  { id: 'paper', bg: '#e8e2d4', acc: '#9c5a16' },
+  { id: 'cream', bg: '#e8e2d4', acc: '#1a1612', label: 'cream' },
+  { id: 'black', bg: '#0a0a0b', acc: '#f0ece4', label: 'black' },
 ] as const
 
-function applyTheme(id: string) {
+type ThemeId = (typeof THEMES)[number]['id']
+
+function applyTheme(id: ThemeId) {
   const root = document.documentElement
-  if (id === 'amber') root.removeAttribute('data-theme')
-  else root.setAttribute('data-theme', id)
+  if (id === 'cream') root.removeAttribute('data-theme')
+  else root.setAttribute('data-theme', 'black')
+}
+
+function normalize(raw: string | null): ThemeId {
+  if (raw === 'black') return 'black'
+  // Migrate old multi-theme ids → cream default (except explicit black)
+  return 'cream'
 }
 
 export function ThemeSwitcher() {
-  const [active, setActive] = useState('amber')
+  const [active, setActive] = useState<ThemeId>('cream')
 
-  // Adopt whatever the no-FOUC script (or a prior visit) already set.
   useEffect(() => {
-    const saved = document.documentElement.getAttribute('data-theme') || 'amber'
+    const attr = document.documentElement.getAttribute('data-theme')
+    const saved = normalize(attr || localStorage.getItem('blink-theme'))
     setActive(saved)
+    applyTheme(saved)
   }, [])
 
-  const pick = (id: string) => {
+  const pick = (id: ThemeId) => {
     setActive(id)
     applyTheme(id)
     try {
@@ -36,26 +41,31 @@ export function ThemeSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-[7px]" role="radiogroup" aria-label="accent theme">
+    <div className="flex items-center" role="radiogroup" aria-label="color theme">
       {THEMES.map((t) => {
         const on = active === t.id
         return (
           <button
             key={t.id}
+            type="button"
             role="radio"
             aria-checked={on}
-            aria-label={`${t.id} theme`}
-            title={t.id}
+            aria-label={`${t.label} theme`}
+            title={t.label}
             onClick={() => pick(t.id)}
-            className="h-[12px] w-[12px] rounded-full transition-transform hover:scale-110"
-            style={{
-              backgroundColor: t.bg,
-              opacity: on ? 1 : 0.5,
-              boxShadow: on
-                ? `inset 0 0 0 1px ${t.acc}, 0 0 0 2px var(--bg), 0 0 0 3px ${t.acc}`
-                : `inset 0 0 0 1px ${t.acc}`,
-            }}
-          />
+            className="inline-flex h-8 w-7 items-center justify-center rounded-sm transition-transform hover:scale-105"
+          >
+            <span
+              className="block h-[12px] w-[12px] rounded-full"
+              style={{
+                backgroundColor: t.bg,
+                opacity: on ? 1 : 0.55,
+                boxShadow: on
+                  ? `inset 0 0 0 1px ${t.acc}, 0 0 0 2px var(--bg), 0 0 0 3px ${t.acc}`
+                  : `inset 0 0 0 1px ${t.acc}`,
+              }}
+            />
+          </button>
         )
       })}
     </div>
