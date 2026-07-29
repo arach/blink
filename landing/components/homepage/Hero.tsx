@@ -6,14 +6,8 @@ export default function Hero() {
     <section id="top" className="relative overflow-hidden pt-32 md:pt-36 pb-16 md:pb-24">
       <div className="hero-glow pointer-events-none absolute inset-0" aria-hidden />
       <div className="relative mx-auto max-w-5xl px-4 md:px-6">
-        <div className="rise-in rise-1 flex items-center justify-between border-y border-linex py-2 text-[10px] md:text-[11px] tracking-[0.08em] text-faintx">
-          <span className="text-dimx font-semibold">BLINK(1)</span>
-          <span className="hidden sm:inline">spatial notes · macOS</span>
-          <span className="text-dimx font-semibold">BLINK(1)</span>
-        </div>
-
-        <div className="mt-10 md:mt-12 grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 items-start">
-          <div className="rise-in rise-2">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 items-start">
+          <div className="rise-in rise-1">
             <h1 className="text-balance">
               <span className="block text-[40px] md:text-[48px] font-bold tracking-[-0.03em] leading-[1.05] text-[var(--text)]">
                 blink
@@ -58,7 +52,7 @@ export default function Hero() {
             </p>
           </div>
 
-          <div className="rise-in rise-3">
+          <div className="rise-in rise-2">
             <SpatialDemo />
             <p className="mt-3 text-[11px] leading-relaxed text-faintx">
               Panels remember position and size · native NSPanel glass

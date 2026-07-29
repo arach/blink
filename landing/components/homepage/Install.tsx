@@ -78,7 +78,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mt-6 text-[10px] text-[var(--ghost)]">
-          JetBrains Mono · no tracking · no cookies
+          JetBrains Mono · blink.arach.dev
         </div>
       </div>
     </footer>

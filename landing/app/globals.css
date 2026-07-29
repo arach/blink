@@ -7,102 +7,123 @@
   :root {
     --bg: #e8e2d4;
     --bg-2: #efeae0;
-    --panel: #f3efe6;
-    --panel-2: #faf7f0;
-    --line: #d5cdb9;
-    --line-2: #c5bba3;
-    --text: #1c1814;
-    --dim: #5c5648;
-    --faint: #8a8270;
-    --ghost: #b8b09a;
-    --acc: #1a1612;
-    --acc-rgb: 26, 22, 18;
+    --panel: #f6f2e9;
+    --panel-2: #fcfaf5;
+    --line: #cfc6b2;
+    --line-2: #b8ae98;
+    --text: #0c0a08;
+    --dim: #3f3a32;
+    --faint: #6a6356;
+    --ghost: #a89f8c;
+    --acc: #0a0806;
+    --acc-rgb: 10, 8, 6;
     --acc-soft: rgba(var(--acc-rgb), 0.08);
-    --on-acc: #f7f2e8;
-    --amber: #1a1612;
-    --cyan: #5c5648;
-    --red: #1a1612;
+    --on-acc: #faf7f0;
+    --amber: #0a0806;
+    --cyan: #3f3a32;
+    --red: #0a0806;
     --bg-rgb: 232, 226, 212;
-    --line-rgb: 213, 205, 185;
-    --grid: rgba(120, 96, 52, 0.045);
+    --line-rgb: 207, 198, 178;
+    --grid: rgba(60, 48, 32, 0.055);
     /* Spatial demo “desktop”: layered desk, not a flat fill */
-    --demo-surface: #cfc6b4;
-    --demo-surface-mid: #ddd4c4;
+    --demo-surface: #c8bfab;
+    --demo-surface-mid: #d9d0bc;
     --demo-surface-hi: #ebe4d6;
-    --demo-vignette: rgba(72, 58, 40, 0.22);
-    --demo-glow: rgba(255, 250, 242, 0.55);
-    --demo-grid-line: rgba(60, 48, 32, 0.08);
-    --demo-chrome: linear-gradient(180deg, #faf7f0 0%, #f0ebe0 100%);
-    --demo-chrome-border: #cfc6b4;
+    --demo-vignette: rgba(48, 38, 24, 0.28);
+    --demo-glow: rgba(255, 252, 246, 0.55);
+    --demo-grid-line: rgba(40, 32, 20, 0.1);
+    --demo-chrome: linear-gradient(180deg, #fcfaf5 0%, #f0ebe0 100%);
+    --demo-chrome-border: #b8ae98;
     /* mono syntax — ink only */
-    --syn-key: #1c1814;
-    --syn-str: #1c1814;
-    --syn-num: #1c1814;
-    --syn-bool: #1c1814;
-    --syn-punct: #5c5648;
-    --syn-comment: #8a8270;
+    --syn-key: #0c0a08;
+    --syn-str: #0c0a08;
+    --syn-num: #0c0a08;
+    --syn-bool: #0c0a08;
+    --syn-punct: #3f3a32;
+    --syn-comment: #6a6356;
 
     --background: 40 22% 88%;
-    --foreground: 30 16% 10%;
-    --card: 40 28% 94%;
-    --card-foreground: 30 16% 10%;
-    --popover: 40 28% 94%;
-    --popover-foreground: 30 16% 10%;
-    --primary: 30 12% 10%;
-    --primary-foreground: 40 30% 95%;
+    --foreground: 30 16% 4%;
+    --card: 40 30% 96%;
+    --card-foreground: 30 16% 4%;
+    --popover: 40 30% 96%;
+    --popover-foreground: 30 16% 4%;
+    --primary: 30 14% 4%;
+    --primary-foreground: 40 30% 96%;
     --secondary: 40 14% 90%;
-    --secondary-foreground: 30 16% 10%;
+    --secondary-foreground: 30 16% 4%;
     --muted: 40 14% 90%;
-    --muted-foreground: 30 8% 40%;
+    --muted-foreground: 30 10% 28%;
     --accent: 40 14% 90%;
-    --accent-foreground: 30 12% 10%;
+    --accent-foreground: 30 14% 4%;
     --destructive: 5 70% 42%;
     --destructive-foreground: 40 30% 95%;
-    --border: 40 14% 78%;
-    --input: 40 14% 78%;
-    --ring: 30 12% 10%;
+    --border: 40 16% 72%;
+    --input: 40 16% 72%;
+    --ring: 30 14% 4%;
     --radius: 0.375rem;
   }
 
-  /* black — pure dark mono */
+  /*
+   * black — true mono, not “soft charcoal.”
+   * Surfaces stay near black; type is near white; secondary steps are wide
+   * so the page reads ink-on-void instead of a gray scale.
+   */
   [data-theme="black"] {
-    --bg: #0a0a0b;
-    --bg-2: #0c0c0e;
-    --panel: #111113;
-    --panel-2: #161618;
-    --line: #222226;
-    --line-2: #303036;
-    --text: #e6e6e8;
-    --dim: #98989e;
-    --faint: #6e6e76;
-    --ghost: #4a4a52;
-    --acc: #f0ece4;
-    --acc-rgb: 240, 236, 228;
-    --acc-soft: rgba(var(--acc-rgb), 0.1);
-    --on-acc: #0a0a0b;
-    --amber: #f0ece4;
-    --cyan: #98989e;
-    --red: #f0ece4;
-    --bg-rgb: 10, 10, 11;
-    --line-rgb: 34, 34, 38;
-    --grid: rgba(255, 255, 255, 0.014);
-    --demo-surface: #0c0c0e;
-    --demo-surface-mid: #121214;
-    --demo-surface-hi: #1a1a1e;
-    --demo-vignette: rgba(0, 0, 0, 0.55);
-    --demo-glow: rgba(240, 236, 228, 0.06);
-    --demo-grid-line: rgba(240, 236, 228, 0.07);
-    --demo-chrome: linear-gradient(180deg, #18181b 0%, #111113 100%);
-    --demo-chrome-border: #2a2a30;
-    /* mono syntax — cream only */
-    --syn-key: #e6e6e8;
-    --syn-str: #f0ece4;
-    --syn-num: #f0ece4;
-    --syn-bool: #e6e6e8;
-    --syn-punct: #98989e;
-    --syn-comment: #6e6e76;
-    --background: 240 6% 4%;
-    --foreground: 240 6% 90%;
+    --bg: #000000;
+    --bg-2: #050505;
+    --panel: #0a0a0a;
+    --panel-2: #111111;
+    --line: #2a2a2a;
+    --line-2: #404040;
+    --text: #fafafa;
+    --dim: #b3b3b3;
+    --faint: #8a8a8a;
+    --ghost: #525252;
+    --acc: #ffffff;
+    --acc-rgb: 255, 255, 255;
+    --acc-soft: rgba(255, 255, 255, 0.1);
+    --on-acc: #000000;
+    --amber: #ffffff;
+    --cyan: #b3b3b3;
+    --red: #ffffff;
+    --bg-rgb: 0, 0, 0;
+    --line-rgb: 42, 42, 42;
+    --grid: rgba(255, 255, 255, 0.04);
+    --demo-surface: #070707;
+    --demo-surface-mid: #0e0e0e;
+    --demo-surface-hi: #171717;
+    --demo-vignette: rgba(0, 0, 0, 0.75);
+    --demo-glow: rgba(255, 255, 255, 0.045);
+    --demo-grid-line: rgba(255, 255, 255, 0.09);
+    --demo-chrome: linear-gradient(180deg, #141414 0%, #0a0a0a 100%);
+    --demo-chrome-border: #333333;
+    /* mono syntax — white / gray only */
+    --syn-key: #fafafa;
+    --syn-str: #ffffff;
+    --syn-num: #ffffff;
+    --syn-bool: #fafafa;
+    --syn-punct: #b3b3b3;
+    --syn-comment: #8a8a8a;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 4%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 4%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 0% 8%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 0 0% 100%;
   }
 }
 
@@ -117,10 +138,10 @@
     0 1px 2px rgba(60, 48, 28, 0.12);
 }
 [data-theme="black"] .kbd {
-  background: linear-gradient(180deg, #191920, #0e0e12);
-  border-color: var(--line-2);
-  color: var(--dim);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 0 rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #1a1a1a, #0a0a0a);
+  border-color: #3a3a3a;
+  color: #e5e5e5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 rgba(0, 0, 0, 0.8);
 }
 
 /* Cream default: no CRT flicker; warm wash + light frame on demo */
@@ -159,10 +180,10 @@ body {
   color: #0a0a0b;
 }
 [data-theme="black"] ::-webkit-scrollbar-thumb {
-  background: #26262c;
+  background: #2e2e2e;
   border-color: var(--bg);
 }
-[data-theme="black"] ::-webkit-scrollbar-thumb:hover { background: #36363e; }
+[data-theme="black"] ::-webkit-scrollbar-thumb:hover { background: #454545; }
 [data-theme="black"] body {
   background-image:
     linear-gradient(var(--grid) 1px, transparent 1px),
@@ -223,30 +244,30 @@ body {
   }
   .hairline-t { border-top: 1px solid var(--line); }
   .hairline-b { border-bottom: 1px solid var(--line); }
-  /* Floating note panels — dark HUD glass on either page theme */
+  /* Floating note panels — dark HUD glass (cream page) / pure black glass (black page) */
   .glass-note {
     background:
-      linear-gradient(165deg, rgba(58, 56, 54, 0.72) 0%, rgba(28, 28, 30, 0.78) 48%, rgba(16, 16, 18, 0.82) 100%);
-    backdrop-filter: blur(18px) saturate(1.15);
-    -webkit-backdrop-filter: blur(18px) saturate(1.15);
-    border: 1px solid rgba(255, 248, 236, 0.16);
+      linear-gradient(165deg, rgba(42, 40, 38, 0.88) 0%, rgba(18, 18, 18, 0.92) 48%, rgba(8, 8, 8, 0.94) 100%);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-      0 1px 2px rgba(0, 0, 0, 0.12),
-      0 12px 28px -6px rgba(0, 0, 0, 0.38),
-      0 28px 56px -16px rgba(0, 0, 0, 0.32);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.18),
+      0 12px 28px -6px rgba(0, 0, 0, 0.42),
+      0 28px 56px -16px rgba(0, 0, 0, 0.36);
   }
   [data-theme="black"] .glass-note {
     background:
-      linear-gradient(165deg, rgba(48, 48, 52, 0.65) 0%, rgba(22, 22, 26, 0.78) 50%, rgba(12, 12, 14, 0.88) 100%);
-    border-color: rgba(240, 236, 228, 0.14);
+      linear-gradient(165deg, rgba(28, 28, 28, 0.92) 0%, rgba(12, 12, 12, 0.96) 50%, rgba(0, 0, 0, 0.98) 100%);
+    border-color: rgba(255, 255, 255, 0.18);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 16px 36px -8px rgba(0, 0, 0, 0.65),
-      0 32px 64px -20px rgba(0, 0, 0, 0.55);
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(0, 0, 0, 0.6),
+      0 16px 36px -8px rgba(0, 0, 0, 0.75),
+      0 32px 64px -20px rgba(0, 0, 0, 0.65);
   }
 
   /* Premium desktop plate inside the spatial demo */
@@ -314,12 +335,21 @@ body {
 }
 .note-spawn { animation: noteSpawn 0.34s cubic-bezier(0.2, 0.9, 0.25, 1.15) backwards; }
 
+/* Case-study desk panels — ease in, no flash / overshoot */
+@keyframes deskNoteIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.desk-note-in {
+  animation: deskNoteIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes noteVanish {
   to { opacity: 0; transform: scale(0.94); filter: brightness(1.8); }
 }
 .note-vanish { animation: noteVanish 0.22s ease-in both; }
 
-/* soft pulse dot */
+/* soft pulse dot — opt-in only (avoid on calm surfaces) */
 @keyframes pulseDot {
   0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(var(--acc-rgb), 0.45); }
   50% { opacity: 0.75; box-shadow: 0 0 0 5px rgba(var(--acc-rgb), 0); }

@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { JetBrains_Mono } from "next/font/google"
+import { GoogleAnalytics } from "@/components/GoogleAnalytics"
 import "./globals.css"
 
 const jetBrainsMono = JetBrains_Mono({
@@ -43,6 +44,7 @@ export default function RootLayout({
           }}
         />
         {children}
+        <GoogleAnalytics />
       </body>
     </html>
   )

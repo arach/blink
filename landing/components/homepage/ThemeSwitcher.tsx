@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 
 /** Cream (default :root) or black. */
 const THEMES = [
-  { id: 'cream', bg: '#e8e2d4', acc: '#1a1612', label: 'cream' },
-  { id: 'black', bg: '#0a0a0b', acc: '#f0ece4', label: 'black' },
+  { id: 'cream', bg: '#e8e2d4', acc: '#0a0806', label: 'cream' },
+  { id: 'black', bg: '#000000', acc: '#ffffff', label: 'black' },
 ] as const
 
 type ThemeId = (typeof THEMES)[number]['id']
