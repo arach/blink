@@ -40,7 +40,6 @@ export function ConfigSection() {
     <section id="config" className="py-20 md:py-28 border-t border-linex">
       <div className="mx-auto max-w-6xl px-4 md:px-6">
         <SectionHeader
-          index="04"
           tag="CONFIGURATION"
           title={
             <>

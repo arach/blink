@@ -99,6 +99,27 @@ export default function SpatialDemo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spawn])
 
+  /* seed a composed scene on load — staggered spawns so the hero opens with
+     notes landing in place instead of an empty desktop */
+  const seededRef = useRef(false)
+  useEffect(() => {
+    if (seededRef.current) return
+    seededRef.current = true
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const spots: [number, number][] = [
+      [r.width * 0.06, 30],
+      [r.width * 0.5, 92],
+      [r.width * 0.26, 200],
+    ]
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timers = spots.map(([x, y], i) =>
+      window.setTimeout(() => spawn(x, y), reduced ? 0 : 550 + i * 420),
+    )
+    return () => timers.forEach((t) => clearTimeout(t))
+  }, [spawn])
+
   const toggleBlink = useCallback(() => {
     setAllHidden((h) => {
       const target = !h
@@ -144,58 +165,63 @@ export default function SpatialDemo() {
     mouseRef.current = { x: e.clientX - r.left, y: e.clientY - r.top }
   }
 
+  const demoBtn =
+    'rounded-[4px] border px-2 py-1 text-[10px] transition-colors border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
+  const demoBtnOn =
+    'rounded-[4px] border px-2 py-1 text-[10px] transition-colors border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
+
   return (
-    <div className="corner-frame select-none">
+    <div className="corner-frame select-none" role="region" aria-label="Spatial notes demo">
       {/* window chrome */}
-      <div className="flex items-center justify-between border border-linex border-b-0 rounded-t-[8px] bg-panel2x px-3.5 h-10">
-        <div className="flex items-center gap-2 text-[11px] text-faintx">
-          <span className="inline-block h-[7px] w-[7px] rounded-full bg-[var(--acc)] pulse-dot" />
-          <span className="text-dimx font-semibold">~/Desktop</span>
-          <span className="hidden sm:inline">— spatial surface · live demo</span>
+      <div className="demo-chrome flex items-center justify-between gap-2 border border-b-0 rounded-t-[8px] px-3 min-h-10 py-1.5">
+        <div className="flex min-w-0 items-center gap-2 text-[11px] text-faintx">
+          <span className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--acc)] pulse-dot" aria-hidden />
+          <span className="text-dimx font-semibold truncate">~/Desktop</span>
+          <span className="hidden md:inline shrink-0 text-faintx">— live demo</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => spawn()}
-            title="new note (or press N)"
-            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)] transition-colors"
-          >
-            ⌃⌥⇧⌘N
+        <div className="flex shrink-0 items-center gap-1">
+          <button type="button" onClick={() => spawn()} title="New note (N)" aria-label="New note" className={demoBtn}>
+            <span className="sm:hidden">N</span>
+            <span className="hidden sm:inline">⌃⌥⇧⌘N</span>
           </button>
           <button
+            type="button"
             onClick={toggleBlink}
-            title="blink all / none (or press B)"
-            className={`rounded-[4px] border px-2 py-1 text-[10px] transition-colors ${
-              allHidden
-                ? 'border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
-                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
-            }`}
+            title="Blink all / none (B)"
+            aria-label="Blink all panels"
+            aria-pressed={allHidden}
+            className={allHidden ? demoBtnOn : demoBtn}
           >
-            ⌃⌥⇧⌘B
+            <span className="sm:hidden">B</span>
+            <span className="hidden sm:inline">⌃⌥⇧⌘B</span>
           </button>
           <button
+            type="button"
             onClick={() => setGrid((g) => !g)}
-            title="grid overlay (or press C)"
-            className={`rounded-[4px] border px-2 py-1 text-[10px] transition-colors ${
-              grid
-                ? 'border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
-                : 'border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
-            }`}
+            title="Grid overlay (C)"
+            aria-label="Toggle grid overlay"
+            aria-pressed={grid}
+            className={grid ? demoBtnOn : demoBtn}
           >
-            ⌃⌥⇧⌘C
+            <span className="sm:hidden">C</span>
+            <span className="hidden sm:inline">⌃⌥⇧⌘C</span>
           </button>
           <button
+            type="button"
             onClick={() => setNotes([])}
-            title="reset surface"
-            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-faintx hover:text-[var(--red)] hover:border-[rgba(255,122,110,0.4)] transition-colors"
+            title="Reset surface"
+            aria-label="Reset demo"
+            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-faintx hover:text-[var(--text)] hover:border-[rgba(var(--acc-rgb),0.35)] transition-colors"
           >
             reset
           </button>
         </div>
       </div>
 
-      {/* surface */}
+      {/* surface — premium layered desktop */}
       <div
         ref={ref}
+        data-grid={grid ? 'true' : undefined}
         onPointerEnter={() => (hoverRef.current = true)}
         onPointerLeave={() => (hoverRef.current = false)}
         onPointerMove={onSurfaceMove}
@@ -204,43 +230,46 @@ export default function SpatialDemo() {
             spawn(e.clientX - ref.current!.getBoundingClientRect().left, e.clientY - ref.current!.getBoundingClientRect().top)
           }
         }}
-        className="relative h-[380px] md:h-[460px] overflow-hidden rounded-b-[8px] border border-linex cursor-crosshair"
-        style={{
-          background: grid
-            ? 'linear-gradient(rgba(var(--acc-rgb),0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(var(--acc-rgb),0.07) 1px, transparent 1px), radial-gradient(ellipse 80% 60% at 50% 30%, rgba(var(--acc-rgb),0.09), transparent 70%), var(--demo-surface)'
-            : 'radial-gradient(ellipse 80% 60% at 50% 30%, rgba(var(--acc-rgb),0.09), transparent 70%), var(--demo-surface)',
-          backgroundSize: grid ? '40px 40px, 40px 40px, 100% 100%, 100% 100%' : '100% 100%, 100% 100%',
-        }}
+        className="demo-desktop relative h-[340px] sm:h-[380px] md:h-[420px] overflow-hidden rounded-b-[8px] border border-linex cursor-crosshair"
       >
-        <div className="scanline" />
-
+        {/* soft ambient wash — extra depth without color noise */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          aria-hidden
+          style={{
+            background:
+              'radial-gradient(ellipse 55% 40% at 72% 28%, rgba(255,255,255,0.12), transparent 70%), radial-gradient(ellipse 40% 50% at 18% 70%, rgba(0,0,0,0.06), transparent 65%)',
+          }}
+        />
         {/* grid rulers */}
         {grid && (
           <div data-surface="grid" className="absolute inset-0 pointer-events-none">
             {[80, 160, 240, 320, 400].map((x) => (
-              <span key={x} className="absolute top-1 text-[9px] text-[rgba(var(--acc-rgb),0.45)]" style={{ left: x + 3 }}>
+              <span key={x} className="absolute top-1 text-[9px] text-faintx/80" style={{ left: x + 3 }}>
                 {x}
               </span>
             ))}
             {[80, 160, 240, 320].map((y) => (
-              <span key={y} className="absolute left-1.5 text-[9px] text-[rgba(var(--acc-rgb),0.45)]" style={{ top: y + 3 }}>
+              <span key={y} className="absolute left-1.5 text-[9px] text-faintx/80" style={{ top: y + 3 }}>
                 {y}
               </span>
             ))}
           </div>
         )}
 
-        {/* empty state hint */}
-        {notes.length === 0 && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-            <div className="flex items-center gap-2 text-faintx text-[12px]">
-              <Chord keys={['⌃', '⌥', '⇧', '⌘', 'N']} />
-            </div>
-            <p className="text-[11px] text-faintx">
-              click anywhere — or press <span className="text-acc">N</span> — to drop a note in space
-            </p>
+        {/* empty state hint — fades away once the scene has notes */}
+        <div
+          className={`absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-4 pointer-events-none pb-8 transition-opacity duration-500 ${
+            notes.length === 0 ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="flex items-center gap-2 text-faintx text-[12px]">
+            <Chord keys={['⌃', '⌥', '⇧', '⌘', 'N']} />
           </div>
-        )}
+          <p className="text-[11px] text-faintx text-center max-w-[18rem] leading-relaxed">
+            click anywhere — or press <span className="text-acc">N</span> — to drop a note
+          </p>
+        </div>
 
         {/* notes */}
         {notes.map((n) => (
@@ -259,11 +288,11 @@ export default function SpatialDemo() {
               transition: 'opacity 0.22s ease, transform 0.22s ease',
             }}
           >
-            <div className="flex items-center justify-between border-b border-[rgba(214,204,184,0.14)] px-2.5 py-1.5">
-              <span className="text-[10px] text-[rgba(216,216,220,0.75)]">{n.title}</span>
-              <span className="text-[9px] text-[rgba(150,150,158,0.7)]">
+            <div className="flex items-center justify-between border-b border-[rgba(255,248,236,0.1)] px-2.5 py-1.5">
+              <span className="text-[10px] font-medium text-[rgba(245,242,236,0.82)]">{n.title}</span>
+              <span className="text-[9px] tabular-nums text-[rgba(200,196,188,0.55)]">
                 {dragInfo?.id === n.id ? (
-                  <span className="text-acc">
+                  <span className="text-[rgba(245,242,236,0.9)]">
                     x:{String(dragInfo.x).padStart(3, '0')} y:{String(dragInfo.y).padStart(3, '0')}
                   </span>
                 ) : (
@@ -276,7 +305,9 @@ export default function SpatialDemo() {
                 <div
                   key={i}
                   className={`text-[10px] leading-[1.5] whitespace-nowrap overflow-hidden ${
-                    l.startsWith('##') ? 'text-[rgba(216,216,220,0.9)] font-semibold' : 'text-[rgba(150,150,158,0.9)]'
+                    l.startsWith('##')
+                      ? 'font-semibold text-[rgba(245,242,236,0.92)]'
+                      : 'text-[rgba(200,196,188,0.78)]'
                   }`}
                 >
                   {l}
@@ -289,7 +320,7 @@ export default function SpatialDemo() {
         {/* bottom-left readout */}
         <div className="absolute bottom-2 left-3 text-[9px] text-faintx pointer-events-none">
           panels: {notes.filter((n) => !n.hidden).length}/{notes.length}
-          {allHidden && <span className="text-amberx"> · blinked out — ⌃⌥⇧⌘B to recall</span>}
+          {allHidden && <span className="text-acc"> · blinked out — ⌃⌥⇧⌘B to recall</span>}
         </div>
         <div className="absolute bottom-2 right-3 text-[9px] text-faintx pointer-events-none hidden sm:block">
           drag panels · state persists (x, y, w, h)

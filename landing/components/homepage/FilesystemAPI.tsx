@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SectionHeader, Chip } from './shared'
+import { SectionHeader, Chip, Reveal } from './shared'
 
 interface TermLine {
   kind: 'cmd' | 'out' | 'json'
@@ -18,12 +18,18 @@ export default function FilesystemAPI() {
   useEffect(() => {
     cancelledRef.current = false
     const timeouts: number[] = []
+    const reduced =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const wait = (ms: number) =>
       new Promise<void>((res) => {
-        const id = window.setTimeout(res, ms)
+        const id = window.setTimeout(res, reduced ? Math.min(ms, 80) : ms)
         timeouts.push(id)
       })
     const typeInto = async (text: string, set: (s: string) => void, cps = 34) => {
+      if (reduced) {
+        set(text)
+        return
+      }
       for (let i = 1; i <= text.length; i++) {
         if (cancelledRef.current) return
         set(text.slice(0, i))
@@ -42,7 +48,6 @@ export default function FilesystemAPI() {
         setNoteCaret(false)
         await wait(900)
 
-        /* 1 — create */
         await typeInto('blink new "# Standup"', setCmd)
         if (cancelledRef.current) return
         await wait(240)
@@ -53,7 +58,6 @@ export default function FilesystemAPI() {
         setNote(['# Standup'])
         await wait(900)
 
-        /* 2 — append via agent, note types it in */
         await typeInto('blink append standup "shipped the landing ✓"', setCmd)
         if (cancelledRef.current) return
         await wait(240)
@@ -70,7 +74,6 @@ export default function FilesystemAPI() {
         setNoteCaret(false)
         await wait(1000)
 
-        /* 3 — search json */
         await typeInto('blink search "roadmap" --json', setCmd)
         if (cancelledRef.current) return
         await wait(240)
@@ -78,7 +81,7 @@ export default function FilesystemAPI() {
         setCmd('')
         await wait(150)
         push({ kind: 'json', text: '[{ "id": "roadmap", "title": "Roadmap" }]' })
-        await wait(4200)
+        await wait(reduced ? 2400 : 4200)
       }
     }
     run()
@@ -89,29 +92,31 @@ export default function FilesystemAPI() {
   }, [])
 
   return (
-    <section id="api" className="py-20 md:py-28 border-t border-linex">
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
+    <section id="how" className="scroll-mt-16 py-20 md:py-28 border-t border-linex">
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
         <SectionHeader
-          index="03"
           tag="AGENT-FIRST"
           title={
             <>
               The filesystem <span className="text-acc">is the API</span>.
             </>
           }
-          sub="Built to be driven by more than a keyboard. A CLI, a hot-reloading config file, and live reconciliation mean your agents read and write the same notes you do — no plugins, no integrations."
+          sub="Notes are markdown files in a folder you own. Agents and the CLI write the same files the panels render — live, no plugins."
         />
 
-        <div className="grid gap-6 lg:grid-cols-2 items-stretch">
-          {/* terminal */}
+        <Reveal className="grid gap-5 lg:grid-cols-2 items-stretch">
           <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
             <div className="flex items-center gap-2 border-b border-linex bg-panel2x px-4 py-2.5">
-              <span className="h-[9px] w-[9px] rounded-full bg-[#ff5f57]" />
-              <span className="h-[9px] w-[9px] rounded-full bg-[#febc2e]" />
-              <span className="h-[9px] w-[9px] rounded-full bg-[#28c840]" />
-              <span className="ml-2 text-[11px] text-faintx">blink — the notes CLI</span>
+              <span className="h-[9px] w-[9px] rounded-full bg-[var(--ghost)]" />
+              <span className="h-[9px] w-[9px] rounded-full bg-[var(--faint)]" />
+              <span className="h-[9px] w-[9px] rounded-full bg-[var(--dim)]" />
+              <span className="ml-2 text-[11px] text-faintx">blink CLI</span>
             </div>
-            <div className="flex-1 p-4 md:p-5 text-[12px] md:text-[12.5px] leading-[1.9] min-h-[240px]">
+            <div
+              className="flex-1 p-4 md:p-5 text-[12px] md:text-[12.5px] leading-[1.9] min-h-[200px]"
+              aria-live="polite"
+              aria-atomic="false"
+            >
               {term.map((l, i) => (
                 <div key={i} className="whitespace-pre-wrap break-all">
                   {l.kind === 'cmd' && (
@@ -121,44 +126,37 @@ export default function FilesystemAPI() {
                     </span>
                   )}
                   {l.kind === 'out' && <span className="text-dimx">  {l.text}</span>}
-                  {l.kind === 'json' && <span className="text-cyanx">  {l.text}</span>}
+                  {l.kind === 'json' && <span className="text-[var(--syn-key)]">  {l.text}</span>}
                 </div>
               ))}
               <div>
                 <span className="text-acc font-bold">❯ </span>
                 <span className="text-[var(--text)]">{cmd}</span>
-                <span className="caret-blink text-acc">▊</span>
+                <span className="caret-blink text-acc" aria-hidden>
+                  ▊
+                </span>
               </div>
-            </div>
-            <div className="border-t border-linex px-4 py-2 text-[10px] text-faintx flex justify-between">
-              <span>zsh · replay loop</span>
-              <span>stdin: tty · stdout: piped</span>
             </div>
           </div>
 
-          {/* reconciling note */}
           <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
             <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5">
               <span className="text-[11px] text-dimx">standup.md</span>
-              <span
-                className={`transition-opacity duration-300 ${badge ? 'opacity-100' : 'opacity-0'}`}
-              >
+              <span className={`transition-opacity duration-300 ${badge ? 'opacity-100' : 'opacity-0'}`}>
                 <Chip tone="acc">
                   <span className="inline-block h-[5px] w-[5px] rounded-full bg-[var(--acc)]" />
-                  typed by claude
+                  typed by agent
                 </Chip>
               </span>
             </div>
-            <div className="flex-1 p-4 md:p-5 min-h-[240px]">
+            <div className="flex-1 p-4 md:p-5 min-h-[200px]">
               {note.map((l, i) => (
                 <div
                   key={i}
                   className={`leading-[1.9] ${
                     l.startsWith('# ')
                       ? 'text-[15px] font-bold text-[var(--text)]'
-                      : l.startsWith('##')
-                        ? 'text-[12px] font-semibold text-dimx mt-1'
-                        : 'text-[12.5px] text-dimx'
+                      : 'text-[12.5px] text-dimx'
                   }`}
                 >
                   {l.startsWith('# ') ? l.slice(2) : l}
@@ -171,29 +169,14 @@ export default function FilesystemAPI() {
                 </div>
               )}
               {note.length === 0 && !noteTyping && (
-                <div className="text-[11px] text-faintx italic">— waiting for filesystem events…</div>
+                <div className="text-[11px] text-faintx italic">waiting for filesystem events…</div>
               )}
             </div>
             <div className="border-t border-linex px-4 py-2.5 text-[10px] leading-[1.6] text-faintx">
-              External edits don't just appear — they{' '}
-              <span className="text-dimx">type themselves in</span>, with a caret and a soft tick, so
-              you notice without a notification stealing focus.
+              Outside edits type themselves in — caret and all — so you notice without a notification.
             </div>
           </div>
-        </div>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          {[
-            { k: 'blink new|append|search', v: 'scriptable CRUD over the notes folder' },
-            { k: '--json on everything', v: 'pipe into jq, fzf, or an agent loop' },
-            { k: 'exit codes, no daemon', v: 'the CLI talks to files, not a server' },
-          ].map((c) => (
-            <div key={c.k} className="border border-linex rounded-[7px] bg-panelx px-4 py-3.5">
-              <div className="text-[11.5px] font-bold text-acc">{c.k}</div>
-              <div className="mt-1 text-[11px] leading-[1.6] text-dimx">{c.v}</div>
-            </div>
-          ))}
-        </div>
+        </Reveal>
       </div>
     </section>
   )

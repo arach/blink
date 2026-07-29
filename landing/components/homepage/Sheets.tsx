@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
-import { SectionHeader } from './shared'
+import { SectionHeader, Reveal } from './shared'
 
 type SheetId = 'glass' | 'card' | 'dotted' | 'bracket' | 'marginalia'
 
-const SHEETS: { id: SheetId; name: string; desc: string; spec: string }[] = [
-  { id: 'glass', name: 'glass', desc: 'The default — a HUD panel of real macOS blur.', spec: 'NSVisualEffectView · .hudWindow' },
-  { id: 'card', name: 'card', desc: 'Opaque paper. No blur — a solid surface that reads anywhere.', spec: 'NSWindow · opaque, +4% radius' },
-  { id: 'dotted', name: 'dotted', desc: 'A flat sheet with a dotted margin, like a notebook.', spec: 'flat bg · dot-grid @ 18px pitch' },
-  { id: 'bracket', name: 'bracket', desc: 'Corner brackets frame the text and nothing else.', spec: 'borderless · 4× corner ticks' },
-  { id: 'marginalia', name: 'marginalia', desc: 'A ruled left margin for annotations in the wild.', spec: 'ruled gutter · 56px margin col' },
+const SHEETS: { id: SheetId; name: string; desc: string }[] = [
+  { id: 'glass', name: 'glass', desc: 'HUD blur — the default.' },
+  { id: 'card', name: 'card', desc: 'Opaque paper, solid anywhere.' },
+  { id: 'dotted', name: 'dotted', desc: 'Notebook margin dots.' },
+  { id: 'bracket', name: 'bracket', desc: 'Corner ticks, nothing else.' },
+  { id: 'marginalia', name: 'marginalia', desc: 'Ruled left margin.' },
 ]
 
 function NoteBody({ compact = false }: { compact?: boolean }) {
-  // Sheets are always dark app surfaces, so this text uses the fixed dark-app
-  // palette (never the page-theme tokens) — otherwise it goes dark-on-dark on paper.
   return (
     <div className={compact ? 'space-y-[3px]' : 'space-y-[6px]'}>
       <div className={`${compact ? 'text-[10px]' : 'text-[15px]'} font-bold text-[#eceaef]`}>
@@ -21,9 +19,10 @@ function NoteBody({ compact = false }: { compact?: boolean }) {
       </div>
       <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} text-[#b6b6bf]`}>Ship v2 · port the palette</div>
       <div className={`${compact ? 'text-[8.5px]' : 'text-[11.5px]'} leading-[1.6] text-[#8d8d97]`}>
-        Notes land where you <span className="underline decoration-[rgba(240,180,90,0.5)] underline-offset-2">leave them</span>.
+        Notes land where you{' '}
+        <span className="underline decoration-[rgba(var(--acc-rgb),0.5)] underline-offset-2">leave them</span>.
         <br />
-        see <span className="text-[#f0b45a]">[[roadmap]]</span>
+        see <span className="text-[var(--acc)]">[[roadmap]]</span>
       </div>
     </div>
   )
@@ -35,10 +34,9 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
   if (id === 'glass') {
     return (
       <div className={`relative h-full w-full overflow-hidden ${compact ? 'rounded-[5px]' : 'rounded-[10px]'}`}>
-        {/* backdrop content to blur */}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #3d3423 0%, #1a2330 45%, #2b2436 100%)' }}>
-          <div className="absolute h-24 w-24 rounded-full bg-[rgba(var(--acc-rgb),0.25)] blur-2xl" style={{ left: '10%', top: '55%' }} />
-          <div className="absolute h-20 w-20 rounded-full bg-[rgba(124,199,232,0.2)] blur-2xl" style={{ right: '8%', top: '12%' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #2a2824 0%, #1a1a1c 50%, #242428 100%)' }}>
+          <div className="absolute h-24 w-24 rounded-full bg-[rgba(255,255,255,0.08)] blur-2xl" style={{ left: '10%', top: '55%' }} />
+          <div className="absolute h-20 w-20 rounded-full bg-[rgba(255,255,255,0.05)] blur-2xl" style={{ right: '8%', top: '12%' }} />
         </div>
         <div className={`relative h-full glass-note ${pad}`} style={{ borderRadius: 'inherit' }}>
           <NoteBody compact={compact} />
@@ -73,25 +71,20 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
   }
   if (id === 'bracket') {
     const c = compact ? 'h-[7px] w-[7px]' : 'h-[12px] w-[12px]'
-    const b = compact ? 'border-[#f0b45a]' : 'border-[#f0b45a]'
     return (
       <div className={`relative h-full w-full ${pad}`} style={{ background: 'transparent' }}>
-        <span className={`absolute left-0 top-0 ${c} border-l border-t ${b}`} />
-        <span className={`absolute right-0 top-0 ${c} border-r border-t ${b}`} />
-        <span className={`absolute bottom-0 left-0 ${c} border-b border-l ${b}`} />
-        <span className={`absolute bottom-0 right-0 ${c} border-b border-r ${b}`} />
+        <span className={`absolute left-0 top-0 ${c} border-l border-t border-[var(--acc)]`} />
+        <span className={`absolute right-0 top-0 ${c} border-r border-t border-[var(--acc)]`} />
+        <span className={`absolute bottom-0 left-0 ${c} border-b border-l border-[var(--acc)]`} />
+        <span className={`absolute bottom-0 right-0 ${c} border-b border-r border-[var(--acc)]`} />
         <NoteBody compact={compact} />
       </div>
     )
   }
-  // marginalia
   return (
     <div
-      className={`h-full w-full border border-linex ${compact ? 'rounded-[5px] pl-[26px] pr-2.5 py-2.5' : 'rounded-[10px] pl-[52px] pr-5 py-5'}`}
-      style={{
-        background: '#0d0d0f',
-        backgroundImage: 'linear-gradient(90deg, transparent 0, transparent 100%)',
-      }}
+      className={`relative h-full w-full border border-linex ${compact ? 'rounded-[5px] pl-[26px] pr-2.5 py-2.5' : 'rounded-[10px] pl-[52px] pr-5 py-5'}`}
+      style={{ background: '#0d0d0f' }}
     >
       <span
         className="absolute"
@@ -100,7 +93,7 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
           top: compact ? 6 : 10,
           bottom: compact ? 6 : 10,
           width: 1,
-          background: 'rgba(255,122,110,0.45)',
+          background: 'rgba(var(--acc-rgb),0.45)',
         }}
       />
       <NoteBody compact={compact} />
@@ -114,6 +107,9 @@ export default function Sheets() {
 
   useEffect(() => {
     if (touched) return
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
     const t = setInterval(() => {
       setActive((a) => {
         const i = SHEETS.findIndex((s) => s.id === a)
@@ -126,79 +122,67 @@ export default function Sheets() {
   const current = SHEETS.find((s) => s.id === active)!
 
   return (
-    <section id="sheets" className="py-20 md:py-28 border-t border-linex">
-      <div className="mx-auto max-w-6xl px-4 md:px-6">
+    <section id="sheets" className="scroll-mt-16 py-20 md:py-28 border-t border-linex">
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
         <SectionHeader
-          index="02"
           tag="SHEETS"
           title={
             <>
               Every note is its <span className="text-acc">own surface</span>.
             </>
           }
-          sub="Five render sheets, assignable per note or as your default. Set one key in config.json and Blink hot-applies it to every open panel in under a second."
+          sub="Five render sheets, per note or as default. One key in config — hot-applied to every open panel."
         />
 
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:gap-14 items-start">
-          {/* selector list */}
-          <div className="space-y-2">
-            {SHEETS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setActive(s.id)
-                  setTouched(true)
-                }}
-                className={`w-full text-left rounded-[7px] border px-4 py-3.5 transition-all ${
-                  active === s.id
-                    ? 'border-[rgba(var(--acc-rgb),0.45)] bg-[rgba(var(--acc-rgb),0.05)]'
-                    : 'border-linex bg-panelx hover:border-line2x'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={`text-[13px] font-bold ${active === s.id ? 'text-acc' : 'text-[var(--text)]'}`}>
+        <Reveal className="grid gap-8 lg:grid-cols-[minmax(0,14rem)_1fr] lg:gap-10 items-start">
+          <div
+            className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0 lg:flex-col lg:overflow-visible lg:pb-0 lg:gap-1"
+            role="tablist"
+            aria-label="Sheet styles"
+          >
+            {SHEETS.map((s) => {
+              const on = active === s.id
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => {
+                    setActive(s.id)
+                    setTouched(true)
+                  }}
+                  className={`shrink-0 text-left rounded-[6px] border px-3.5 py-2.5 transition-colors ${
+                    on
+                      ? 'border-[rgba(var(--acc-rgb),0.45)] bg-[rgba(var(--acc-rgb),0.05)]'
+                      : 'border-linex bg-panelx hover:border-line2x lg:border-transparent lg:bg-transparent lg:hover:border-linex'
+                  }`}
+                >
+                  <span className={`text-[13px] font-bold ${on ? 'text-acc' : 'text-[var(--text)]'}`}>
                     {s.name}
                   </span>
-                  <span className="text-[10px] text-faintx">{s.spec}</span>
-                </div>
-                <p className="mt-1.5 text-[11px] leading-[1.6] text-dimx">{s.desc}</p>
-              </button>
-            ))}
+                  <span className="mt-0.5 block text-[11px] text-dimx whitespace-nowrap lg:whitespace-normal">
+                    {s.desc}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
-          {/* stage */}
-          <div>
-            <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden">
-              <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5 text-[10px] text-faintx">
-                <span className="tracking-[0.14em] uppercase">preview — weekly-review.md</span>
-                <span className="text-acc">sheet: {current.name}</span>
-              </div>
-              <div className="h-[240px] md:h-[280px] p-5 md:p-7" style={{ background: 'radial-gradient(ellipse 90% 80% at 50% 20%, rgba(88, 72, 42,0.25), transparent 70%), #0b0b0d' }}>
-                <SheetSurface id={active} />
-              </div>
-              <div className="border-t border-linex bg-[#09090b] px-4 py-3">
-                <code className="text-[11px] leading-[1.7]">
-                  <span className="text-faintx">{'// hot-applied to all panels <1s'}</span>
-                  <br />
-                  <span className="text-cyanx">"panel"</span>
-                  <span className="text-dimx">: {'{'} </span>
-                  <span className="text-cyanx">"sheet"</span>
-                  <span className="text-dimx">: </span>
-                  <span className="text-amberx">"{current.name}"</span>
-                  <span className="text-dimx"> {'}'}</span>
-                </code>
-              </div>
+          <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden min-w-0">
+            <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5 text-[10px] text-faintx">
+              <span>preview</span>
+              <span className="text-acc">sheet: {current.name}</span>
             </div>
-            <div className="mt-3 flex gap-1.5">
-              {SHEETS.map((s) => (
-                <span
-                  key={s.id}
-                  className={`h-[3px] flex-1 rounded-full transition-colors ${active === s.id ? 'bg-[var(--acc)]' : 'bg-[var(--line)]'}`}
-                />
-              ))}
+            <div className="demo-desktop h-[220px] md:h-[260px] p-5 md:p-7">
+              <div className="mx-auto h-full max-w-[560px]">
+                <div key={active} className="sheet-swap h-full">
+                  <SheetSurface id={active} />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </Reveal>
       </div>
     </section>
   )
