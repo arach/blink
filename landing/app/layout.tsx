@@ -1,6 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { JetBrains_Mono } from "next/font/google"
+import { Cormorant_Garamond, JetBrains_Mono } from "next/font/google"
 import { GoogleAnalytics } from "@/components/GoogleAnalytics"
 import "./globals.css"
 
@@ -8,6 +8,13 @@ const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
   weight: "variable",
+  display: "swap",
+})
+
+const cormorantGaramond = Cormorant_Garamond({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600"],
   display: "swap",
 })
 
@@ -42,7 +49,11 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning: the script below sets data-theme on <html> before
     // React hydrates, so the server markup and client DOM intentionally differ.
-    <html lang="en" className={jetBrainsMono.variable} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${jetBrainsMono.variable} ${cormorantGaramond.variable}`}
+      suppressHydrationWarning
+    >
       <body>
         {/* Apply cream (default) or black before paint — no flash. */}
         <script

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SectionHeader, Chip, Reveal } from './shared'
+import { SectionHeader, Reveal } from './shared'
 
 interface TermLine {
   kind: 'cmd' | 'out' | 'json'
@@ -106,11 +106,11 @@ export default function FilesystemAPI() {
 
         <Reveal className="grid gap-5 lg:grid-cols-2 items-stretch">
           <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
-            <div className="flex items-center gap-2 border-b border-linex bg-panel2x px-4 py-2.5">
-              <span className="h-[9px] w-[9px] rounded-full bg-[var(--ghost)]" />
-              <span className="h-[9px] w-[9px] rounded-full bg-[var(--faint)]" />
-              <span className="h-[9px] w-[9px] rounded-full bg-[var(--dim)]" />
-              <span className="ml-2 text-[11px] text-faintx">blink CLI</span>
+            <div className="flex min-h-8 items-center gap-2 border-b border-linex bg-panel2x px-3 py-1">
+              <span className="h-[7px] w-[7px] rounded-full bg-[var(--ghost)]" />
+              <span className="h-[7px] w-[7px] rounded-full bg-[var(--faint)]" />
+              <span className="h-[7px] w-[7px] rounded-full bg-[var(--dim)]" />
+              <span className="ml-1.5 text-[10px] text-faintx">blink CLI</span>
             </div>
             <div
               className="flex-1 p-4 md:p-5 text-[12px] md:text-[12.5px] leading-[1.9] min-h-[200px]"
@@ -140,13 +140,13 @@ export default function FilesystemAPI() {
           </div>
 
           <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5">
-              <span className="text-[11px] text-dimx">standup.md</span>
+            <div className="flex min-h-8 items-center justify-between border-b border-linex bg-panel2x px-3 py-1">
+              <span className="text-[10px] font-medium text-dimx">standup.md</span>
               <span className={`transition-opacity duration-300 ${badge ? 'opacity-100' : 'opacity-0'}`}>
-                <Chip tone="acc">
-                  <span className="inline-block h-[5px] w-[5px] rounded-full bg-[var(--acc)]" />
+                <span className="inline-flex h-5 items-center gap-1.5 rounded-[4px] border border-[rgba(var(--acc-rgb),0.35)] bg-[var(--acc-soft)] px-2 text-[9px] text-acc">
+                  <span className="inline-block h-1 w-1 rounded-full bg-[var(--acc)]" />
                   typed by agent
-                </Chip>
+                </span>
               </span>
             </div>
             <div className="flex-1 p-4 md:p-5 min-h-[200px]">

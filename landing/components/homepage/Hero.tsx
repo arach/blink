@@ -1,18 +1,30 @@
+import Image from 'next/image'
 import SpatialDemo from './SpatialDemo'
 import { Chord, PrimaryButton, GhostButton } from './shared'
 
 export default function Hero() {
   return (
-    <section id="top" className="relative overflow-hidden pt-32 md:pt-36 pb-16 md:pb-24">
-      <div className="hero-glow pointer-events-none absolute inset-0" aria-hidden />
+    <section id="top" className="relative isolate overflow-hidden pt-32 md:pt-36 pb-16 md:pb-24">
+      <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+        <Image
+          src="/hero-memory-field-warm.jpg"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="hero-art object-cover object-[58%_center]"
+        />
+        <div className="hero-art-wash absolute inset-0" />
+        <div className="hero-dither absolute inset-0" />
+      </div>
       <div className="relative mx-auto max-w-5xl px-4 md:px-6">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.05fr] lg:gap-12 items-start">
           <div className="rise-in rise-1">
             <h1 className="text-balance">
-              <span className="block text-[40px] md:text-[48px] font-bold tracking-[-0.03em] leading-[1.05] text-[var(--text)]">
+              <span className="font-display block text-[66px] md:text-[86px] font-semibold tracking-[-0.025em] leading-[0.84] text-[var(--text)]">
                 blink
               </span>
-              <span className="mt-3 block text-[19px] md:text-[23px] font-medium tracking-[-0.01em] leading-[1.35] text-dimx">
+              <span className="font-display mt-6 block max-w-md text-[32px] md:text-[40px] font-medium tracking-[-0.012em] leading-[0.98] text-[var(--text)]">
                 spatial notes for your Mac
               </span>
             </h1>
