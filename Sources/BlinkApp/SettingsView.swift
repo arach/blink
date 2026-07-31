@@ -152,11 +152,6 @@ struct SettingsView: View {
         )
     }
 
-    /// Pretty form of a config chord string ("hyper+n" -> "⌃⌥⇧⌘N").
-    private func chord(_ raw: String) -> String {
-        KeyChord.parse(raw)?.display ?? raw
-    }
-
     var body: some View {
         HStack(spacing: 0) {
             sidebar
@@ -275,7 +270,6 @@ struct SettingsView: View {
         case .general: generalPage
         case .notes: notesPage
         case .desktop: desktopPage
-        case .shortcuts: shortcutsPage
         }
     }
 
@@ -414,7 +408,7 @@ struct SettingsView: View {
             HudSettingsSection("Appearance", labelTint: settingsTheme.palette.muted) {
                 HudSettingsControlRow(
                     title: "Appearance",
-                    subtitle: "Auto follows macOS",
+                    subtitle: "Utilities only; notes may differ",
                     icon: "circle.lefthalf.filled"
                 ) {
                     Picker("Appearance", selection: appearance) {
@@ -523,108 +517,6 @@ struct SettingsView: View {
         }
     }
 
-    private var shortcutsPage: some View {
-        VStack(alignment: .leading, spacing: HudSpacing.xl) {
-            HudSettingsSection(
-                "Global — configurable in config.json",
-                labelTint: settingsTheme.palette.muted
-            ) {
-                ShortcutRow(
-                    icon: "plus.square",
-                    title: "New note",
-                    subtitle: "Works from any app",
-                    keys: chord(store.config.hotkeys.newNote)
-                )
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "eye",
-                    title: "Blink all notes / none",
-                    subtitle: "Works from any app",
-                    keys: chord(store.config.hotkeys.blink)
-                )
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "square.grid.3x3",
-                    title: "Grid overlay",
-                    subtitle: "Works from any app",
-                    keys: chord(store.config.hotkeys.grid)
-                )
-            }
-
-            HudSettingsSection(
-                "Panel — configurable in config.json",
-                labelTint: settingsTheme.palette.muted
-            ) {
-                ShortcutRow(
-                    icon: "book.closed",
-                    title: "Flip read / edit",
-                    keys: chord(store.config.hotkeys.toggleMode)
-                )
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "circle.dashed",
-                    title: "Focus",
-                    keys: chord(store.config.hotkeys.focus)
-                )
-            }
-
-            HudSettingsSection("Panel — fixed", labelTint: settingsTheme.palette.muted) {
-                ShortcutRow(icon: "square.and.arrow.down", title: "Save note", keys: "⌘S")
-                SettingsDivider()
-                ShortcutRow(icon: "xmark.square", title: "Close panel", keys: "⌘W")
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "escape",
-                    title: "Step back",
-                    subtitle: "Leave edit, then leave focus",
-                    keys: "⎋"
-                )
-            }
-
-            HudSettingsSection(
-                "Blink & Capture — fixed",
-                labelTint: settingsTheme.palette.muted
-            ) {
-                ShortcutRow(icon: "command", title: "Command palette", keys: "⌘K")
-                SettingsDivider()
-                ShortcutRow(icon: "gearshape", title: "Settings", keys: "⌘,")
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "arrow.turn.down.left",
-                    title: "Open selected note",
-                    subtitle: "In the capture popover",
-                    keys: "↩"
-                )
-                SettingsDivider()
-                ShortcutRow(
-                    icon: "plus",
-                    title: "Create from typed text",
-                    subtitle: "In the capture popover",
-                    keys: "⌘↩"
-                )
-            }
-
-            HudSettingsSection("Grid — fixed", labelTint: settingsTheme.palette.muted) {
-                ShortcutRow(
-                    icon: "square.grid.3x3",
-                    title: "Place selected note",
-                    subtitle: "Nine positions follow the keyboard grid",
-                    keys: "Q–C"
-                )
-                SettingsDivider()
-                ShortcutRow(icon: "escape", title: "Cancel grid", keys: "⎋")
-            }
-
-            HudSettingsRow(
-                icon: "curlybraces",
-                title: "Rebind configurable shortcuts",
-                subtitle: "Edit the hotkeys section in config.json; Blink applies changes live",
-                onTap: openConfig
-            )
-            .accessibilityHint("Opens Blink's JSON configuration file")
-        }
-    }
-
     private func openConfig() {
         NSWorkspace.shared.open(store.fileURL)
     }
@@ -634,7 +526,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case notes
     case desktop
-    case shortcuts
 
     var id: String { rawValue }
 
@@ -643,7 +534,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "General"
         case .notes: "Notes"
         case .desktop: "Desktop"
-        case .shortcuts: "Shortcuts"
         }
     }
 
@@ -652,7 +542,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "Files, startup and session behavior"
         case .notes: "How new notes look and open"
         case .desktop: "Appearance, focus, movement and gestures"
-        case .shortcuts: "Keyboard actions grouped by where they work"
         }
     }
 
@@ -661,7 +550,6 @@ private enum SettingsSection: String, CaseIterable, Identifiable {
         case .general: "gearshape"
         case .notes: "note.text"
         case .desktop: "display"
-        case .shortcuts: "keyboard"
         }
     }
 }
@@ -715,53 +603,5 @@ private struct SettingsDivider: View {
             .frame(height: HudStrokeWidth.thin)
             .padding(.leading, HudIconSize.medium + HudSpacing.xl + HudSpacing.md)
             .accessibilityHidden(true)
-    }
-}
-
-private struct ShortcutRow: View {
-    let icon: String
-    let title: String
-    var subtitle: String?
-    let keys: String
-
-    init(icon: String, title: String, subtitle: String? = nil, keys: String) {
-        self.icon = icon
-        self.title = title
-        self.subtitle = subtitle
-        self.keys = keys
-    }
-
-    var body: some View {
-        HudSettingsRow(
-            icon: icon,
-            title: title,
-            subtitle: subtitle,
-            badge: { KeyCap(keys) }
-        )
-    }
-}
-
-/// Small keycap chip for shortcut rows.
-private struct KeyCap: View {
-    let keys: String
-    @Environment(\.hudTheme) private var theme
-
-    init(_ keys: String) { self.keys = keys }
-
-    var body: some View {
-        Text(keys)
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(theme.palette.muted)
-            .padding(.horizontal, HudSpacing.sm)
-            .padding(.vertical, HudSpacing.xxs)
-            .background(
-                RoundedRectangle(cornerRadius: theme.radius.tight)
-                    .fill(theme.palette.chrome)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: theme.radius.tight)
-                    .stroke(theme.hairline.standard, lineWidth: HudStrokeWidth.thin)
-            )
-            .accessibilityLabel("Keyboard shortcut \(keys)")
     }
 }

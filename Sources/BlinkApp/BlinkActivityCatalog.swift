@@ -48,8 +48,8 @@ enum BlinkActivityID: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-/// Educational grouping used by the Guide. The order of `allCases` is the
-/// intended presentation order.
+/// Capability grouping used by command search and reference metadata. The
+/// order of `allCases` is the intended presentation order.
 enum BlinkActivityGroup: String, CaseIterable, Identifiable {
     case capture = "Capture"
     case findAndOpen = "Find & Open"
@@ -359,13 +359,13 @@ private extension BlinkActivityCatalog {
             ),
             BlinkActivity(
                 id: .openGuide,
-                title: "Blink Guide",
-                description: "See every activity, gesture, and keyboard action.",
+                title: "Help & Shortcuts",
+                description: "Learn Blink's workspace model and review every shortcut.",
                 symbolName: "questionmark.circle",
                 group: .findAndOpen,
                 scope: .application,
                 keywords: ["help", "hints", "shortcuts", "learn"],
-                shortcut: fixed("?"),
+                shortcut: fixed("⌘?"),
                 availability: actionAvailability(h.openGuide),
                 execution: h.openGuide
             ),

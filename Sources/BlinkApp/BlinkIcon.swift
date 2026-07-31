@@ -2,18 +2,18 @@ import AppKit
 
 /// Blink's shared mark: a framed spatial surface with two diagonally placed notes.
 /// The idle menubar image is a template so macOS owns its contrast; the armed
-/// image uses Blink amber without changing any geometry.
+/// image uses Blink's signal blue without changing any geometry.
 enum BlinkIcon {
-    static let amber = NSColor(
-        srgbRed: 240.0 / 255.0,
-        green: 180.0 / 255.0,
-        blue: 90.0 / 255.0,
+    static let accent = NSColor(
+        srgbRed: 93.0 / 255.0,
+        green: 158.0 / 255.0,
+        blue: 250.0 / 255.0,
         alpha: 1
     )
 
     static func menuBar(armed: Bool) -> NSImage {
         let size = NSSize(width: 18, height: 18)
-        let color = armed ? amber : NSColor.black
+        let color = armed ? accent : NSColor.black
         let image = NSImage(size: size, flipped: false) { rect in
             NSGraphicsContext.current?.shouldAntialias = true
             drawMark(in: rect, color: color)

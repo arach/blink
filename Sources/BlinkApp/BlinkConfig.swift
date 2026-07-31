@@ -360,10 +360,10 @@ struct BlinkConfig: Codable, Equatable {
             vars["--blink-text"] = "rgba(28,26,24,0.86)"
             vars["--blink-text-strong"] = "rgba(18,17,16,0.98)"
             vars["--blink-text-muted"] = "rgba(60,56,52,0.55)"
-            vars["--blink-accent"] = "#c2410c"  // deepened amber; reads on light
+            vars["--blink-accent"] = "#2d5daf"
             vars["--blink-code-bg"] = "rgba(20,18,16,0.06)"
-            vars["--blink-caret"] = "#c2410c"
-            vars["--blink-selection"] = "rgba(194,65,12,0.22)"
+            vars["--blink-caret"] = "#2d5daf"
+            vars["--blink-selection"] = "rgba(45,93,175,0.20)"
         }
         if let v = editor.fontFamily { vars["--blink-font-family"] = v }
         if let v = editor.monoFamily { vars["--blink-mono-family"] = v }

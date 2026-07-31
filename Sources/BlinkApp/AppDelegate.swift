@@ -129,7 +129,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         appItem("Commands…", action: #selector(menuCommands), keyEquivalent: "k")
-        appItem("Blink Guide", action: #selector(menuGuide), keyEquivalent: "?", modifiers: [.command])
+        appItem(
+            "Help & Shortcuts",
+            action: #selector(menuGuide),
+            keyEquivalent: "?",
+            modifiers: [.command]
+        )
         appMenu.addItem(.separator())
         appItem("Settings…", action: #selector(menuSettings), keyEquivalent: ",")
         appMenu.addItem(.separator())
@@ -497,10 +502,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func openGuide() {
         guard let activities = activityCatalog?.activities else { return }
+        // Blink owns one durable utility surface at a time. Commands remains a
+        // transient interstitial; Help and Settings replace one another instead
+        // of accumulating as unrelated document windows on the desktop.
+        commandPaletteController?.dismiss()
+        settingsWindow?.orderOut(nil)
         if guideWindow == nil {
             let host = NSHostingController(rootView: BlinkGuideView(activities: activities))
             let window = NSWindow(contentViewController: host)
-            window.title = "Blink Guide"
+            window.title = "Blink Help & Shortcuts"
             window.styleMask = [.titled, .closable, .resizable]
             window.setContentSize(NSSize(width: 780, height: 610))
             window.contentMinSize = NSSize(width: 720, height: 520)
@@ -514,6 +524,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func openSettings() {
+        commandPaletteController?.dismiss()
+        guideWindow?.orderOut(nil)
         if settingsWindow == nil {
             let host = NSHostingController(
                 rootView: SettingsView(store: .shared, notesDirectory: Self.notesDirectory())
