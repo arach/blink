@@ -3,6 +3,7 @@ import { BlinkMark } from './BlinkMark'
 
 const LINKS = [
   { href: '#how', label: 'how' },
+  { href: '#agents', label: 'agents' },
   { href: '#desk', label: 'desk' },
   { href: '#keys', label: 'keys' },
   { href: '#install', label: 'install' },

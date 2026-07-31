@@ -60,6 +60,18 @@ export function Footer() {
           </div>
           <div className="flex items-center gap-5 text-[11px] text-dimx">
             <a
+              href="/agents.md"
+              className="hover:text-acc transition-colors"
+            >
+              agents.md
+            </a>
+            <a
+              href="/llms.txt"
+              className="hover:text-acc transition-colors"
+            >
+              llms.txt
+            </a>
+            <a
               href="https://github.com/arach/blink"
               target="_blank"
               rel="noreferrer"
