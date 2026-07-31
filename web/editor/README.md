@@ -91,7 +91,7 @@ hard-coded values. Native code overrides them at runtime via
 | `--blink-code-bg` | `rgba(255,255,255,0.07)` | Code chip / block background. |
 | `--blink-code-text` | `rgba(255,255,255,0.8)` | Code text (inline + block). |
 | `--blink-caret` | `#ffffff` | Text caret / cursor. |
-| `--blink-selection` | `rgba(255,255,255,0.18)` | Editor and reader selection highlight (+ selection match); light mode supplies a stronger amber wash. |
+| `--blink-selection` | `rgba(255,255,255,0.18)` | Editor and reader selection highlight (+ selection match); light mode supplies a stronger blue wash. |
 | `--blink-h1-size` | `20px` | H1 size (reader). Editor derives `calc(… - 3px)` → 17px. |
 | `--blink-h2-size` | `17px` | H2 size (reader). Editor derives `calc(… - 3px)` → 14px. |
 | `--blink-h3-size` | `15px` | H3–H6 size (reader). Editor derives `calc(… - 3px)` → 12px. |

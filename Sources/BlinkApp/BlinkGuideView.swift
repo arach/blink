@@ -1,37 +1,36 @@
-// THESIS: Blink's Guide is a field manual for a spatial tool, not a settings appendix.
-// OWN-WORLD: A quiet graphite/paper surface, fine spatial grid, warm signal-orange, mono labels.
-// STORY: Learn the things Blink can do, then scan every key by the place where it works.
-// FIRST VIEWPORT: A narrow navigator anchors two dense, legible reference pages.
+// THESIS: Blink Help explains the workspace model; Commands executes and Settings configures.
+// OWN-WORLD: A quiet graphite/paper surface, fine spatial grid, cool signal-blue, mono labels.
+// STORY: Understand capture → place → recall, then scan every key by where it works.
+// FIRST VIEWPORT: A narrow navigator anchors orientation and shortcut reference pages.
 // FORM: An established-world extension of Blink's terminal canvas and Hudson's native tokens.
 
 import SwiftUI
 import HudsonUI
 
-/// Blink's educational surface. The catalog supplies live names, shortcuts, and
-/// scopes; the small interaction field manual supplies gestures that are not
-/// executable commands and therefore do not belong in the palette.
+/// Blink's educational surface. Commands owns executable discovery; this view
+/// explains the spatial model and keeps live shortcuts and gestures readable.
 @MainActor
 struct BlinkGuideView: View {
     enum Page: String, CaseIterable, Identifiable {
-        case activities
+        case basics
         case shortcuts
 
         var id: Self { self }
         var title: String {
             switch self {
-            case .activities: "Activities"
+            case .basics: "Start Here"
             case .shortcuts: "All Shortcuts"
             }
         }
         var subtitle: String {
             switch self {
-            case .activities: "What Blink can do"
+            case .basics: "How Blink fits together"
             case .shortcuts: "Keys grouped by scope"
             }
         }
         var symbolName: String {
             switch self {
-            case .activities: "sparkles"
+            case .basics: "rectangle.3.group"
             case .shortcuts: "command"
             }
         }
@@ -39,7 +38,7 @@ struct BlinkGuideView: View {
 
     let activities: [BlinkActivity]
 
-    @State private var page: Page = .activities
+    @State private var page: Page = .basics
     @ObservedObject private var appearance = AppearanceManager.shared
 
     private var palette: BlinkDiscoveryPalette {
@@ -57,7 +56,7 @@ struct BlinkGuideView: View {
         .background(BlinkDiscoveryBackdrop(palette: palette))
         .preferredColorScheme(appearance.scheme == .dark ? .dark : .light)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Blink Guide")
+        .accessibilityLabel("Blink Help and Shortcuts")
     }
 
     private var navigator: some View {
@@ -71,13 +70,13 @@ struct BlinkGuideView: View {
                         .background(palette.accentSoft)
                         .clipShape(RoundedRectangle(cornerRadius: HudRadius.standard))
 
-                    Text("BLINK GUIDE")
+                    Text("BLINK HELP")
                         .font(HudFont.mono(HudTextSize.xs, weight: .semibold))
                         .tracking(HudTracking.wider)
                         .foregroundStyle(palette.ink)
                 }
 
-                Text("A field manual for your note desk.")
+                Text("Learn the workspace, then keep its keys close.")
                     .font(HudFont.ui(HudTextSize.xs))
                     .foregroundStyle(palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -139,28 +138,23 @@ struct BlinkGuideView: View {
     @ViewBuilder
     private var detail: some View {
         switch page {
-        case .activities:
-            activitiesPage
+        case .basics:
+            basicsPage
         case .shortcuts:
             shortcutsPage
         }
     }
 
-    private var activitiesPage: some View {
+    private var basicsPage: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: HudSpacing.huge) {
                 pageHeader(
-                    title: "Activities",
-                    subtitle: "Everything Blink lets you capture, find, arrange, and shape."
+                    title: "How Blink Works",
+                    subtitle: "The note is the window, and the desktop is the workspace."
                 )
 
-                ForEach(BlinkActivityGroup.allCases) { group in
-                    let entries = activities.filter { $0.group == group }
-                    if !entries.isEmpty {
-                        activitySection(group: group, entries: entries)
-                    }
-                }
-
+                conceptSection(title: "THE CORE LOOP", rows: coreLoop)
+                conceptSection(title: "CHOOSE THE RIGHT SURFACE", rows: utilitySurfaces)
             }
             .padding(.horizontal, HudSpacing.huge)
             .padding(.vertical, HudSpacing.xxxl)
@@ -169,16 +163,69 @@ struct BlinkGuideView: View {
         .scrollIndicators(.automatic)
     }
 
-    private func activitySection(group: BlinkActivityGroup, entries: [BlinkActivity]) -> some View {
+    private var coreLoop: [GuideConcept] {
+        [
+            GuideConcept(
+                id: "capture",
+                symbolName: "plus.rectangle.on.rectangle",
+                title: "Capture",
+                detail: "Create or find a note from the menubar popover, Commands, or the global new-note shortcut."
+            ),
+            GuideConcept(
+                id: "place",
+                symbolName: "macwindow.on.rectangle",
+                title: "Place",
+                detail: "A note opens as its one floating panel. Move, resize, shade, or focus it directly on the desktop."
+            ),
+            GuideConcept(
+                id: "recall",
+                symbolName: "arrow.uturn.forward",
+                title: "Recall",
+                detail: "Reopening a note focuses the same panel, and Blink restores its position on this Mac."
+            ),
+        ]
+    }
+
+    private var utilitySurfaces: [GuideConcept] {
+        [
+            GuideConcept(
+                id: "commands",
+                symbolName: "command",
+                title: "Commands — do",
+                detail: "Find a note or run one available action. The launcher closes after your choice.",
+                shortcut: shortcut(for: .commandPalette)
+            ),
+            GuideConcept(
+                id: "help",
+                symbolName: "questionmark.circle",
+                title: "Help & Shortcuts — learn",
+                detail: "Keep the workspace model, gestures, and current keyboard map open as a reference.",
+                shortcut: shortcut(for: .openGuide)
+            ),
+            GuideConcept(
+                id: "settings",
+                symbolName: "gearshape",
+                title: "Settings — configure",
+                detail: "Change Blink's behavior and appearance. Controls stay open while you tune them.",
+                shortcut: shortcut(for: .openSettings)
+            ),
+        ]
+    }
+
+    private func shortcut(for id: BlinkActivityID) -> String? {
+        activities.first(where: { $0.id == id })?.shortcutDisplay
+    }
+
+    private func conceptSection(title: String, rows: [GuideConcept]) -> some View {
         VStack(alignment: .leading, spacing: HudSpacing.md) {
-            HudSectionLabel(group.displayTitle, tint: palette.dim)
+            HudSectionLabel(title, tint: palette.dim)
 
             VStack(spacing: 0) {
-                ForEach(entries) { activity in
-                    activityRow(activity)
-                    if activity.id != entries.last?.id {
+                ForEach(rows) { row in
+                    conceptRow(row)
+                    if row.id != rows.last?.id {
                         HudDivider(color: palette.rule.opacity(0.72))
-                            .padding(.leading, 42)
+                            .padding(.leading, 48)
                     }
                 }
             }
@@ -191,9 +238,9 @@ struct BlinkGuideView: View {
         }
     }
 
-    private func activityRow(_ activity: BlinkActivity) -> some View {
+    private func conceptRow(_ concept: GuideConcept) -> some View {
         HStack(alignment: .top, spacing: HudSpacing.xl) {
-            Image(systemName: activity.symbolName)
+            Image(systemName: concept.symbolName)
                 .font(HudFont.ui(HudTextSize.base, weight: .medium))
                 .foregroundStyle(palette.accent)
                 .frame(width: 24, height: 24)
@@ -203,17 +250,16 @@ struct BlinkGuideView: View {
 
             VStack(alignment: .leading, spacing: HudSpacing.xs) {
                 HStack(alignment: .firstTextBaseline, spacing: HudSpacing.md) {
-                    Text(activity.title)
+                    Text(concept.title)
                         .font(HudFont.ui(HudTextSize.base, weight: .semibold))
                         .foregroundStyle(palette.ink)
-                    scopeLabel(activity.scope)
                     Spacer(minLength: 0)
-                    if let shortcut = activity.shortcutDisplay {
+                    if let shortcut = concept.shortcut {
                         BlinkKeyChip(shortcut, palette: palette)
                     }
                 }
 
-                Text(activity.description)
+                Text(concept.detail)
                     .font(HudFont.ui(HudTextSize.sm))
                     .foregroundStyle(palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -299,13 +345,6 @@ struct BlinkGuideView: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func scopeLabel(_ scope: BlinkActivityScope) -> some View {
-        Text(scope.displayTitle.uppercased())
-            .font(HudFont.mono(HudTextSize.micro, weight: .medium))
-            .tracking(HudTracking.wide)
-            .foregroundStyle(palette.dim)
-    }
-
     private func shortcutRows(for scope: BlinkActivityScope) -> [GuideShortcut] {
         var rows = activities
             .filter { $0.scope == scope }
@@ -332,6 +371,28 @@ struct BlinkGuideView: View {
             }
         }
         return rows
+    }
+}
+
+private struct GuideConcept: Identifiable {
+    let id: String
+    let symbolName: String
+    let title: String
+    let detail: String
+    var shortcut: String?
+
+    init(
+        id: String,
+        symbolName: String,
+        title: String,
+        detail: String,
+        shortcut: String? = nil
+    ) {
+        self.id = id
+        self.symbolName = symbolName
+        self.title = title
+        self.detail = detail
+        self.shortcut = shortcut
     }
 }
 
@@ -434,7 +495,7 @@ private struct GuideShortcut: Identifiable {
 }
 
 /// Shared discovery-surface colors. Hudson owns spacing, type, motion, and
-/// component geometry; Blink supplies the app-specific graphite/orange world.
+/// component geometry; Blink supplies the app-specific graphite/blue world.
 struct BlinkDiscoveryPalette {
     let bg: Color
     let chrome: Color
@@ -459,9 +520,9 @@ struct BlinkDiscoveryPalette {
                 muted: Color(red: 0.650, green: 0.665, blue: 0.665),
                 dim: Color(red: 0.455, green: 0.475, blue: 0.480),
                 rule: Color.white.opacity(0.10),
-                accent: Color(red: 1.0, green: 0.345, blue: 0.133),
+                accent: Color(red: 0.365, green: 0.620, blue: 0.980),
                 live: Color(red: 0.353, green: 0.820, blue: 0.608),
-                selection: Color(red: 1.0, green: 0.345, blue: 0.133).opacity(0.13)
+                selection: Color(red: 0.365, green: 0.620, blue: 0.980).opacity(0.14)
             )
         }
         return .init(
@@ -472,9 +533,9 @@ struct BlinkDiscoveryPalette {
             muted: Color(red: 0.360, green: 0.335, blue: 0.310),
             dim: Color(red: 0.485, green: 0.455, blue: 0.420),
             rule: Color.black.opacity(0.12),
-            accent: Color(red: 0.820, green: 0.235, blue: 0.060),
+            accent: Color(red: 0.176, green: 0.365, blue: 0.690),
             live: Color(red: 0.106, green: 0.580, blue: 0.404),
-            selection: Color(red: 0.820, green: 0.235, blue: 0.060).opacity(0.11)
+            selection: Color(red: 0.176, green: 0.365, blue: 0.690).opacity(0.11)
         )
     }
 }

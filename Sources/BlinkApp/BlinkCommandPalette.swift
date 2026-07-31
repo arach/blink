@@ -1,5 +1,5 @@
 // THESIS: Command-K is Blink's fastest path from intent to a note or action.
-// OWN-WORLD: A compact terminal-like graphite/paper panel with one warm signal color.
+// OWN-WORLD: A compact terminal-like graphite/paper panel with one cool signal color.
 // STORY: Type freely, scan Notes and Actions, then run the highlighted result with Return.
 // FIRST VIEWPORT: Live-state strip, decisive search field, grouped results, terse key legend.
 // FORM: A dedicated centered key panel, native to Blink's menubar and floating-panel architecture.
