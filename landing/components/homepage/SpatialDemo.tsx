@@ -25,6 +25,12 @@ const SAMPLES: { title: string; lines: string[] }[] = [
 const NOTE_W = 216
 const MAX_NOTES = 6
 
+const DEFAULT_LAYOUT = [
+  { sample: 0, x: 49, y: 34, w: 216, z: 11 },
+  { sample: 1, x: 203, y: 115, w: 216, z: 12 },
+  { sample: 2, x: 50, y: 208, w: 216, z: 13 },
+] as const
+
 let uid = 0
 
 export default function SpatialDemo() {
@@ -77,6 +83,26 @@ export default function SpatialDemo() {
     [clamp],
   )
 
+  const resetScene = useCallback(() => {
+    const next = DEFAULT_LAYOUT.map((item) => {
+      const pos = clamp(item.x, item.y)
+      return {
+        id: ++uid,
+        x: pos.x,
+        y: pos.y,
+        w: item.w,
+        title: SAMPLES[item.sample].title,
+        lines: SAMPLES[item.sample].lines,
+        hidden: false,
+        vanishing: false,
+        z: item.z,
+      }
+    })
+    zRef.current = DEFAULT_LAYOUT[DEFAULT_LAYOUT.length - 1].z
+    setAllHidden(false)
+    setNotes(next)
+  }, [clamp])
+
   /* keyboard: press N while hovering the surface */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,26 +125,14 @@ export default function SpatialDemo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spawn])
 
-  /* seed a composed scene on load — staggered spawns so the hero opens with
-     notes landing in place instead of an empty desktop */
+  /* Canonical first-load/reset composition. These are the exact demo-window
+     coordinates and sizes shown in the product mock; dragging remains live. */
   const seededRef = useRef(false)
   useEffect(() => {
     if (seededRef.current) return
     seededRef.current = true
-    const el = ref.current
-    if (!el) return
-    const r = el.getBoundingClientRect()
-    const spots: [number, number][] = [
-      [r.width * 0.06, 30],
-      [r.width * 0.5, 92],
-      [r.width * 0.26, 200],
-    ]
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timers = spots.map(([x, y], i) =>
-      window.setTimeout(() => spawn(x, y), reduced ? 0 : 550 + i * 420),
-    )
-    return () => timers.forEach((t) => clearTimeout(t))
-  }, [spawn])
+    resetScene()
+  }, [resetScene])
 
   const toggleBlink = useCallback(() => {
     setAllHidden((h) => {
@@ -173,7 +187,7 @@ export default function SpatialDemo() {
   return (
     <div className="corner-frame select-none" role="region" aria-label="Spatial notes demo">
       {/* window chrome */}
-      <div className="demo-chrome flex items-center justify-between gap-2 border border-b-0 rounded-t-[8px] px-3 min-h-10 py-1.5">
+      <div className="demo-chrome flex min-h-9 items-center justify-between gap-2 rounded-t-[8px] border border-b-0 px-3 py-1">
         <div className="flex min-w-0 items-center gap-2 text-[11px] text-faintx">
           <span className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--acc)] pulse-dot" aria-hidden />
           <span className="text-dimx font-semibold truncate">~/Desktop</span>
@@ -208,7 +222,7 @@ export default function SpatialDemo() {
           </button>
           <button
             type="button"
-            onClick={() => setNotes([])}
+            onClick={resetScene}
             title="Reset surface"
             aria-label="Reset demo"
             className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-faintx hover:text-[var(--text)] hover:border-[rgba(var(--acc-rgb),0.35)] transition-colors"
@@ -288,7 +302,7 @@ export default function SpatialDemo() {
               transition: 'opacity 0.22s ease, transform 0.22s ease',
             }}
           >
-            <div className="flex items-center justify-between border-b border-[rgba(255,248,236,0.1)] px-2.5 py-1.5">
+            <div className="flex min-h-7 items-center justify-between border-b border-[rgba(255,248,236,0.1)] px-2.5 py-1">
               <span className="text-[10px] font-medium text-[rgba(245,242,236,0.82)]">{n.title}</span>
               <span className="text-[9px] tabular-nums text-[rgba(200,196,188,0.55)]">
                 {dragInfo?.id === n.id ? (

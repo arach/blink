@@ -13,7 +13,10 @@ export function TopBar() {
   return (
     <header className="fixed top-0 inset-x-0 z-50 border-b border-linex bg-[rgba(var(--bg-rgb),0.82)] backdrop-blur-md">
       <div className="mx-auto flex h-12 max-w-5xl items-center justify-between px-4 md:px-6">
-        <a href="#top" className="flex items-center gap-2.5 text-[13px] font-bold text-[var(--text)]">
+        <a
+          href="#top"
+          className="font-display flex items-center gap-2.5 text-[19px] font-semibold tracking-[-0.015em] text-[var(--text)]"
+        >
           <BlinkMark className="h-[18px] w-[18px] text-acc" />
           blink
         </a>

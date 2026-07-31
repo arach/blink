@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 
-/** Cream (default :root) or black. */
+/** Parchment light (default :root) or forest dark. IDs stay stable for saved preferences. */
 const THEMES = [
-  { id: 'cream', bg: '#e8e2d4', acc: '#0a0806', label: 'cream' },
-  { id: 'black', bg: '#000000', acc: '#ffffff', label: 'black' },
+  { id: 'cream', bg: '#efe8d8', acc: '#2f6447', label: 'parchment light' },
+  { id: 'black', bg: '#07100b', acc: '#93c6a2', label: 'forest dark' },
 ] as const
 
 type ThemeId = (typeof THEMES)[number]['id']
