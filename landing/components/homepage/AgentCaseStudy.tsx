@@ -167,6 +167,61 @@ function DoneLine({ text }: { text: string }) {
   return <p className="pl-[1.15rem] text-[12.5px] leading-[1.55] text-[var(--text)]">{text}</p>
 }
 
+export function AgentFilm() {
+  return (
+    <section id="film" className="scroll-mt-16 border-t border-linex py-20 md:py-28">
+      <div className="mx-auto max-w-5xl px-4 md:px-6">
+        <SectionHeader
+          tag="DEMO"
+          title={
+            <>
+              Pi types the commands. <span className="text-acc">Blink arranges the desk.</span>
+            </>
+          }
+          sub="A real iTerm2 session uses Blink’s CLI to create, move, hide, and restore spatial notes — with the desktop itself as the workspace."
+        />
+
+        <Reveal>
+          <div className="corner-frame">
+            <div className="overflow-hidden rounded-[8px] border border-linex bg-panelx">
+              <div className="demo-chrome flex min-h-10 items-center justify-between gap-3 border-b px-3 py-1.5 text-[10px] text-dimx">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--acc)]" aria-hidden />
+                  <span className="truncate">Pi → CLI → spatial desk</span>
+                </div>
+                <span className="shrink-0 text-faintx">00:47 · sound on</span>
+              </div>
+
+              <div className="aspect-video bg-[#050708]">
+                <video
+                  className="block h-full w-full object-contain"
+                  controls
+                  playsInline
+                  preload="metadata"
+                  poster="/demos/blink-spatial-demo-poster.jpg"
+                  aria-label="Pi drives Blink through the command line to create and arrange spatial notes"
+                >
+                  <source src="/demos/blink-spatial-demo.mp4" type="video/mp4" />
+                </video>
+              </div>
+
+              <div className="flex flex-col gap-2 border-t border-linex px-3 py-2.5 text-[10px] text-dimx sm:flex-row sm:items-center sm:justify-between">
+                <span>native panels · plain markdown · positions persist</span>
+                <a
+                  href="/demos/blink-spatial-demo.mp4"
+                  className="shrink-0 text-acc underline-offset-4 hover:underline"
+                >
+                  open video ↗
+                </a>
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  )
+}
+
 function TicketPanel({ note, active }: { note: DeskNote; active: boolean }) {
   return (
     <div
