@@ -119,12 +119,15 @@ struct BlinkPadWorkspaceView: View {
                 Button {
                     Task { await model.refresh() }
                 } label: {
-                    if model.isSyncing {
-                        ProgressView()
-                            .frame(width: 20, height: 20)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
+                    Group {
+                        if model.isSyncing {
+                            ProgressView()
+                                .frame(width: 20, height: 20)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
+                    .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.circle)
@@ -134,6 +137,7 @@ struct BlinkPadWorkspaceView: View {
 
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)

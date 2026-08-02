@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var commandRequestObserver: NSObjectProtocol?
     private var notesWatcher: DirectoryWatcher?
     private var peerServer: BlinkLANPeerServer?
+    private var peerStartupFailure: String?
+    private let peerSyncStatus = PeerSyncStatus()
     private let log = HudLogger(category: "blink.app")
 
     static func notesDirectory() -> URL {
@@ -509,7 +511,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                     self?.beginPopoverDictation()
                 },
                 trustedPeerCount: peerServer?.trustedPeers.count ?? 0,
-                peerSyncUnavailableReason: peerSyncUnavailableReason
+                peerSyncStatus: peerSyncStatus
             )
         )
         host.sizingOptions = .preferredContentSize
@@ -704,9 +706,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func startPeerServer() {
         if let override = ProcessInfo.processInfo.environment["BLINK_HOME"],
            !override.isEmpty {
+            peerSyncStatus.unavailableReason = "Disabled while BLINK_HOME is set"
             log.info("[BLINK] mobile sync disabled for BLINK_HOME sandbox")
             return
         }
+        peerStartupFailure = nil
 
         let defaults = UserDefaults.standard
         let hostIDKey = "blink.peer.host-id"
@@ -721,19 +725,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let machineName = Host.current().localizedName ?? "Mac"
         var displayName = "Blink · \(machineName)"
         while displayName.utf8.count > 60 { displayName.removeLast() }
-        let server = BlinkLANPeerServer(
-            hostID: hostID,
-            displayName: displayName,
-            snapshotService: BlinkSnapshotService(
-                builder: BlinkSnapshotBuilder(notesDirectory: Self.notesDirectory()),
-                tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
-            ),
-            approvalHandler: { identity in
-                await Self.requestPeerApproval(for: identity)
-            }
-        )
-        server.start()
+        let server: BlinkLANPeerServer
+        do {
+            server = try BlinkLANPeerServer(
+                hostID: hostID,
+                displayName: displayName,
+                snapshotService: BlinkSnapshotService(
+                    builder: BlinkSnapshotBuilder(notesDirectory: Self.notesDirectory()),
+                    tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
+                ),
+                approvalHandler: { identity in
+                    await Self.requestPeerApproval(for: identity)
+                }
+            )
+        } catch {
+            let reason = "Secure Mac identity unavailable: \(error.localizedDescription)"
+            peerStartupFailure = reason
+            peerSyncStatus.unavailableReason = reason
+            log.error("[BLINK] encrypted LAN sync unavailable", metadata: ["error": reason])
+            return
+        }
         peerServer = server
+        server.observeStatus { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.peerSyncStatus.unavailableReason = self?.peerSyncUnavailableReason
+            }
+        }
+        server.start()
+        peerSyncStatus.unavailableReason = peerSyncUnavailableReason
         log.info("[BLINK] starting encrypted LAN sync", metadata: ["hostID": hostID])
     }
 
@@ -742,8 +761,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
            !override.isEmpty {
             return "Disabled while BLINK_HOME is set"
         }
+        if let peerStartupFailure { return peerStartupFailure }
         if let failure = peerServer?.advertisingFailure {
             return "Advertising failed: \(failure)"
+        }
+        if let failure = peerServer?.trustPersistenceFailure {
+            return "Approvals won’t persist: \(failure)"
         }
         return peerServer == nil ? "Mobile sync did not start" : nil
     }

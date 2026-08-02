@@ -37,6 +37,8 @@ filter by workspace, search, and read from an offline cache.
 - Pairing uses an end-to-end sealed channel inside the encrypted peer session;
   the device's reusable seed lives in non-migrating Keychain storage, never
   leaves the device, and derives a distinct credential for each Mac.
+- The Mac's agreement private key and approved-device credentials also live in
+  Keychain storage; neither side substitutes an ephemeral identity on failure.
 - Mobile is read-only in the first version; edits and conflict resolution remain
   an open decision.
 - Exact frontmattered Markdown, foreign metadata, stable note identity, and
@@ -45,6 +47,8 @@ filter by workspace, search, and read from an offline cache.
   future orchestrator can add Tailscale or managed relays without changing the
   snapshot format.
 - Per-device macOS panel frames stay local and are not mobile document state.
+- The replaceable mobile note cache is excluded from device backups and Remove
+  Notes cancels pending sync before deleting it.
 
 ## Brand Commitments
 

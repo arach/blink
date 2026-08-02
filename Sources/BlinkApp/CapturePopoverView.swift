@@ -8,6 +8,15 @@ private struct WorkspaceMenuEntry: Identifiable, Equatable {
     let noteCount: Int
 }
 
+@MainActor
+final class PeerSyncStatus: ObservableObject {
+    @Published var unavailableReason: String?
+
+    init(unavailableReason: String? = nil) {
+        self.unavailableReason = unavailableReason
+    }
+}
+
 /// The menubar popover is Blink's compact workspace: capture/search spans the
 /// whole workspace, with recents on the left and a spatial overview on the
 /// right.
@@ -25,7 +34,7 @@ struct CapturePopoverView: View {
     var showGrid: () -> Void
     var beginDictation: () -> Void
     var trustedPeerCount: Int
-    var peerSyncUnavailableReason: String?
+    @ObservedObject var peerSyncStatus: PeerSyncStatus
 
     @ObservedObject private var appearance = AppearanceManager.shared
     @ObservedObject private var configStore = BlinkConfigStore.shared
@@ -42,6 +51,7 @@ struct CapturePopoverView: View {
     private var pal: PopoverPalette { .forScheme(appearance.scheme) }
     private var accent: Color { pal.accent }
     private var accentBright: Color { pal.accentBright }
+    private var peerSyncUnavailableReason: String? { peerSyncStatus.unavailableReason }
     private var blinkShortcut: String {
         KeyChord.parse(configStore.config.hotkeys.blink)?.display
             ?? configStore.config.hotkeys.blink

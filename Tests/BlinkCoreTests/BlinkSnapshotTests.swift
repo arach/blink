@@ -419,6 +419,34 @@ struct BlinkSnapshotTests {
         #expect(record?.snapshot == snapshot)
     }
 
+    @Test("replaceable mobile cache is excluded from device backups after every save")
+    func mobileCacheBackupExclusion() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = root.appendingPathComponent("snapshot.json")
+        let cache = BlinkSnapshotCache(fileURL: fileURL, excludeFromBackup: true)
+        let first = BlinkSnapshot(
+            generatedAt: Date(timeIntervalSince1970: 60),
+            etag: "\"first\"",
+            notes: [],
+            tombstones: [],
+            issues: []
+        )
+        _ = try await cache.apply(first, sourceIdentity: "peer-a")
+        #expect(
+            try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+                .isExcludedFromBackup == true
+        )
+
+        var replacement = first
+        replacement.etag = "\"replacement\""
+        _ = try await cache.apply(replacement, sourceIdentity: "peer-a")
+        #expect(
+            try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+                .isExcludedFromBackup == true
+        )
+    }
+
     private func temporaryDirectory() -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("blink-snapshot-tests-\(UUID().uuidString)", isDirectory: true)

@@ -40,23 +40,16 @@ final class BlinkMobileModel: ObservableObject {
     @Published private(set) var lastSuccessfulSyncAt: Date?
     @Published var presentedError: String?
 
-    private let client: BlinkLANPeerClient
+    private var client: BlinkLANPeerClient?
     private let cache: BlinkSnapshotCache
     private var discoveryTask: Task<Void, Never>?
     private var hasLoadedCache = false
     private var discoveryStartedAt = Date()
     private var cacheGeneration = 0
     private var cacheSourceIdentity: String?
+    private var connectionGeneration = 0
 
     init() {
-        let credential = BlinkDeviceCredentialSeed.loadOrCreate()
-        client = BlinkLANPeerClient(
-            identity: BlinkPeerClientIdentity(
-                credential: credential,
-                name: BlinkDeviceCredentialSeed.displayName(for: credential)
-            )
-        )
-
         let support = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
@@ -64,14 +57,9 @@ final class BlinkMobileModel: ObservableObject {
         cache = BlinkSnapshotCache(
             fileURL: support
                 .appendingPathComponent("Blink", isDirectory: true)
-                .appendingPathComponent("snapshot.json", isDirectory: false)
+                .appendingPathComponent("snapshot.json", isDirectory: false),
+            excludeFromBackup: true
         )
-        client.observeConnection { [weak self] isConnected in
-            guard !isConnected else { return }
-            Task { @MainActor [weak self] in
-                self?.connectionState = .disconnected
-            }
-        }
         activate()
     }
 
@@ -92,14 +80,15 @@ final class BlinkMobileModel: ObservableObject {
             Task { await loadCache(generation: generation) }
         }
         guard discoveryTask == nil else { return }
+        guard configureClientIfNeeded(), let client else { return }
         discoveryStartedAt = Date()
         discoveryState = .searching
         client.startBrowsing()
-        discoveryTask = Task { [weak self] in
+        discoveryTask = Task { [weak self, client] in
             while !Task.isCancelled {
                 guard let self else { return }
-                self.nearbyPeers = self.client.availablePeers()
-                if let failure = self.client.browsingFailure {
+                self.nearbyPeers = client.availablePeers()
+                if let failure = client.browsingFailure {
                     self.discoveryState = .failed(failure)
                 } else if !self.nearbyPeers.isEmpty {
                     self.discoveryState = .found
@@ -114,26 +103,44 @@ final class BlinkMobileModel: ObservableObject {
     }
 
     func deactivate() {
-        client.stopBrowsing()
+        client?.stopBrowsing()
         discoveryTask?.cancel()
         discoveryTask = nil
     }
 
     func retryDiscovery() {
-        client.stopBrowsing()
+        client?.stopBrowsing()
+        guard configureClientIfNeeded(), let client else { return }
         discoveryStartedAt = Date()
         discoveryState = .searching
         client.startBrowsing()
     }
 
     func connect(to candidate: BlinkLANPeerCandidate) async -> Bool {
-        cacheGeneration += 1
+        guard let client, !isSyncing else { return false }
+        connectionGeneration += 1
+        let connection = connectionGeneration
         connectionState = .requestingAccess(candidate.name)
         do {
             let host = try await client.connect(to: candidate.id)
+            guard connection == connectionGeneration else {
+                client.disconnect()
+                return false
+            }
+            let refreshed = await sync(host: host, connection: connection)
+            guard connection == connectionGeneration else { return false }
+            guard refreshed else {
+                client.disconnect()
+                connectionGeneration += 1
+                connectionState = .disconnected
+                return false
+            }
             connectionState = .connected(host)
-            return await refresh()
+            return true
         } catch {
+            guard connection == connectionGeneration else { return false }
+            client.disconnect()
+            connectionGeneration += 1
             connectionState = .disconnected
             presentedError = error.localizedDescription
             return false
@@ -141,25 +148,29 @@ final class BlinkMobileModel: ObservableObject {
     }
 
     func disconnect() {
-        cacheGeneration += 1
-        client.disconnect()
+        connectionGeneration += 1
+        client?.disconnect()
         connectionState = .disconnected
     }
 
     @discardableResult
     func refresh() async -> Bool {
         guard let host = connectionState.host, !isSyncing else { return false }
+        return await sync(host: host, connection: connectionGeneration)
+    }
+
+    private func sync(host: BlinkPeerHost, connection: Int) async -> Bool {
+        guard let client, !isSyncing else { return false }
         isSyncing = true
         defer { isSyncing = false }
-        cacheGeneration += 1
         let generation = cacheGeneration
         let sourceIdentity = host.publicKey
         let isSameHost = cacheSourceIdentity == sourceIdentity
         do {
             switch try await client.fetchSnapshot(ifNoneMatch: isSameHost ? snapshot?.etag : nil) {
             case .notModified:
-                guard generation == cacheGeneration,
-                      connectionState.host?.publicKey == sourceIdentity
+                guard connection == connectionGeneration,
+                      client.pairedHost?.publicKey == sourceIdentity
                 else { return false }
                 let syncedAt = Date()
                 guard try await cache.recordSuccessfulSync(
@@ -170,13 +181,13 @@ final class BlinkMobileModel: ObservableObject {
                         "The peer-bound cache is missing. Sync again to restore it."
                     )
                 }
-                guard generation == cacheGeneration,
-                      connectionState.host?.publicKey == sourceIdentity
-                else { return false }
+                guard generation == cacheGeneration else { return false }
                 lastSuccessfulSyncAt = syncedAt
+                return connection == connectionGeneration
+                    && client.pairedHost?.publicKey == sourceIdentity
             case .snapshot(let incoming):
-                guard generation == cacheGeneration,
-                      connectionState.host?.publicKey == sourceIdentity
+                guard connection == connectionGeneration,
+                      client.pairedHost?.publicKey == sourceIdentity
                 else { return false }
                 let syncedAt = Date()
                 let cached = try await cache.apply(
@@ -184,25 +195,30 @@ final class BlinkMobileModel: ObservableObject {
                     sourceIdentity: sourceIdentity,
                     syncedAt: syncedAt
                 )
-                guard generation == cacheGeneration,
-                      connectionState.host?.publicKey == sourceIdentity
-                else { return false }
+                guard generation == cacheGeneration else { return false }
                 snapshot = cached
                 cacheSourceIdentity = sourceIdentity
                 lastSuccessfulSyncAt = syncedAt
                 cacheState = .ready
+                return connection == connectionGeneration
+                    && client.pairedHost?.publicKey == sourceIdentity
             }
-            return true
         } catch {
+            if connection == connectionGeneration {
+                presentedError = error.localizedDescription
+            }
             if (error as? BlinkPeerError) == .unauthorized {
                 disconnect()
             }
-            presentedError = error.localizedDescription
             return false
         }
     }
 
     func clearOfflineNotes() async {
+        // Removing offline notes is also a connection boundary. Cancelling the
+        // live or pending peer operation prevents an automatic refresh from
+        // recreating the cache after the person confirms removal.
+        disconnect()
         do {
             cacheGeneration += 1
             let generation = cacheGeneration
@@ -237,6 +253,38 @@ final class BlinkMobileModel: ObservableObject {
             cacheState = .failed(error.localizedDescription)
         }
     }
+
+    @discardableResult
+    private func configureClientIfNeeded() -> Bool {
+        if client != nil { return true }
+        do {
+            let credential = try BlinkDeviceCredentialSeed.loadOrCreate()
+            let client = BlinkLANPeerClient(
+                identity: BlinkPeerClientIdentity(
+                    credential: credential,
+                    name: BlinkDeviceCredentialSeed.displayName(for: credential)
+                )
+            )
+            client.observeConnection { [weak self] isConnected in
+                guard !isConnected else { return }
+                Task { @MainActor [weak self] in
+                    self?.handleTransportDisconnect()
+                }
+            }
+            self.client = client
+            return true
+        } catch {
+            discoveryState = .failed(
+                "Secure device identity is unavailable: \(error.localizedDescription) Unlock Keychain, then try again."
+            )
+            return false
+        }
+    }
+
+    private func handleTransportDisconnect() {
+        connectionGeneration += 1
+        connectionState = .disconnected
+    }
 }
 
 private enum BlinkDeviceCredentialSeed {
@@ -244,29 +292,20 @@ private enum BlinkDeviceCredentialSeed {
     private static let account = "device-seed"
     private static let legacyDefaultsKey = "blink.peer.device-credential"
 
-    static func loadOrCreate() -> String {
+    static func loadOrCreate() throws -> String {
         // The old UserDefaults value is intentionally not migrated: defaults
         // can travel in a device backup and clone an already approved identity.
         UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
 
-        var item: CFTypeRef?
-        var readQuery = baseQuery
-        readQuery[kSecReturnData as String] = true
-        readQuery[kSecMatchLimit as String] = kSecMatchLimitOne
-        if SecItemCopyMatching(readQuery as CFDictionary, &item) == errSecSuccess,
-           let data = item as? Data,
-           let saved = String(data: data, encoding: .utf8),
-           UUID(uuidString: saved) != nil {
-            return saved.lowercased()
-        }
-
-        SecItemDelete(baseQuery as CFDictionary)
+        if let saved = try readExisting() { return saved }
         let generated = UUID().uuidString.lowercased()
         var addQuery = baseQuery
         addQuery[kSecValueData as String] = Data(generated.utf8)
         addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        _ = SecItemAdd(addQuery as CFDictionary, nil)
-        return generated
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        if status == errSecSuccess { return generated }
+        if status == errSecDuplicateItem, let saved = try readExisting() { return saved }
+        throw BlinkDeviceCredentialSeedError.keychain(status)
     }
 
     @MainActor
@@ -287,5 +326,42 @@ private enum BlinkDeviceCredentialSeed {
             kSecAttrAccount as String: account,
             kSecAttrSynchronizable as String: false,
         ]
+    }
+
+    private static func readExisting() throws -> String? {
+        var item: CFTypeRef?
+        var query = baseQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        switch status {
+        case errSecItemNotFound:
+            return nil
+        case errSecSuccess:
+            if let data = item as? Data,
+               let saved = String(data: data, encoding: .utf8),
+               UUID(uuidString: saved) != nil {
+                return saved.lowercased()
+            }
+            let deleted = SecItemDelete(baseQuery as CFDictionary)
+            guard deleted == errSecSuccess || deleted == errSecItemNotFound else {
+                throw BlinkDeviceCredentialSeedError.keychain(deleted)
+            }
+            return nil
+        default:
+            throw BlinkDeviceCredentialSeedError.keychain(status)
+        }
+    }
+}
+
+private enum BlinkDeviceCredentialSeedError: Error, LocalizedError {
+    case keychain(OSStatus)
+
+    var errorDescription: String? {
+        switch self {
+        case .keychain(let status):
+            return (SecCopyErrorMessageString(status, nil) as String?)
+                ?? "Keychain error \(status)."
+        }
     }
 }

@@ -3,6 +3,7 @@ import Foundation
 public enum BlinkSnapshotCacheError: Error, LocalizedError, Equatable, Sendable {
     case decodingFailed(String)
     case encodingFailed(String)
+    case persistenceFailed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -10,6 +11,8 @@ public enum BlinkSnapshotCacheError: Error, LocalizedError, Equatable, Sendable 
             return "Blink's offline notes could not be decoded: \(detail)"
         case .encodingFailed(let detail):
             return "Blink's offline notes could not be encoded: \(detail)"
+        case .persistenceFailed(let detail):
+            return "Blink's offline notes could not be stored safely: \(detail)"
         }
     }
 }
@@ -45,9 +48,11 @@ public struct BlinkSnapshotCacheRecord: Codable, Equatable, Sendable {
 /// source recovers or a durable tombstone explicitly deletes it.
 public actor BlinkSnapshotCache {
     public let fileURL: URL
+    private let excludeFromBackup: Bool
 
-    public init(fileURL: URL) {
+    public init(fileURL: URL, excludeFromBackup: Bool = false) {
         self.fileURL = fileURL
+        self.excludeFromBackup = excludeFromBackup
     }
 
     public func load() throws -> BlinkSnapshot? {
@@ -57,6 +62,14 @@ public actor BlinkSnapshotCache {
     public func loadRecord() throws -> BlinkSnapshotCacheRecord? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
+            do {
+                try markExcludedFromBackupIfNeeded(fileURL)
+            } catch {
+                if excludeFromBackup {
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
+                throw error
+            }
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .millisecondsSince1970
             let data = try Data(contentsOf: fileURL)
@@ -161,6 +174,12 @@ public actor BlinkSnapshotCache {
             ".\(fileURL.lastPathComponent).\(UUID().uuidString).tmp"
         )
         FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+        do {
+            try markExcludedFromBackupIfNeeded(tempURL)
+        } catch {
+            try? FileManager.default.removeItem(at: tempURL)
+            throw error
+        }
         let handle = try FileHandle(forWritingTo: tempURL)
         do {
             try handle.write(contentsOf: data)
@@ -181,6 +200,27 @@ public actor BlinkSnapshotCache {
         } catch {
             try? FileManager.default.removeItem(at: tempURL)
             throw error
+        }
+
+        do {
+            try markExcludedFromBackupIfNeeded(fileURL)
+        } catch {
+            if excludeFromBackup {
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+            throw error
+        }
+    }
+
+    private func markExcludedFromBackupIfNeeded(_ url: URL) throws {
+        guard excludeFromBackup else { return }
+        do {
+            var mutableURL = url
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try mutableURL.setResourceValues(values)
+        } catch {
+            throw BlinkSnapshotCacheError.persistenceFailed(error.localizedDescription)
         }
     }
 }
