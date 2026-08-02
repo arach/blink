@@ -189,9 +189,9 @@ struct BlinkPeerProtocolTests {
                 == reloaded.hostAgreementPrivateKey().rawRepresentation
         )
         #expect(reloaded.peers == [approved])
-        #expect(reloaded.revoke(id: identity.credential))
+        #expect(try reloaded.revoke(id: identity.credential))
         #expect(reloaded.peers.isEmpty)
-        #expect(!reloaded.revoke(id: identity.credential))
+        #expect(try !reloaded.revoke(id: identity.credential))
     }
 
     @Test("pairing secrets never land in UserDefaults")
@@ -282,6 +282,27 @@ struct BlinkPeerProtocolTests {
         #expect(store.peers.map(\.name) == ["Arach’s iPhone"])
     }
 
+    @Test("a failed Keychain write leaves access approved")
+    func failedRevocationRemainsApproved() throws {
+        let storage = BlinkWriteFailingSecretStorage()
+        let store = BlinkPeerTrustStore(storage: storage, storageKey: "trusted")
+        let identity = BlinkPeerClientIdentity(
+            credential: UUID().uuidString.lowercased(),
+            name: "Arach’s iPhone"
+        )
+        store.approve(identity)
+        storage.rejectWrites = true
+
+        #expect(throws: BlinkFailingSecretStorageError.self) {
+            try store.revoke(id: identity.credential)
+        }
+        #expect(store.contains(credential: identity.credential))
+        #expect(store.persistenceFailure != nil)
+
+        let relaunched = BlinkPeerTrustStore(storage: storage, storageKey: "trusted")
+        #expect(relaunched.contains(credential: identity.credential))
+    }
+
     @Test("a Keychain failure never creates an ephemeral Mac identity")
     func hostIdentityFailsClosed() {
         let store = BlinkPeerTrustStore(
@@ -363,5 +384,23 @@ private final class BlinkFailingSecretStorage: BlinkPeerSecretStorage, @unchecke
 
     func removeValue(forKey key: String) throws {
         throw BlinkFailingSecretStorageError.unavailable
+    }
+}
+
+private final class BlinkWriteFailingSecretStorage: BlinkPeerSecretStorage, @unchecked Sendable {
+    var rejectWrites = false
+    private var values: [String: Data] = [:]
+
+    func data(forKey key: String) throws -> Data? {
+        values[key]
+    }
+
+    func set(_ data: Data, forKey key: String) throws {
+        if rejectWrites { throw BlinkFailingSecretStorageError.unavailable }
+        values[key] = data
+    }
+
+    func removeValue(forKey key: String) throws {
+        values[key] = nil
     }
 }

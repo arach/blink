@@ -103,14 +103,24 @@ public final class BlinkPeerTrustStore: @unchecked Sendable {
     }
 
     @discardableResult
-    public func revoke(id: String) -> Bool {
-        lock.withLock {
+    public func revoke(id: String) throws -> Bool {
+        try lock.withLock {
             var current = load()
             let oldCount = current.count
             current.removeAll { $0.id == id }
             guard current.count != oldCount else { return false }
-            save(current)
-            return true
+            do {
+                let data = try JSONEncoder().encode(current)
+                try storage.set(data, forKey: storageKey)
+                cachedPeers = current
+                persistenceFailureStorage = nil
+                return true
+            } catch {
+                // Revocation is a security boundary: do not report success or
+                // update the in-process set unless the removal is durable.
+                persistenceFailureStorage = error.localizedDescription
+                throw error
+            }
         }
     }
 

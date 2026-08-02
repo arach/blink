@@ -694,8 +694,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         alert.addButton(withTitle: "Revoke Access")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if peerServer?.revokeTrustedPeer(id: id) == true {
-            log.info("[BLINK] revoked LAN device access", metadata: ["device": peer.name])
+        do {
+            if try peerServer?.revokeTrustedPeer(id: id) == true {
+                log.info("[BLINK] revoked LAN device access", metadata: ["device": peer.name])
+            }
+        } catch {
+            peerSyncStatus.unavailableReason = peerSyncUnavailableReason
+            log.error(
+                "[BLINK] failed to persist LAN device revocation",
+                metadata: ["device": peer.name, "error": error.localizedDescription]
+            )
+            let failure = NSAlert()
+            failure.alertStyle = .critical
+            failure.messageText = "Couldn’t Revoke Access"
+            failure.informativeText = "Blink couldn’t update its secure device list. Access remains approved. \(error.localizedDescription)"
+            failure.addButton(withTitle: "OK")
+            failure.runModal()
         }
     }
 

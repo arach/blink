@@ -103,6 +103,7 @@ struct BlinkPadWorkspaceView: View {
                     }
                 }
                 .contentShape(Rectangle())
+                .frame(minWidth: 44, minHeight: 44, alignment: .leading)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Workspace: \(workspace.title)")

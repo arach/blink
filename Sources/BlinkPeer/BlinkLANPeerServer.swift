@@ -112,9 +112,9 @@ public final class BlinkLANPeerServer: NSObject, @unchecked Sendable {
     }
 
     @discardableResult
-    public func revokeTrustedPeer(id: String) -> Bool {
-        let hadLiveSession = lock.withLock { () -> Bool? in
-            guard trustStore.revoke(id: id) else { return nil }
+    public func revokeTrustedPeer(id: String) throws -> Bool {
+        let hadLiveSession = try lock.withLock { () throws -> Bool? in
+            guard try trustStore.revoke(id: id) else { return nil }
             let matchingKeys = authorizedCredentialsByPeerKey.compactMap { key, credential in
                 credential == id ? key : nil
             }
