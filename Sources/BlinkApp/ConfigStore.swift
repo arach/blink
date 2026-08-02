@@ -6,5 +6,6 @@ import Foundation
 enum ConfigKeys {
     static let restoreSession = "blink.restoreSession"  // legacy; migrated into config.json
     static let defaultMode = "blink.defaultMode"        // legacy; migrated into config.json
+    static let activeWorkspaceScope = "blink.activeWorkspaceScope"
     static func noteMode(_ id: String) -> String { "blink.noteMode.\(id)" }
 }

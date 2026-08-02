@@ -2,6 +2,12 @@ import AppKit
 import BlinkCore
 import SwiftUI
 
+private struct WorkspaceMenuEntry: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let noteCount: Int
+}
+
 /// The menubar popover is Blink's compact workspace: capture/search spans the
 /// whole workspace, with recents on the left and a spatial overview on the
 /// right.
@@ -52,11 +58,34 @@ struct CapturePopoverView: View {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    /// Definitions make empty workspaces selectable; note membership keeps an
+    /// unknown/removed definition browseable rather than orphaning its notes.
+    private var workspaceEntries: [WorkspaceMenuEntry] {
+        let configured = configStore.config.workspaces ?? [:]
+        let ids = Set(configured.keys).union(
+            model.notes.compactMap(\.presentation.workspace)
+        )
+        return ids.map { id in
+            let configuredTitle = configured[id]?.title?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let title = configuredTitle.flatMap { $0.isEmpty ? nil : $0 } ?? id
+            let count = model.notes.filter { $0.presentation.workspace == id }.count
+            return WorkspaceMenuEntry(id: id, title: title, noteCount: count)
+        }
+        .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+    }
+
+    private var scopedNotes: [Note] {
+        model.notes.filter {
+            model.workspaceScope.includes(workspace: $0.presentation.workspace)
+        }
+    }
+
     private var filtered: [Note] {
-        guard !trimmedQuery.isEmpty else { return Array(model.notes.prefix(12)) }
+        guard !trimmedQuery.isEmpty else { return Array(scopedNotes.prefix(12)) }
         let needle = trimmedQuery.lowercased()
         return Array(
-            model.notes
+            scopedNotes
                 .filter {
                     $0.title.lowercased().contains(needle)
                         || $0.content.lowercased().contains(needle)
@@ -69,6 +98,21 @@ struct CapturePopoverView: View {
     private var selectedNote: Note? {
         guard let selectedNoteID else { return nil }
         return filtered.first(where: { $0.id == selectedNoteID })
+    }
+
+    private var activeWorkspaceTitle: String {
+        switch model.workspaceScope {
+        case .all: "All notes"
+        case .unfiled: "Unfiled"
+        case .workspace(let id): workspaceEntries.first { $0.id == id }?.title ?? id
+        }
+    }
+
+    private var capturePlaceholder: String {
+        switch model.workspaceScope {
+        case .all: "Search or capture…"
+        default: "Search or capture in \(activeWorkspaceTitle)…"
+        }
     }
 
     var body: some View {
@@ -98,7 +142,11 @@ struct CapturePopoverView: View {
                 .opacity(0)
         )
         .onAppear {
+            normalizeWorkspaceScope()
             fieldFocused = true
+        }
+        .onChange(of: workspaceEntries.map(\.id)) { _, _ in
+            normalizeWorkspaceScope()
         }
         .onChange(of: filtered.map(\.id)) { _, ids in
             if let selectedNoteID, ids.contains(selectedNoteID) { return }
@@ -129,13 +177,26 @@ struct CapturePopoverView: View {
                 .font(.system(size: 15, weight: .light))
                 .foregroundStyle(pal.inkMuted)  // #6b7072
 
-            TextField("Search or capture…", text: $query)
+            TextField(capturePlaceholder, text: $query)
                 .textFieldStyle(.plain)
                 .font(mono(15, .light))
                 .foregroundStyle(pal.inkBright)  // #e6e8e6
                 .tint(accent)
                 .focused($fieldFocused)
                 .onSubmit { openFirstOrCreate() }
+
+            WorkspaceScopeMenu(
+                selection: model.workspaceScope,
+                title: activeWorkspaceTitle,
+                count: scopedNotes.count,
+                allCount: model.notes.count,
+                unfiledCount: model.notes.filter { $0.presentation.workspace == nil }.count,
+                workspaces: workspaceEntries
+            ) { scope in
+                query = ""
+                selectedNoteID = nil
+                model.selectWorkspace(scope)
+            }
 
             toolbarSeparator
 
@@ -189,8 +250,8 @@ struct CapturePopoverView: View {
             .padding(.top, 15)
             .padding(.bottom, 10)
 
-            if model.notes.isEmpty {
-                emptyState("No notes yet — create your first thought.")
+            if scopedNotes.isEmpty {
+                emptyState(sidebarEmptyMessage)
             } else if filtered.isEmpty {
                 emptyState("No matches — Return creates “\(trimmedQuery)”.")
             } else {
@@ -250,6 +311,18 @@ struct CapturePopoverView: View {
                     .font(mono(10))
                     .tracking(1.6)
                     .foregroundStyle(pal.inkMid)
+
+                if model.workspaceScope != .all {
+                    Text("/")
+                        .font(mono(10))
+                        .foregroundStyle(pal.inkGhost)
+                    Text(activeWorkspaceTitle.uppercased())
+                        .font(mono(9.5, .medium))
+                        .tracking(0.8)
+                        .foregroundStyle(accentBright)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
 
                 Spacer()
 
@@ -324,9 +397,14 @@ struct CapturePopoverView: View {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(pal.strokeBase.opacity(0.18))
-            Text(trimmedQuery.isEmpty ? "Your notes will gather here" : "No notes on this canvas")
+            Text(emptyCanvasTitle)
                 .font(.system(size: 12))
                 .foregroundStyle(pal.strokeBase.opacity(0.36))
+            if trimmedQuery.isEmpty, model.workspaceScope != .all {
+                Text("New notes will land in this workspace.")
+                    .font(mono(10))
+                    .foregroundStyle(pal.strokeBase.opacity(0.26))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(CanvasSurface())
@@ -416,6 +494,36 @@ struct CapturePopoverView: View {
 
     // MARK: - Actions
 
+    private var sidebarEmptyMessage: String {
+        guard trimmedQuery.isEmpty else {
+            return "No matches — Return creates “\(trimmedQuery)”."
+        }
+        switch model.workspaceScope {
+        case .all:
+            return "No notes yet — create your first thought."
+        case .unfiled:
+            return "No unfiled notes — new notes will land here."
+        case .workspace:
+            return "Blank slate — create the first note in \(activeWorkspaceTitle)."
+        }
+    }
+
+    private var emptyCanvasTitle: String {
+        if !trimmedQuery.isEmpty { return "No notes on this canvas" }
+        return switch model.workspaceScope {
+        case .all: "Your notes will gather here"
+        case .unfiled: "No unfiled notes"
+        case .workspace: "\(activeWorkspaceTitle) is a blank slate"
+        }
+    }
+
+    private func normalizeWorkspaceScope() {
+        guard case .workspace(let id) = model.workspaceScope,
+              !workspaceEntries.contains(where: { $0.id == id })
+        else { return }
+        model.selectWorkspace(.all)
+    }
+
     private func openFirstOrCreate() {
         if let selectedNote {
             open(selectedNote)
@@ -465,6 +573,76 @@ struct CapturePopoverView: View {
         case "card": return Color(red: 0.35, green: 0.82, blue: 0.61)
         case "glass", "dotted": return accent
         default: return Color(red: 0.48, green: 0.52, blue: 0.59)
+        }
+    }
+}
+
+private struct WorkspaceScopeMenu: View {
+    @Environment(\.popoverPalette) private var pal
+    @State private var hovered = false
+
+    let selection: WorkspaceScope
+    let title: String
+    let count: Int
+    let allCount: Int
+    let unfiledCount: Int
+    let workspaces: [WorkspaceMenuEntry]
+    let onSelect: (WorkspaceScope) -> Void
+
+    var body: some View {
+        Menu {
+            scopeButton(.all, title: "All notes", count: allCount)
+            scopeButton(.unfiled, title: "Unfiled", count: unfiledCount)
+
+            if !workspaces.isEmpty {
+                Divider()
+                ForEach(workspaces) { workspace in
+                    scopeButton(
+                        .workspace(workspace.id),
+                        title: workspace.title,
+                        count: workspace.noteCount
+                    )
+                }
+            }
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 11, weight: .light))
+                Text(title.uppercased())
+                    .font(.system(size: 9.5, weight: .medium, design: .monospaced))
+                    .tracking(0.55)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 132, alignment: .leading)
+                Text("\(count)")
+                    .font(.system(size: 9, weight: .regular, design: .monospaced))
+                    .foregroundStyle(pal.inkMuted)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 7, weight: .semibold))
+            }
+            .foregroundStyle(hovered ? pal.ink : pal.inkMid)
+            .padding(.horizontal, 9)
+            .frame(height: 30)
+            .background(pal.strokeBase.opacity(hovered ? 0.07 : 0.025))
+            .overlay(Rectangle().stroke(pal.strokeBase.opacity(hovered ? 0.15 : 0.07), lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .onHover { isHovered in
+            withAnimation(.easeOut(duration: 0.1)) { hovered = isHovered }
+        }
+        .help("Filter notes and panels by workspace")
+        .accessibilityLabel("Workspace \(title), \(count) notes")
+    }
+
+    private func scopeButton(_ scope: WorkspaceScope, title: String, count: Int) -> some View {
+        Button { onSelect(scope) } label: {
+            Label(
+                "\(title) · \(count)",
+                systemImage: selection == scope ? "checkmark" : "circle"
+            )
         }
     }
 }

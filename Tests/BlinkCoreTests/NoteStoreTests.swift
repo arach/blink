@@ -33,6 +33,23 @@ struct NoteStoreTests {
         #expect(c.id == "meeting-notes-3")
     }
 
+    @Test("create persists workspace membership atomically")
+    func createWithWorkspace() async throws {
+        let (store, dir) = tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var presentation = NotePresentation()
+        presentation.workspace = "demo"
+        let created = try await store.create(
+            content: "# Demo note\nblank slate",
+            presentation: presentation
+        )
+
+        #expect(created.presentation.workspace == "demo")
+        let onDisk = try NoteFileStore(directory: dir).load(id: created.id)
+        #expect(onDisk.presentation.workspace == "demo")
+    }
+
     @Test("update bumps updatedAt and persists")
     func updatePersists() async throws {
         let (store, dir) = tempStore()

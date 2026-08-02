@@ -2,6 +2,16 @@ import AppKit
 import BlinkCore
 import HudsonObservability
 
+/// A top-left, display-local panel frame requested by the live agent surface.
+/// It stays inside the app target because only PanelManager can realize it.
+struct DeskFrameRequest: Sendable {
+    let x: CGFloat?
+    let y: CGFloat?
+    let width: CGFloat?
+    let height: CGFloat?
+    let display: Int?
+}
+
 /// Owns every floating note panel: one panel per note (opening an open note
 /// focuses it), debounced saves with mandatory flushes on close and quit, and
 /// reopening the last session's panels on launch.
@@ -25,11 +35,19 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private var revealOrderings: [String: RevealOrdering] = [:]
     private var isTerminating = false
     private var blinkHidden = false
+    private var workspaceScope: WorkspaceScope = .all
+    private var panelWorkspaces: [String: String] = [:]
+    private var workspaceSuppressedPanelIDs: Set<String> = []
     private lazy var focusOverlay = FocusOverlay()
     private lazy var drapeOverlay = DrapeOverlay()
     private var gridOverlay: GridOverlay?
     private var mostRecentKeyPanelID: String?
     private let log = HudLogger(category: "blink.panels")
+
+    /// Linked-note navigation originates inside a panel, below AppModel. Ask the
+    /// model to move the durable UI selection before realizing a cross-workspace
+    /// target, so every launcher converges on the same active scope.
+    var onWorkspaceScopeRequested: ((WorkspaceScope) -> Void)?
 
     private static let openNotesKey = "blink.openNotes"
     private static let saveDebounce: Duration = .seconds(1)
@@ -67,7 +85,11 @@ final class PanelManager: NSObject, NSWindowDelegate {
         for id in openIDs {
             if let note = await store.note(id: id),
                // Restore silently — the staggered reveal below owns the motion.
-               let panel = openPanel(for: note, playEntrance: false) {
+               let panel = openPanel(
+                    for: note,
+                    playEntrance: false,
+                    activateWorkspaceIfNeeded: false
+               ), panel.isVisible {
                 restored.append(panel)
             }
         }
@@ -152,6 +174,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     private func applyExternalUpdate(id: String) async {
         guard let panel = panels[id], pendingText[id] == nil else { return }
         guard let note = await store.note(id: id) else { return }
+        recordPanelWorkspace(note)
 
         // Presentation is part of the live note, not launch-only decoration.
         // Merge the legacy sheet alias exactly as openPanel does, then update
@@ -353,13 +376,36 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// `playEntrance` is `false` only for session restore, which runs its own
     /// staggered entrance across all reopened panels afterward.
     @discardableResult
-    func openPanel(for note: Note, initialMode: String? = nil, playEntrance: Bool = true) -> NotePanel? {
+    func openPanel(
+        for note: Note,
+        initialMode: String? = nil,
+        playEntrance: Bool = true,
+        activateWorkspaceIfNeeded: Bool = true,
+        deskFrame: DeskFrameRequest? = nil
+    ) -> NotePanel? {
+        recordPanelWorkspace(note)
+        if activateWorkspaceIfNeeded,
+           !workspaceScope.includes(workspace: note.presentation.workspace) {
+            onWorkspaceScopeRequested?(
+                .containing(workspace: note.presentation.workspace)
+            )
+        }
+        let shouldPresent = workspaceScope.includes(workspace: note.presentation.workspace)
         // Opening a note while blinked-away: the new panel is visible, so the
         // next Hyper+B should hide everything again.
-        blinkHidden = false
+        if shouldPresent { blinkHidden = false }
         if let existing = panels[note.id] {
-            mostRecentKeyPanelID = note.id
-            existing.makeKeyAndOrderFront(nil)
+            if let deskFrame {
+                applyDeskFrame(noteID: note.id, request: deskFrame, animated: false)
+            }
+            if shouldPresent {
+                workspaceSuppressedPanelIDs.remove(note.id)
+                mostRecentKeyPanelID = note.id
+                existing.makeKeyAndOrderFront(nil)
+            } else {
+                workspaceSuppressedPanelIDs.insert(note.id)
+                existing.orderOut(nil)
+            }
             return existing
         }
 
@@ -470,20 +516,30 @@ final class PanelManager: NSObject, NSWindowDelegate {
         if playEntrance, let slot = presentation.slot {
             placeInSlot(panel, slot: slot, animated: false)
         }
+        if let deskFrame {
+            // Apply before the entrance captures its home frame; otherwise a
+            // drop animation could restore the panel to its pre-command screen.
+            applyDeskFrame(noteID: note.id, request: deskFrame, animated: false)
+        }
 
         // Land the panel with its configured entrance (a new note, popover open,
         // or a reveal). Set alpha 0 BEFORE ordering front so the window never
         // flashes fully opaque for a frame; then order in and animate up.
-        let motion = BlinkConfigStore.shared.config.motion
-        if playEntrance {
-            panel.animateEntrance(motion: motion)
-        }
-        panel.makeKeyAndOrderFront(nil)
-        mostRecentKeyPanelID = note.id
-        if mode == "edit" {
-            // Give the webview native key focus so typing and shortcuts work
-            // immediately (JS focus alone doesn't set the first responder).
-            panel.makeFirstResponder(panel.editor.webView)
+        if shouldPresent {
+            workspaceSuppressedPanelIDs.remove(note.id)
+            let motion = BlinkConfigStore.shared.config.motion
+            if playEntrance {
+                panel.animateEntrance(motion: motion)
+            }
+            panel.makeKeyAndOrderFront(nil)
+            mostRecentKeyPanelID = note.id
+            if mode == "edit" {
+                // Give the webview native key focus so typing and shortcuts work
+                // immediately (JS focus alone doesn't set the first responder).
+                panel.makeFirstResponder(panel.editor.webView)
+            }
+        } else {
+            workspaceSuppressedPanelIDs.insert(note.id)
         }
         persistOpenList()
         updateFocusOverlay()
@@ -565,8 +621,11 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
     // MARK: - Read surface for overlays (grid, constellation)
 
-    /// Snapshot of open panels by note id.
-    var openPanelsByID: [String: NotePanel] { panels }
+    /// Snapshot of open panels in the active workspace by note id. The grid is
+    /// a live view of the current desktop, not a way to leak suppressed groups.
+    var openPanelsByID: [String: NotePanel] {
+        panels.filter { panelMatchesWorkspace(noteID: $0.key) }
+    }
 
     /// The panel that currently has key focus, if any.
     var keyNotePanel: NotePanel? { panels.values.first { $0.isKeyWindow } }
@@ -576,10 +635,175 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// recently focused note instead of losing their target during presentation.
     var commandNotePanel: NotePanel? {
         keyNotePanel
-            ?? mostRecentKeyPanelID.flatMap { panels[$0] }
-            ?? NSApp.orderedWindows.compactMap { $0 as? NotePanel }.first { panel in
-                panels[panel.noteID] === panel
+            ?? mostRecentKeyPanelID.flatMap { id in
+                panelMatchesWorkspace(noteID: id) ? panels[id] : nil
             }
+            ?? NSApp.orderedWindows.compactMap { $0 as? NotePanel }.first { panel in
+                panels[panel.noteID] === panel && panelMatchesWorkspace(noteID: panel.noteID)
+            }
+    }
+
+    /// Apply a top-left, display-local frame from the agent-facing CLI. The
+    /// panel's current display is the coordinate space; omitted values preserve
+    /// the existing geometry. Programmatic moves use the same lock animation
+    /// and autosave path as grid placement.
+    @discardableResult
+    func applyDeskFrame(
+        noteID: String,
+        x: CGFloat?,
+        y: CGFloat?,
+        width: CGFloat?,
+        height: CGFloat?,
+        display: Int?,
+        animated: Bool
+    ) -> Bool {
+        applyDeskFrame(
+            noteID: noteID,
+            request: DeskFrameRequest(
+                x: x, y: y, width: width, height: height, display: display
+            ),
+            animated: animated
+        )
+    }
+
+    @discardableResult
+    private func applyDeskFrame(
+        noteID: String,
+        request: DeskFrameRequest,
+        animated: Bool
+    ) -> Bool {
+        guard let panel = panels[noteID] else { return false }
+        let priorScreen = panel.screen ?? NSScreen.main
+        let screen: NSScreen?
+        if let display = request.display {
+            guard NSScreen.screens.indices.contains(display - 1) else { return false }
+            screen = NSScreen.screens[display - 1]
+        } else {
+            screen = priorScreen
+        }
+        guard let screen else { return false }
+
+        let visible = screen.visibleFrame
+        let prior = panel.frame
+        let priorVisible = priorScreen?.visibleFrame ?? visible
+        let priorLocalX = prior.minX - priorVisible.minX
+        let priorLocalY = priorVisible.maxY - prior.maxY
+        var target = prior
+        target.size.width = min(
+            max(request.width ?? prior.width, panel.minSize.width), visible.width
+        )
+        target.size.height = min(
+            max(request.height ?? prior.height, panel.minSize.height), visible.height
+        )
+
+        // Omitted coordinates preserve the panel's display-local top-left
+        // offset, including when moving it to another display.
+        target.origin.x = visible.minX + (request.x ?? priorLocalX)
+        target.origin.y = visible.maxY - (request.y ?? priorLocalY) - target.height
+
+        target.origin.x = min(max(target.minX, visible.minX), visible.maxX - target.width)
+        target.origin.y = min(max(target.minY, visible.minY), visible.maxY - target.height)
+
+        if animated, !target.equalTo(prior) {
+            panel.animateLock(to: target)
+        } else {
+            panel.setFrame(target, display: true)
+            panel.saveFrame(usingName: "blink.note.\(noteID)")
+        }
+        updateFocusOverlay()
+        gridOverlay?.refresh()
+        return true
+    }
+
+    /// Close through the panel's normal delegate path so pending text still
+    /// flushes before the live window disappears.
+    @discardableResult
+    func closePanel(noteID: String) -> Bool {
+        guard let panel = panels[noteID] else { return false }
+        panel.close()
+        return true
+    }
+
+    // MARK: - Workspace plane
+
+    /// Set before session restore so off-scope panels can be rebuilt in memory
+    /// without flashing onto the desktop.
+    func configureWorkspaceScope(_ scope: WorkspaceScope) {
+        workspaceScope = scope
+    }
+
+    /// Switch the live desktop boundary without closing a panel. Every panel
+    /// keeps its editor, pending save, exact frame, and membership in the open
+    /// set; only AppKit visibility changes. Activating a scope is an explicit
+    /// recall action, so it also clears a previous global blink-away state.
+    func applyWorkspaceScope(
+        _ scope: WorkspaceScope,
+        notes: [Note],
+        animated: Bool,
+        activate: Bool = false
+    ) {
+        for note in notes { recordPanelWorkspace(note) }
+        workspaceScope = scope
+
+        if activate {
+            blinkHidden = false
+            blinkGeneration += 1
+            for task in blinkRevealTasks { task.cancel() }
+            blinkRevealTasks.removeAll()
+        }
+
+        let matching = panels.filter { panelMatchesWorkspace(noteID: $0.key) }
+        let outgoing = panels.filter { !panelMatchesWorkspace(noteID: $0.key) }
+        for (id, panel) in outgoing where panel.isVisible {
+            workspaceSuppressedPanelIDs.insert(id)
+            panel.orderOut(nil)
+        }
+
+        guard !blinkHidden else {
+            for panel in matching.values where panel.isVisible { panel.orderOut(nil) }
+            updateFocusOverlay()
+            gridOverlay?.refresh()
+            return
+        }
+
+        let incoming = matching.filter { id, panel in
+            !panel.isVisible && (activate || workspaceSuppressedPanelIDs.contains(id))
+        }
+        let motion = BlinkConfigStore.shared.config.motion
+        let shouldAnimate = animated && motion.enabled && !NotePanel.reduceMotion
+        for (id, panel) in incoming {
+            workspaceSuppressedPanelIDs.remove(id)
+            if shouldAnimate { panel.alphaValue = 0 }
+            panel.orderFrontRegardless()
+        }
+        if shouldAnimate {
+            staggerReveal(Array(incoming.values), motion: motion)
+        } else {
+            for panel in incoming.values { panel.alphaValue = 1 }
+        }
+
+        log.info(
+            "[BLINK] workspace scope applied",
+            metadata: [
+                "scope": scope.storageValue,
+                "visible": "\(matching.values.filter(\.isVisible).count)",
+                "suppressed": "\(outgoing.count)",
+            ]
+        )
+        updateFocusOverlay()
+        gridOverlay?.refresh()
+    }
+
+    private func recordPanelWorkspace(_ note: Note) {
+        if let workspace = note.presentation.workspace {
+            panelWorkspaces[note.id] = workspace
+        } else {
+            panelWorkspaces.removeValue(forKey: note.id)
+        }
+    }
+
+    private func panelMatchesWorkspace(noteID: String) -> Bool {
+        workspaceScope.includes(workspace: panelWorkspaces[noteID])
     }
 
     var hasCommandNotePanel: Bool { commandNotePanel != nil }
@@ -672,7 +896,8 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// State flips instantly; motion is garnish. Rapid toggles cancel any
     /// in-flight motion so a panel is always left fully visible or fully hidden.
     func toggleBlink() {
-        guard !panels.isEmpty else { return }
+        let all = panels.filter { panelMatchesWorkspace(noteID: $0.key) }.map(\.value)
+        guard !all.isEmpty else { return }
         blinkHidden.toggle()
         blinkGeneration += 1
         let generation = blinkGeneration
@@ -684,8 +909,6 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
         let motion = BlinkConfigStore.shared.config.motion
         let animate = motion.enabled && !NotePanel.reduceMotion
-        let all = Array(panels.values)
-
         if blinkHidden {
             if animate {
                 // Synchronized exhale: every panel fades + drifts 6px outward
@@ -823,6 +1046,8 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panels[id] = nil
         panelContent[id] = nil
         panelSlot[id] = nil
+        panelWorkspaces[id] = nil
+        workspaceSuppressedPanelIDs.remove(id)
         if mostRecentKeyPanelID == id {
             mostRecentKeyPanelID = nil
         }

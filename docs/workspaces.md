@@ -196,13 +196,22 @@ blink present exception --workspace acme-docs --accent "#f7768e"
   removes the definition only; member notes keep their content and simply render
   unbranded. Add `--detach` to also clear membership from each member note.
 
-## What this is not
+## Durable group, live desktop
 
-`blink workspace` manages *durable* state — the files and the config. It does
-not open panels or move them on screen; that is the live plane, and it belongs
-to the running app (see `agent-api.md`, layer 2.5, still proposed). To reopen a
-workspace today, list it and open the notes:
+`blink workspace` manages *durable* state — the files and the config. The
+running app owns the live plane: choose a workspace from the capture popover to
+filter its log and canvas and recall only that workspace's already-open panels.
+Panels in other workspaces are hidden, never closed, so their pending text,
+exact frames, and session membership survive the switch. New notes inherit the
+active named workspace; **All notes** and **Unfiled** create unfiled notes.
+
+The file-backed `workspace` verbs do not mutate live panels. The `desk`
+companion sends acknowledged open, move, focus, and close requests to the
+running Blink instance with the same `BLINK_HOME`. An agent can inspect a group
+and explicitly present the notes it wants on that live desktop:
 
 ```sh
-blink workspace notes acme-docs --json | jq -r '.[].id'
+blink workspace notes acme-docs --json \
+  | jq -r '.[].id' \
+  | while read -r id; do blink desk open "$id"; done
 ```
