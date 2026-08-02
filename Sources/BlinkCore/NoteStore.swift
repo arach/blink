@@ -49,7 +49,10 @@ public actor NoteStore {
     /// Create a new note from raw markdown content. Assigns a unique slug id and
     /// stamps timestamps, then persists.
     @discardableResult
-    public func create(content: String) throws -> Note {
+    public func create(
+        content: String,
+        presentation: NotePresentation = NotePresentation()
+    ) async throws -> Note {
         let base = Slug.generate(from: Note.extractTitle(from: content))
         let id = Slug.unique(base, existing: Set(notes.keys))
         let now = clock()
@@ -60,7 +63,8 @@ public actor NoteStore {
                 createdAt: now,
                 updatedAt: now,
                 tags: [],
-                pinned: false
+                pinned: false,
+                presentation: presentation
             )
         )
         try fileStore.save(note)

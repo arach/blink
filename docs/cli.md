@@ -27,8 +27,8 @@ cp .build/release/blink ~/bin/    # or anywhere on PATH
 
 ## Commands
 
-Every command takes `--json` for structured output. Errors go to stderr with
-exit code 1.
+Commands that expose structured output take `--json` where shown below. Errors
+go to stderr with a nonzero exit code.
 
 ```sh
 blink ls [--limit N] [--json]     # list notes, most recently updated first
@@ -42,6 +42,7 @@ blink search <query> [--json]     # case-insensitive substring over title + cont
 blink rm <id> [--json]            # delete a note
 blink path [<id>]                 # the notes directory, or a note's file path
 blink workspace <subcommand>      # named groups of notes + their brand
+blink desk <subcommand>           # open/focus/move/close live panels
 ```
 
 `workspace` is the grouping/branding verb set — see `docs/workspaces.md` for the
@@ -61,7 +62,9 @@ blink workspace rm <name> [--detach]                     # forget the definition
 `new` and `present` also take `--workspace <name>` so a note can be filed on
 creation. Membership is one `blink.workspace:` key in the note's frontmatter;
 the brand itself lives in `config.json`, so note markdown stays portable and
-free of presentation-only branding.
+free of presentation-only branding. In the running app, the capture popover's
+workspace selector filters the log/canvas and recalls only that workspace's
+open panels; notes created while a named workspace is active inherit it.
 
 `present` is the compound arrival verb: it sets a note's markdown **and** its
 `blink:` presentation (see `notes-representation.md`) in one write, get-or-create
@@ -76,6 +79,22 @@ app reveals it character by character (the visible hand); `write` replaces the
 whole body, so the panel updates in place with no animation. `append` is the
 established sibling of `type` (identical behavior). All three preserve presentation
 and foreign frontmatter.
+
+`desk` is the intentionally small live counterpart to the file API. It asks the
+running Blink app to realize an existing note as a panel while `PanelManager`
+continues to own one-panel-per-note identity, focus, save flushing, and geometry
+persistence. Coordinates are display-local AppKit points measured from the
+visible top-left corner; omitted frame values preserve the current value.
+`--display N` selects a one-based display (`1` is the main display); otherwise
+the panel stays on its current display.
+
+```sh
+blink desk open standup --display 1 --x 980 --y 90 --width 460 --height 260
+blink desk move standup --x 1130 --y 70     # visible lock-and-settle
+blink desk focus standup
+blink desk close standup                    # closes the panel, keeps the note
+blink desk screens --json                   # responsive-script display geometry
+```
 
 Examples:
 

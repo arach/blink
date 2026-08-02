@@ -33,6 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
+        panelManager.onWorkspaceScopeRequested = { [weak self] scope in
+            self?.model.selectWorkspace(scope)
+        }
         panelManager.startObservingStore()
         configureDiscovery()
         commandRequestObserver = NotificationCenter.default.addObserver(
@@ -44,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 self?.toggleCommandPalette(from: nil)
             }
         }
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(receiveDeskCommand(_:)),
+            name: BlinkDeskCommand.notificationName,
+            object: nil
+        )
 
         // The filesystem is the API: external writers (the blink CLI, agents)
         // touch the Notes directory; reconcile diffs disk against memory and
@@ -256,7 +265,162 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if let commandRequestObserver {
             NotificationCenter.default.removeObserver(commandRequestObserver)
         }
+        DistributedNotificationCenter.default().removeObserver(
+            self,
+            name: BlinkDeskCommand.notificationName,
+            object: nil
+        )
     }
+
+    /// Realize the CLI's narrow live-desk verbs through AppModel and
+    /// PanelManager. Content never crosses this channel; files remain the
+    /// durable API and PanelManager remains the sole panel lifecycle owner.
+    @objc
+    private func receiveDeskCommand(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let requestID = userInfo[BlinkDeskCommand.Key.requestID] as? String,
+              let requestedHome = userInfo[BlinkDeskCommand.Key.home] as? String,
+              requestedHome == BlinkDeskCommand.canonicalHomePath()
+        else { return }
+
+        guard
+              let rawVerb = userInfo[BlinkDeskCommand.Key.verb] as? String,
+              let verb = BlinkDeskCommand.Verb(rawValue: rawVerb),
+              let noteID = userInfo[BlinkDeskCommand.Key.noteID] as? String
+        else {
+            log.error("[BLINK] ignored malformed desk command")
+            sendDeskResponse(
+                requestID: requestID,
+                success: false,
+                error: "Blink received a malformed desk command"
+            )
+            return
+        }
+
+        let request = DeskCommandRequest(
+            verb: verb,
+            noteID: noteID,
+            x: deskNumber(.x, in: userInfo),
+            y: deskNumber(.y, in: userInfo),
+            width: deskNumber(.width, in: userInfo),
+            height: deskNumber(.height, in: userInfo),
+            display: (userInfo[BlinkDeskCommand.Key.display] as? NSNumber)?.intValue,
+            animated: (userInfo[BlinkDeskCommand.Key.animated] as? NSNumber)?.boolValue ?? true
+        )
+        Task {
+            let result = await handleDeskCommand(request)
+            sendDeskResponse(
+                requestID: requestID,
+                success: result.success,
+                error: result.error
+            )
+        }
+    }
+
+    private func handleDeskCommand(_ request: DeskCommandRequest) async -> DeskCommandResult {
+        let verb = request.verb
+        let noteID = request.noteID
+        let applied: Bool
+
+        switch verb {
+        case .open:
+            applied = await model.openNote(
+                id: noteID,
+                deskFrame: request.hasFrame ? request.deskFrame : nil
+            )
+        case .move:
+            guard await model.openNote(id: noteID) else {
+                return .failure("Note “\(noteID)” was not found")
+            }
+            applied = panelManager.applyDeskFrame(
+                noteID: noteID,
+                x: request.x,
+                y: request.y,
+                width: request.width,
+                height: request.height,
+                display: request.display,
+                animated: request.animated
+            )
+        case .focus:
+            applied = await model.openNote(id: noteID)
+        case .close:
+            applied = panelManager.closePanel(noteID: noteID)
+        }
+
+        guard applied else {
+            return .failure("Blink could not \(verb.rawValue) note “\(noteID)”")
+        }
+
+        log.info(
+            "[BLINK] desk command applied",
+            metadata: ["verb": verb.rawValue, "id": noteID]
+        )
+        return .success
+    }
+
+    private func sendDeskResponse(requestID: String, success: Bool, error: String?) {
+        var userInfo: [AnyHashable: Any] = [
+            BlinkDeskCommand.Key.requestID: requestID,
+            BlinkDeskCommand.Key.success: success,
+        ]
+        if let error { userInfo[BlinkDeskCommand.Key.error] = error }
+        DistributedNotificationCenter.default().post(
+            name: BlinkDeskCommand.responseNotificationName,
+            object: nil,
+            userInfo: userInfo
+        )
+    }
+
+    private enum DeskNumberKey {
+        case x, y, width, height
+
+        var rawValue: String {
+            switch self {
+            case .x: BlinkDeskCommand.Key.x
+            case .y: BlinkDeskCommand.Key.y
+            case .width: BlinkDeskCommand.Key.width
+            case .height: BlinkDeskCommand.Key.height
+            }
+        }
+    }
+
+    private struct DeskCommandRequest: Sendable {
+        let verb: BlinkDeskCommand.Verb
+        let noteID: String
+        let x: CGFloat?
+        let y: CGFloat?
+        let width: CGFloat?
+        let height: CGFloat?
+        let display: Int?
+        let animated: Bool
+
+        var hasFrame: Bool {
+            x != nil || y != nil || width != nil || height != nil || display != nil
+        }
+
+        var deskFrame: DeskFrameRequest {
+            DeskFrameRequest(x: x, y: y, width: width, height: height, display: display)
+        }
+    }
+
+    private struct DeskCommandResult {
+        let success: Bool
+        let error: String?
+
+        static let success = DeskCommandResult(success: true, error: nil)
+
+        static func failure(_ error: String) -> DeskCommandResult {
+            DeskCommandResult(success: false, error: error)
+        }
+    }
+
+    private func deskNumber(
+        _ key: DeskNumberKey,
+        in userInfo: [AnyHashable: Any]
+    ) -> CGFloat? {
+        (userInfo[key.rawValue] as? NSNumber).map { CGFloat($0.doubleValue) }
+    }
+
 
     private func newNote() {
         log.info("[BLINK] new-note requested", metadata: ["source": "hotkey"])

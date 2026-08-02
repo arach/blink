@@ -19,7 +19,7 @@ struct BlinkCommand: AsyncParsableCommand {
         version: "2.0.5",
         subcommands: [
             Ls.self, Cat.self, New.self, Present.self, Append.self, Type.self, Write.self,
-            Search.self, Rm.self, PathCommand.self, WorkspaceCommand.self,
+            Search.self, Rm.self, PathCommand.self, WorkspaceCommand.self, DeskCommand.self,
         ]
     )
 }
@@ -79,13 +79,11 @@ struct New: AsyncParsableCommand {
                 decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self
             )
         }
-        var note = try await loadedStore().create(content: text)
-        // Membership is a second write rather than a create parameter: the store
-        // owns slug assignment, and this keeps `create` a single-purpose verb.
+        var presentation = NotePresentation()
         if let workspace {
-            note.presentation.workspace = try WorkspaceStore.normalize(workspace)
-            try fileStore().save(note)
+            presentation.workspace = try WorkspaceStore.normalize(workspace)
         }
+        let note = try await loadedStore().create(content: text, presentation: presentation)
         if json {
             try printJSON(NoteJSON(note, full: false))
         } else {
