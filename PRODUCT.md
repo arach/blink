@@ -35,14 +35,15 @@ filter by workspace, search, and read from an offline cache.
 
 - The first mobile transport is same-network LAN discovery.
 - Pairing uses an end-to-end sealed channel inside the encrypted peer session;
-  the device's reusable seed never leaves the device and derives a distinct
-  credential for each Mac.
+  the device's reusable seed lives in non-migrating Keychain storage, never
+  leaves the device, and derives a distinct credential for each Mac.
 - Mobile is read-only in the first version; edits and conflict resolution remain
   an open decision.
 - Exact frontmattered Markdown, foreign metadata, stable note identity, and
   deletion evidence survive replication.
-- LAN, Tailscale, and future managed relay routes share an orchestration contract;
-  provider-specific vocabulary does not leak into Blink's content model.
+- LAN is the shipped route. The content model remains provider-agnostic so a
+  future orchestrator can add Tailscale or managed relays without changing the
+  snapshot format.
 - Per-device macOS panel frames stay local and are not mobile document state.
 
 ## Brand Commitments

@@ -23,6 +23,7 @@ public final class BlinkLANPeerServer: NSObject, @unchecked Sendable {
     private let lock = NSLock()
     private var authorizedCredentialsByPeerKey: [String: String] = [:]
     private var pendingApprovalPeerKeys = Set<String>()
+    private var advertisingFailureStorage: String?
 
     public init(
         hostID: String,
@@ -61,6 +62,7 @@ public final class BlinkLANPeerServer: NSObject, @unchecked Sendable {
     }
 
     public func start() {
+        lock.withLock { advertisingFailureStorage = nil }
         advertiser.startAdvertisingPeer()
     }
 
@@ -75,6 +77,10 @@ public final class BlinkLANPeerServer: NSObject, @unchecked Sendable {
 
     public var trustedPeers: [BlinkTrustedPeer] {
         trustStore.peers
+    }
+
+    public var advertisingFailure: String? {
+        lock.withLock { advertisingFailureStorage }
     }
 
     @discardableResult
@@ -302,7 +308,9 @@ extension BlinkLANPeerServer: MCNearbyServiceAdvertiserDelegate {
     public func advertiser(
         _ advertiser: MCNearbyServiceAdvertiser,
         didNotStartAdvertisingPeer error: any Error
-    ) {}
+    ) {
+        lock.withLock { advertisingFailureStorage = error.localizedDescription }
+    }
 }
 
 extension BlinkLANPeerServer: MCSessionDelegate {

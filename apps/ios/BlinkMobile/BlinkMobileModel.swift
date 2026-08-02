@@ -1,12 +1,12 @@
 import BlinkCore
 import BlinkPeer
+import CryptoKit
 import Foundation
+import Security
 import UIKit
 
 @MainActor
 final class BlinkMobileModel: ObservableObject {
-    private static let cacheHostIDKey = "blink.peer.cache-host-id"
-
     enum CacheState: Equatable {
         case loading
         case ready
@@ -37,6 +37,7 @@ final class BlinkMobileModel: ObservableObject {
     @Published private(set) var isSyncing = false
     @Published private(set) var cacheState: CacheState = .loading
     @Published private(set) var discoveryState: DiscoveryState = .searching
+    @Published private(set) var lastSuccessfulSyncAt: Date?
     @Published var presentedError: String?
 
     private let client: BlinkLANPeerClient
@@ -45,21 +46,14 @@ final class BlinkMobileModel: ObservableObject {
     private var hasLoadedCache = false
     private var discoveryStartedAt = Date()
     private var cacheGeneration = 0
+    private var cacheSourceIdentity: String?
 
     init() {
-        let defaults = UserDefaults.standard
-        let credentialKey = "blink.peer.device-credential"
-        let credential: String
-        if let saved = defaults.string(forKey: credentialKey), UUID(uuidString: saved) != nil {
-            credential = saved
-        } else {
-            credential = UUID().uuidString.lowercased()
-            defaults.set(credential, forKey: credentialKey)
-        }
+        let credential = BlinkDeviceCredentialSeed.loadOrCreate()
         client = BlinkLANPeerClient(
             identity: BlinkPeerClientIdentity(
                 credential: credential,
-                name: UIDevice.current.name
+                name: BlinkDeviceCredentialSeed.displayName(for: credential)
             )
         )
 
@@ -88,7 +82,7 @@ final class BlinkMobileModel: ObservableObject {
         } ?? []
     }
 
-    var lastSyncedAt: Date? { snapshot?.generatedAt }
+    var lastSyncedAt: Date? { lastSuccessfulSyncAt ?? snapshot?.generatedAt }
 
     func activate() {
         if !hasLoadedCache {
@@ -133,6 +127,7 @@ final class BlinkMobileModel: ObservableObject {
     }
 
     func connect(to candidate: BlinkLANPeerCandidate) async -> Bool {
+        cacheGeneration += 1
         connectionState = .requestingAccess(candidate.name)
         do {
             let host = try await client.connect(to: candidate.id)
@@ -146,6 +141,7 @@ final class BlinkMobileModel: ObservableObject {
     }
 
     func disconnect() {
+        cacheGeneration += 1
         client.disconnect()
         connectionState = .disconnected
     }
@@ -155,24 +151,46 @@ final class BlinkMobileModel: ObservableObject {
         guard let host = connectionState.host, !isSyncing else { return false }
         isSyncing = true
         defer { isSyncing = false }
+        cacheGeneration += 1
+        let generation = cacheGeneration
+        let sourceIdentity = host.publicKey
+        let isSameHost = cacheSourceIdentity == sourceIdentity
         do {
-            let defaults = UserDefaults.standard
-            let isSameHost = defaults.string(forKey: Self.cacheHostIDKey) == host.id
             switch try await client.fetchSnapshot(ifNoneMatch: isSameHost ? snapshot?.etag : nil) {
             case .notModified:
-                guard connectionState.host?.id == host.id else { return false }
-            case .snapshot(let incoming):
-                guard connectionState.host?.id == host.id else { return false }
-                cacheGeneration += 1
-                let generation = cacheGeneration
-                if !isSameHost {
-                    try await cache.removeAll()
+                guard generation == cacheGeneration,
+                      connectionState.host?.publicKey == sourceIdentity
+                else { return false }
+                let syncedAt = Date()
+                guard try await cache.recordSuccessfulSync(
+                    sourceIdentity: sourceIdentity,
+                    at: syncedAt
+                ) else {
+                    throw BlinkSnapshotCacheError.decodingFailed(
+                        "The peer-bound cache is missing. Sync again to restore it."
+                    )
                 }
-                let cached = try await cache.apply(incoming)
-                guard generation == cacheGeneration else { return false }
+                guard generation == cacheGeneration,
+                      connectionState.host?.publicKey == sourceIdentity
+                else { return false }
+                lastSuccessfulSyncAt = syncedAt
+            case .snapshot(let incoming):
+                guard generation == cacheGeneration,
+                      connectionState.host?.publicKey == sourceIdentity
+                else { return false }
+                let syncedAt = Date()
+                let cached = try await cache.apply(
+                    incoming,
+                    sourceIdentity: sourceIdentity,
+                    syncedAt: syncedAt
+                )
+                guard generation == cacheGeneration,
+                      connectionState.host?.publicKey == sourceIdentity
+                else { return false }
                 snapshot = cached
+                cacheSourceIdentity = sourceIdentity
+                lastSuccessfulSyncAt = syncedAt
                 cacheState = .ready
-                defaults.set(host.id, forKey: Self.cacheHostIDKey)
             }
             return true
         } catch {
@@ -191,8 +209,9 @@ final class BlinkMobileModel: ObservableObject {
             try await cache.removeAll()
             guard generation == cacheGeneration else { return }
             snapshot = nil
+            cacheSourceIdentity = nil
+            lastSuccessfulSyncAt = nil
             cacheState = .ready
-            UserDefaults.standard.removeObject(forKey: Self.cacheHostIDKey)
         } catch {
             presentedError = error.localizedDescription
         }
@@ -207,13 +226,66 @@ final class BlinkMobileModel: ObservableObject {
 
     private func loadCache(generation: Int) async {
         do {
-            let cached = try await cache.load()
+            let record = try await cache.loadRecord()
             guard generation == cacheGeneration else { return }
-            snapshot = cached
+            snapshot = record?.snapshot
+            cacheSourceIdentity = record?.sourceIdentity
+            lastSuccessfulSyncAt = record?.lastSuccessfulSyncAt
             cacheState = .ready
         } catch {
             guard generation == cacheGeneration else { return }
             cacheState = .failed(error.localizedDescription)
         }
+    }
+}
+
+private enum BlinkDeviceCredentialSeed {
+    private static let service = "dev.arach.blink.mobile.peer"
+    private static let account = "device-seed"
+    private static let legacyDefaultsKey = "blink.peer.device-credential"
+
+    static func loadOrCreate() -> String {
+        // The old UserDefaults value is intentionally not migrated: defaults
+        // can travel in a device backup and clone an already approved identity.
+        UserDefaults.standard.removeObject(forKey: legacyDefaultsKey)
+
+        var item: CFTypeRef?
+        var readQuery = baseQuery
+        readQuery[kSecReturnData as String] = true
+        readQuery[kSecMatchLimit as String] = kSecMatchLimitOne
+        if SecItemCopyMatching(readQuery as CFDictionary, &item) == errSecSuccess,
+           let data = item as? Data,
+           let saved = String(data: data, encoding: .utf8),
+           UUID(uuidString: saved) != nil {
+            return saved.lowercased()
+        }
+
+        SecItemDelete(baseQuery as CFDictionary)
+        let generated = UUID().uuidString.lowercased()
+        var addQuery = baseQuery
+        addQuery[kSecValueData as String] = Data(generated.utf8)
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        _ = SecItemAdd(addQuery as CFDictionary, nil)
+        return generated
+    }
+
+    @MainActor
+    static func displayName(for seed: String) -> String {
+        let trimmed = UIDevice.current.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = UIDevice.current.userInterfaceIdiom == .pad ? "iPad" : "iPhone"
+        let base = trimmed.isEmpty ? fallback : trimmed
+        let suffix = SHA256.hash(data: Data(seed.utf8)).prefix(2)
+            .map { String(format: "%02X", $0) }
+            .joined()
+        return "\(base) · \(suffix)"
+    }
+
+    private static var baseQuery: [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecAttrSynchronizable as String: false,
+        ]
     }
 }

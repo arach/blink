@@ -25,6 +25,7 @@ struct CapturePopoverView: View {
     var showGrid: () -> Void
     var beginDictation: () -> Void
     var trustedPeerCount: Int
+    var peerSyncUnavailableReason: String?
 
     @ObservedObject private var appearance = AppearanceManager.shared
     @ObservedObject private var configStore = BlinkConfigStore.shared
@@ -429,17 +430,26 @@ struct CapturePopoverView: View {
             Spacer()
 
             Label(
-                trustedPeerCount == 0
+                peerSyncUnavailableReason != nil
+                    ? "MOBILE OFF"
+                    : trustedPeerCount == 0
                     ? "MOBILE READY"
                     : "MOBILE · \(trustedPeerCount) APPROVED",
-                systemImage: trustedPeerCount == 0 ? "iphone.badge.plus" : "lock.shield"
+                systemImage: peerSyncUnavailableReason != nil
+                    ? "wifi.slash"
+                    : trustedPeerCount == 0 ? "iphone.badge.plus" : "lock.shield"
             )
             .font(mono(9.5, .medium))
             .tracking(1.2)
             .foregroundStyle(pal.inkMuted)
-            .help("Nearby iPhones and iPads ask for approval on this Mac")
+            .help(
+                peerSyncUnavailableReason
+                    ?? "Nearby iPhones and iPads ask for approval on this Mac"
+            )
             .accessibilityLabel(
-                trustedPeerCount == 0
+                peerSyncUnavailableReason != nil
+                    ? "Mobile access unavailable"
+                    : trustedPeerCount == 0
                     ? "Mobile access ready"
                     : "\(trustedPeerCount) approved mobile \(trustedPeerCount == 1 ? "device" : "devices")"
             )

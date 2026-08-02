@@ -53,7 +53,9 @@ NoteStore notifications → AppModel snapshot → popover / palette / open panel
   `NoteStore.reconcile()`, producing the same notifications as in-app edits.
 - `config.json` owns behavior and appearance and hot-applies independently of
   note state. `BLINK_HOME` overrides the file-backed root (notes, config, and
-  attachments) for tests/agents; it does not redirect `UserDefaults`.
+  attachments) for tests/agents; it does not redirect `UserDefaults`. The Mac
+  peer host is disabled whenever `BLINK_HOME` is set so sandbox notes can never
+  inherit the production device identity or trust list.
 
 ## Source-of-truth order
 

@@ -508,7 +508,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 beginDictation: { [weak self] in
                     self?.beginPopoverDictation()
                 },
-                trustedPeerCount: peerServer?.trustedPeers.count ?? 0
+                trustedPeerCount: peerServer?.trustedPeers.count ?? 0,
+                peerSyncUnavailableReason: peerSyncUnavailableReason
             )
         )
         host.sizingOptions = .preferredContentSize
@@ -576,7 +577,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let accessItem = NSMenuItem(title: "Mobile Access", action: nil, keyEquivalent: "")
         let accessMenu = NSMenu()
         let trustedPeers = peerServer?.trustedPeers ?? []
-        if trustedPeers.isEmpty {
+        if let peerSyncUnavailableReason {
+            let unavailableItem = NSMenuItem(
+                title: "Unavailable",
+                action: nil,
+                keyEquivalent: ""
+            )
+            unavailableItem.isEnabled = false
+            accessMenu.addItem(unavailableItem)
+            let reasonItem = NSMenuItem(
+                title: peerSyncUnavailableReason,
+                action: nil,
+                keyEquivalent: ""
+            )
+            reasonItem.isEnabled = false
+            accessMenu.addItem(reasonItem)
+        } else if trustedPeers.isEmpty {
             let emptyItem = NSMenuItem(title: "No approved devices", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
             accessMenu.addItem(emptyItem)
@@ -594,7 +610,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         accessMenu.addItem(.separator())
         let accessHelp = NSMenuItem(
-            title: "New devices ask for approval on this Mac",
+            title: peerSyncUnavailableReason == nil
+                ? "New devices ask for approval on this Mac"
+                : "Check local-network access, then relaunch Blink",
             action: nil,
             keyEquivalent: ""
         )
@@ -684,6 +702,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func startPeerServer() {
+        if let override = ProcessInfo.processInfo.environment["BLINK_HOME"],
+           !override.isEmpty {
+            log.info("[BLINK] mobile sync disabled for BLINK_HOME sandbox")
+            return
+        }
+
         let defaults = UserDefaults.standard
         let hostIDKey = "blink.peer.host-id"
         let hostID: String
@@ -710,7 +734,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         )
         server.start()
         peerServer = server
-        log.info("[BLINK] encrypted LAN sync available", metadata: ["hostID": hostID])
+        log.info("[BLINK] starting encrypted LAN sync", metadata: ["hostID": hostID])
+    }
+
+    private var peerSyncUnavailableReason: String? {
+        if let override = ProcessInfo.processInfo.environment["BLINK_HOME"],
+           !override.isEmpty {
+            return "Disabled while BLINK_HOME is set"
+        }
+        if let failure = peerServer?.advertisingFailure {
+            return "Advertising failed: \(failure)"
+        }
+        return peerServer == nil ? "Mobile sync did not start" : nil
     }
 
     @MainActor

@@ -14,6 +14,31 @@ public enum BlinkSnapshotCacheError: Error, LocalizedError, Equatable, Sendable 
     }
 }
 
+/// The snapshot and the authenticated peer identity that produced it are one
+/// atomic cache record. Keeping this metadata beside the notes prevents a
+/// crash between two separate writes from making one Mac's cache look like
+/// another Mac's cache.
+public struct BlinkSnapshotCacheRecord: Codable, Equatable, Sendable {
+    public static let currentVersion = 1
+
+    public var version: Int
+    public var sourceIdentity: String?
+    public var lastSuccessfulSyncAt: Date?
+    public var snapshot: BlinkSnapshot
+
+    public init(
+        version: Int = BlinkSnapshotCacheRecord.currentVersion,
+        sourceIdentity: String?,
+        lastSuccessfulSyncAt: Date?,
+        snapshot: BlinkSnapshot
+    ) {
+        self.version = version
+        self.sourceIdentity = sourceIdentity
+        self.lastSuccessfulSyncAt = lastSuccessfulSyncAt
+        self.snapshot = snapshot
+    }
+}
+
 /// A replaceable mobile cache for peer snapshots. The server's snapshot is
 /// authoritative except for quarantined IDs: when a source file is unreadable
 /// or identity-divergent, the last known-good note remains visible until the
@@ -26,19 +51,51 @@ public actor BlinkSnapshotCache {
     }
 
     public func load() throws -> BlinkSnapshot? {
+        try loadRecord()?.snapshot
+    }
+
+    public func loadRecord() throws -> BlinkSnapshotCacheRecord? {
         guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
         do {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .millisecondsSince1970
-            return try decoder.decode(BlinkSnapshot.self, from: Data(contentsOf: fileURL))
+            let data = try Data(contentsOf: fileURL)
+            if let record = try? decoder.decode(BlinkSnapshotCacheRecord.self, from: data) {
+                guard record.version == BlinkSnapshotCacheRecord.currentVersion else {
+                    throw BlinkSnapshotCacheError.decodingFailed(
+                        "Unsupported cache version \(record.version)."
+                    )
+                }
+                return record
+            }
+
+            // Before cache records carried a peer identity, the file contained
+            // a bare snapshot. Load it once as unbound data; the mobile client
+            // will force a full authenticated fetch before reusing it.
+            let legacy = try decoder.decode(BlinkSnapshot.self, from: data)
+            return BlinkSnapshotCacheRecord(
+                sourceIdentity: nil,
+                lastSuccessfulSyncAt: nil,
+                snapshot: legacy
+            )
         } catch {
+            if let cacheError = error as? BlinkSnapshotCacheError {
+                throw cacheError
+            }
             throw BlinkSnapshotCacheError.decodingFailed(error.localizedDescription)
         }
     }
 
     @discardableResult
-    public func apply(_ incoming: BlinkSnapshot) throws -> BlinkSnapshot {
-        let previous = try load()
+    public func apply(
+        _ incoming: BlinkSnapshot,
+        sourceIdentity: String? = nil,
+        syncedAt: Date? = nil
+    ) throws -> BlinkSnapshot {
+        let previousRecord = try loadRecord()
+        let previous = previousRecord?.sourceIdentity == sourceIdentity
+            ? previousRecord?.snapshot
+            : nil
         let deletedIDs = Set(incoming.tombstones.map(\.id))
         let quarantinedIDs = Set(incoming.issues.compactMap(\.expectedID))
         var notesByID = Dictionary(
@@ -60,8 +117,26 @@ public actor BlinkSnapshotCache {
 
         var cached = incoming
         cached.notes = notesByID.values.sorted { $0.id < $1.id }
-        try persist(cached)
+        try persist(
+            BlinkSnapshotCacheRecord(
+                sourceIdentity: sourceIdentity,
+                lastSuccessfulSyncAt: syncedAt,
+                snapshot: cached
+            )
+        )
         return cached
+    }
+
+    /// Record an authenticated not-modified response without splitting the
+    /// sync timestamp from its peer-bound snapshot.
+    @discardableResult
+    public func recordSuccessfulSync(sourceIdentity: String, at date: Date) throws -> Bool {
+        guard var record = try loadRecord(), record.sourceIdentity == sourceIdentity else {
+            return false
+        }
+        record.lastSuccessfulSyncAt = date
+        try persist(record)
+        return true
     }
 
     public func removeAll() throws {
@@ -69,13 +144,13 @@ public actor BlinkSnapshotCache {
         try FileManager.default.removeItem(at: fileURL)
     }
 
-    private func persist(_ snapshot: BlinkSnapshot) throws {
+    private func persist(_ record: BlinkSnapshotCacheRecord) throws {
         let data: Data
         do {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
             encoder.outputFormatting = [.sortedKeys]
-            data = try encoder.encode(snapshot)
+            data = try encoder.encode(record)
         } catch {
             throw BlinkSnapshotCacheError.encodingFailed(error.localizedDescription)
         }
