@@ -18,6 +18,25 @@ const cormorantGaramond = Cormorant_Garamond({
   display: "swap",
 })
 
+const themeBootScript = `try{
+  var raw=new URLSearchParams(location.search).get('theme');
+  var normalize=function(value){
+    if(value==='light'||value==='cream')return 'light';
+    if(value==='dark'||value==='black')return 'dark';
+    if(value==='auto')return 'auto';
+    return null;
+  };
+  var query=normalize(raw);
+  var saved=null;
+  try{saved=normalize(localStorage.getItem('blink-theme'));}catch(e){}
+  var preference=query||saved||'auto';
+  if(query){try{localStorage.setItem('blink-theme',preference);}catch(e){}}
+  document.documentElement.setAttribute('data-theme-preference',preference);
+  var dark=preference==='dark'||(preference==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if(dark)document.documentElement.setAttribute('data-theme','black');
+  else document.documentElement.removeAttribute('data-theme');
+}catch(e){}`
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://blink.arach.dev"),
   title: "Blink — Spatial notes for your Mac",
@@ -55,11 +74,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body>
-        {/* Apply cream (default) or black before paint — no flash. */}
+        {/* Resolve light, dark, or the macOS preference before paint — no flash. */}
         <script
           dangerouslySetInnerHTML={{
-            __html:
-              "try{var p=new URLSearchParams(location.search).get('theme');var t=p||localStorage.getItem('blink-theme');if(p){try{localStorage.setItem('blink-theme',p==='black'?'black':'cream')}catch(e){}}if(t==='black')document.documentElement.setAttribute('data-theme','black');else document.documentElement.removeAttribute('data-theme')}catch(e){}",
+            __html: themeBootScript,
           }}
         />
         {children}

@@ -92,8 +92,8 @@ export default function AgentGuide() {
                 <span className="text-[11px] font-medium text-[var(--text)]">zero → spatial note</span>
                 <span className="text-[10px] text-faintx">macOS 14+ · arm64</span>
               </div>
-              <div className="overflow-x-auto p-4 md:p-5">
-                <pre className="min-w-[520px] text-[11.5px] leading-[1.9] text-dimx">
+              <div className="p-4 md:p-5">
+                <pre className="whitespace-pre-wrap break-words text-[11.5px] leading-[1.9] text-dimx">
                   <code>{`npm install -g @arach/blink
 blink app install
 blink app open
