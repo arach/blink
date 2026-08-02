@@ -30,6 +30,10 @@ Config/signing.env
 
 # Local planning and design tooling
 design/
+!design/
+design/*
+!design/studio/
+!design/studio/**
 docs/functionality-v1.md
 docs/notes-representation.md
 docs/v2-plan.md
