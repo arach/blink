@@ -32,6 +32,17 @@ public enum BlinkPaths {
         home(environment: environment).appendingPathComponent("config.json", isDirectory: false)
     }
 
+    /// Durable deletion evidence for peer replication. Full snapshots are
+    /// authoritative today; this journal preserves delete intent for later
+    /// incremental sync and multi-writer conflict handling.
+    public static func tombstones(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment)
+            .appendingPathComponent("sync", isDirectory: true)
+            .appendingPathComponent("tombstones.json", isDirectory: false)
+    }
+
     /// Where note attachments live: `<home>/attachments`. A note can embed an
     /// image it owns via `![](blink://attachments/pic.png)`; the app serves this
     /// directory to the editor webview over the `blink://` scheme (see

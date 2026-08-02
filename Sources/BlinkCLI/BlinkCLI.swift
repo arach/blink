@@ -261,8 +261,9 @@ struct Rm: AsyncParsableCommand {
     @Argument(help: "The note id (slug).") var id: String
     @Flag(help: "Structured output.") var json = false
 
-    func run() throws {
+    func run() async throws {
         _ = try existingNote(id: id)
+        try await BlinkTombstoneStore(fileURL: BlinkPaths.tombstones()).recordDeletion(id: id)
         try fileStore().delete(id: id)
         if json {
             try printJSON(["deleted": id])
@@ -297,7 +298,10 @@ func fileStore() -> NoteFileStore {
 }
 
 func loadedStore() async throws -> NoteStore {
-    let store = NoteStore(fileStore: fileStore())
+    let store = NoteStore(
+        fileStore: fileStore(),
+        tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
+    )
     try await store.load()
     return store
 }
