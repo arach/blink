@@ -30,7 +30,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.setActivationPolicy(.accessory)
         installMainMenu()
 
-        store = NoteStore(fileStore: NoteFileStore(directory: Self.notesDirectory()))
+        store = NoteStore(
+            fileStore: NoteFileStore(directory: Self.notesDirectory()),
+            tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
+        )
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
         panelManager.onWorkspaceScopeRequested = { [weak self] scope in
@@ -69,6 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                             "created": "\(diff.created.count)",
                             "updated": "\(diff.updated.count)",
                             "deleted": "\(diff.deleted.count)",
+                            "tombstoneFailures": "\(diff.tombstoneFailures.count)",
                         ]
                     )
                 }

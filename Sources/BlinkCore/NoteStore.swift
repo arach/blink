@@ -20,22 +20,30 @@ public actor NoteStore {
     private var notes: [String: Note] = [:]
     private let clock: @Sendable () -> Date
     private let notificationCenter: NotificationCenter
+    private let tombstoneStore: BlinkTombstoneStore?
 
-    public init(fileStore: NoteFileStore, notificationCenter: NotificationCenter = .default) {
+    public init(
+        fileStore: NoteFileStore,
+        notificationCenter: NotificationCenter = .default,
+        tombstoneStore: BlinkTombstoneStore? = nil
+    ) {
         self.fileStore = fileStore
         self.clock = { Date() }
         self.notificationCenter = notificationCenter
+        self.tombstoneStore = tombstoneStore
     }
 
     /// Testing hook: inject a clock so `createdAt`/`updatedAt` are controllable.
     init(
         fileStore: NoteFileStore,
         notificationCenter: NotificationCenter = .default,
+        tombstoneStore: BlinkTombstoneStore? = nil,
         clock: @escaping @Sendable () -> Date
     ) {
         self.fileStore = fileStore
         self.clock = clock
         self.notificationCenter = notificationCenter
+        self.tombstoneStore = tombstoneStore
     }
 
     /// Read the directory into memory. Returns all notes sorted `updatedAt` desc.
@@ -69,6 +77,7 @@ public actor NoteStore {
         )
         try fileStore.save(note)
         notes[id] = note
+        try? await tombstoneStore?.remove(id: id)
         post(.blinkNoteCreated, id: id)
         return note
     }
@@ -125,10 +134,14 @@ public actor NoteStore {
     }
 
     /// Delete a note by id. Throws if `id` is unknown.
-    public func delete(id: String) throws {
+    public func delete(id: String) async throws {
         guard notes[id] != nil else {
             throw NoteFileStoreError.noteNotFound(id: id)
         }
+        // Record first. If the file deletion then fails, full snapshots suppress
+        // the tombstone while the note still exists; a later successful delete
+        // already has durable evidence.
+        try await tombstoneStore?.recordDeletion(id: id, at: clock())
         try fileStore.delete(id: id)
         notes[id] = nil
         post(.blinkNoteDeleted, id: id)
@@ -140,7 +153,10 @@ public actor NoteStore {
         public var created: [String] = []
         public var updated: [String] = []
         public var deleted: [String] = []
-        public var isEmpty: Bool { created.isEmpty && updated.isEmpty && deleted.isEmpty }
+        public var tombstoneFailures: [String] = []
+        public var isEmpty: Bool {
+            created.isEmpty && updated.isEmpty && deleted.isEmpty && tombstoneFailures.isEmpty
+        }
     }
 
     /// Re-scan the directory and reconcile the in-memory index with it,
@@ -152,7 +168,7 @@ public actor NoteStore {
     /// Files that fail to decode are skipped, not treated as deletions — a
     /// malformed foreign file must never cascade into closing panels.
     @discardableResult
-    public func reconcile() -> ReconcileDiff {
+    public func reconcile() async -> ReconcileDiff {
         let onDisk = Dictionary(
             fileStore.loadAllLenient().map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first }
@@ -170,12 +186,36 @@ public actor NoteStore {
         }
         // Deleted = the file is gone. A present-but-undecodable file keeps its
         // in-memory version untouched (it may be foreign, or mid-rewrite).
-        diff.deleted = notes.keys.filter { !present.contains($0) }
-        for id in diff.deleted { notes[id] = nil }
+        let deletionCandidates = notes.keys.filter { !present.contains($0) }
+        for id in deletionCandidates {
+            do {
+                try await tombstoneStore?.recordDeletion(id: id, at: clock())
+                diff.deleted.append(id)
+                notes[id] = nil
+            } catch {
+                // Retain the known note so the next reconcile retries the
+                // journal write instead of silently losing delete evidence.
+                diff.tombstoneFailures.append(id)
+            }
+        }
+
+        // Retry stale tombstone cleanup for every present note, not only a
+        // newly discovered one. Independent CLI/app writers can transiently
+        // contend on the journal; reconciliation is the convergence loop.
+        for id in onDisk.keys {
+            do {
+                try await tombstoneStore?.remove(id: id)
+            } catch {
+                if !diff.tombstoneFailures.contains(id) {
+                    diff.tombstoneFailures.append(id)
+                }
+            }
+        }
 
         diff.created.sort()
         diff.updated.sort()
         diff.deleted.sort()
+        diff.tombstoneFailures.sort()
         for id in diff.created { post(.blinkNoteCreated, id: id) }
         for id in diff.updated { post(.blinkNoteUpdated, id: id) }
         for id in diff.deleted { post(.blinkNoteDeleted, id: id) }

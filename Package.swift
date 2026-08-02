@@ -10,11 +10,15 @@ let hudsonDependency: Package.Dependency = hudsonSource == "git"
 
 let package = Package(
     name: "Blink",
-    platforms: [.macOS(.v14)],
+    platforms: [
+        .macOS(.v14),
+        .iOS(.v17),
+    ],
     products: [
         .executable(name: "BlinkApp", targets: ["BlinkApp"]),
         .executable(name: "blink", targets: ["BlinkCLI"]),
         .library(name: "BlinkCore", targets: ["BlinkCore"]),
+        .library(name: "BlinkPeer", targets: ["BlinkPeer"]),
     ],
     dependencies: [
         hudsonDependency,
@@ -43,10 +47,20 @@ let package = Package(
             name: "BlinkCore",
             path: "Sources/BlinkCore"
         ),
+        .target(
+            name: "BlinkPeer",
+            dependencies: ["BlinkCore"],
+            path: "Sources/BlinkPeer"
+        ),
         .testTarget(
             name: "BlinkCoreTests",
             dependencies: ["BlinkCore"],
             path: "Tests/BlinkCoreTests"
+        ),
+        .testTarget(
+            name: "BlinkPeerTests",
+            dependencies: ["BlinkCore", "BlinkPeer"],
+            path: "Tests/BlinkPeerTests"
         ),
     ]
 )
