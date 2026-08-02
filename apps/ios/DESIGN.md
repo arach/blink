@@ -7,8 +7,9 @@ structure; ledger discipline supplies the geometry.
 ## Visual world
 
 - Warm paper in light mode, neutral graphite in dark mode. Never forest green.
-- Flat, full-bleed surfaces separated by rules. Cards and decorative glass do
-  not belong in the log or reader.
+- The phone log stays flat and full-bleed, separated by rules. On iPad, native
+  material earns its place by making notes read as windows over a desktop plane;
+  glass is spatial structure, never decorative frosting.
 - Signal blue marks the one live thing on screen. Amber means degraded or stale
   data, never ordinary offline use.
 - System typography carries interface copy; monospaced text carries indices,
@@ -20,7 +21,7 @@ structure; ledger discipline supplies the geometry.
 - Sync is a two-point rule plus a square pip and terse state: update age in the
   normal case, Mac name while connected, and action language only when stale or
   blocked.
-- First connection is one mobile-device request followed by one Mac approval. Blink
+- First connection is one iPhone request followed by one Mac approval. Blink
   remembers the approved device until the Mac revokes it; pairing codes never
   enter the interface.
 - The top-right complication opens local Settings. Connection, appearance, and
@@ -57,6 +58,13 @@ as color.
 - Regular-width iPad layouts become a spatial nine-slot desk instead of a
   stretched phone log. A note's portable `blink.slot` value chooses its place;
   exact Mac window frames remain local to that Mac.
+- The desk uses Blink's blue-violet-teal desktop drape and a quiet alignment
+  grid. It reflects the Mac app's atmosphere without copying desktop pixels,
+  requesting Screen Recording access, or adding wallpaper data to replication.
+- On iPadOS 26, resting notes and compact chrome use clear interactive Liquid
+  Glass while the raised reader uses regular glass for contrast. Earlier
+  systems use native materials; Reduce Transparency produces opaque semantic
+  surfaces and removes the atmospheric drape.
 - Unplaced notes and slot collisions fill the next open cells in chronological
   order. More than nine notes create additional swipeable desks, preserving a
   predictable grid rather than shrinking notes into thumbnails.

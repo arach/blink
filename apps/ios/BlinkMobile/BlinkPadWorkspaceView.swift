@@ -28,23 +28,27 @@ struct BlinkPadWorkspaceView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                topBar
+            ZStack(alignment: .trailing) {
+                BlinkPadDesktopBackdrop()
 
-                if let lastSyncedAt = model.lastSyncedAt {
-                    BlinkPadStatusStrip(
-                        state: model.connectionState,
-                        lastSyncedAt: lastSyncedAt,
-                        isSyncing: model.isSyncing,
-                        issueCount: model.snapshot?.issues.count ?? 0,
-                        noteCount: scopedNoteCount
-                    )
+                VStack(spacing: 0) {
+                    topBar
+
+                    if let lastSyncedAt = model.lastSyncedAt {
+                        BlinkPadStatusStrip(
+                            state: model.connectionState,
+                            lastSyncedAt: lastSyncedAt,
+                            isSyncing: model.isSyncing,
+                            issueCount: model.snapshot?.issues.count ?? 0,
+                            noteCount: scopedNoteCount
+                        )
+                        .padding(.horizontal, 24)
+                        .padding(.top, 10)
+                    }
+
+                    board
                 }
 
-                board
-            }
-            .background(BlinkBackdrop())
-            .overlay(alignment: .trailing) {
                 if let selectedNote {
                     BlinkPadReader(
                         note: selectedNote,
@@ -135,9 +139,16 @@ struct BlinkPadWorkspaceView: View {
             .buttonBorderShape(.circle)
             .accessibilityLabel("Settings")
         }
+        .padding(.horizontal, 18)
+        .frame(height: 64)
+        .background {
+            BlinkPadGlassSurface(
+                shape: RoundedRectangle(cornerRadius: 22, style: .continuous),
+                tint: BlinkMobileTheme.raisedSurface.opacity(0.16)
+            )
+        }
         .padding(.horizontal, 24)
-        .padding(.vertical, 14)
-        .background(BlinkMobileTheme.canvas)
+        .padding(.top, 12)
     }
 
     @ViewBuilder
@@ -202,9 +213,10 @@ struct BlinkPadWorkspaceView: View {
             Text("9 SLOTS")
                 .font(.caption.monospaced())
 
-            Spacer()
-
             if desks.count > 1 {
+                Divider()
+                    .frame(height: 14)
+
                 Button {
                     deskIndex = max(0, deskIndex - 1)
                 } label: {
@@ -223,12 +235,17 @@ struct BlinkPadWorkspaceView: View {
             }
         }
         .foregroundStyle(BlinkMobileTheme.faintInk)
-        .padding(.horizontal, 28)
-        .frame(height: 44)
-        .background(BlinkMobileTheme.rail)
-        .overlay(alignment: .top) {
-            BlinkMobileTheme.hairline.frame(height: 1)
+        .padding(.horizontal, 16)
+        .frame(height: 40)
+        .background {
+            BlinkPadGlassSurface(
+                shape: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                tint: BlinkMobileTheme.rail.opacity(0.18)
+            )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 14)
     }
 
     private var emptyBoard: some View {
@@ -297,10 +314,10 @@ private struct BlinkPadSearchField: View {
         }
         .padding(.horizontal, 13)
         .frame(height: 42)
-        .background(BlinkMobileTheme.surface)
+        .background(BlinkMobileTheme.raisedSurface.opacity(0.28))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(BlinkMobileTheme.hairline, lineWidth: 1)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.75)
         }
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
@@ -331,21 +348,25 @@ private struct BlinkPadStatusStrip: View {
                 .tracking(0.45)
                 .foregroundStyle(isDegraded ? BlinkMobileTheme.amber : BlinkMobileTheme.secondaryInk)
 
-            Spacer()
+            Text("·")
+                .foregroundStyle(BlinkMobileTheme.hairline)
 
             Text("\(noteCount) NOTE\(noteCount == 1 ? "" : "S")")
                 .font(.caption.monospaced().weight(.medium))
                 .tracking(0.8)
                 .foregroundStyle(BlinkMobileTheme.faintInk)
         }
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 14)
         .frame(height: 36)
-        .background(BlinkMobileTheme.canvas)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(isDegraded ? BlinkMobileTheme.amber : BlinkMobileTheme.signal.opacity(0.55))
-                .frame(height: 2)
+        .background {
+            BlinkPadGlassSurface(
+                shape: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                tint: isDegraded
+                    ? BlinkMobileTheme.amber.opacity(0.12)
+                    : BlinkMobileTheme.rail.opacity(0.16)
+            )
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(statusLine.capitalized), \(noteCount) notes")
     }
@@ -437,7 +458,7 @@ private struct BlinkPadNoteTile: View {
                 .padding(.trailing, 8)
                 .frame(width: 44, alignment: .trailing)
                 .frame(maxHeight: .infinity)
-                .background(BlinkMobileTheme.rail)
+                .background(BlinkMobileTheme.rail.opacity(0.52))
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(note.title)
@@ -470,14 +491,24 @@ private struct BlinkPadNoteTile: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(isSelected ? BlinkMobileTheme.signal.opacity(0.10) : BlinkMobileTheme.surface)
+                .background(isSelected ? BlinkMobileTheme.signal.opacity(0.11) : Color.clear)
             }
             .contentShape(Rectangle())
-            .overlay {
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(isSelected ? BlinkMobileTheme.signal : BlinkMobileTheme.hairline, lineWidth: 1)
+            .background {
+                BlinkPadGlassSurface(
+                    shape: RoundedRectangle(cornerRadius: 12, style: .continuous),
+                    tint: BlinkMobileTheme.raisedSurface.opacity(isSelected ? 0.30 : 0.17),
+                    interactive: true
+                )
             }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(BlinkMobileTheme.signal.opacity(0.78), lineWidth: 1)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .shadow(color: .black.opacity(isSelected ? 0.16 : 0.08), radius: 16, y: 8)
         }
         .buttonStyle(.plain)
         .hoverEffect(.highlight)
@@ -493,8 +524,11 @@ private struct BlinkPadEmptySlot: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(BlinkMobileTheme.hairline.opacity(0.72), style: StrokeStyle(lineWidth: 1, dash: [5, 7]))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(BlinkMobileTheme.raisedSurface.opacity(0.055))
+
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(BlinkMobileTheme.hairline.opacity(0.44), style: StrokeStyle(lineWidth: 0.75, dash: [5, 8]))
 
             Text(String(format: "%02d", number))
                 .font(.caption2.monospaced())
@@ -509,6 +543,7 @@ private struct BlinkPadReader: View {
     let note: BlinkSnapshotNote
     let index: Int
     let onClose: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -533,7 +568,7 @@ private struct BlinkPadReader: View {
             }
             .padding(.horizontal, 20)
             .frame(height: 52)
-            .background(BlinkMobileTheme.rail)
+            .background(BlinkMobileTheme.rail.opacity(0.46))
             .overlay(alignment: .bottom) {
                 BlinkMobileTheme.hairline.frame(height: 1)
             }
@@ -565,10 +600,156 @@ private struct BlinkPadReader: View {
                 .frame(maxWidth: 680, alignment: .leading)
             }
         }
-        .background(BlinkMobileTheme.raisedSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: .black.opacity(0.30), radius: 24, y: 14)
+        .background {
+            BlinkPadGlassSurface(
+                shape: RoundedRectangle(cornerRadius: 20, style: .continuous),
+                tint: BlinkMobileTheme.raisedSurface.opacity(colorScheme == .dark ? 0.46 : 0.62),
+                weight: .regular
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.28), radius: 30, y: 18)
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// A calm version of Blink's macOS desktop scene. It carries the host's visual
+/// language without copying pixels or requiring Screen Recording permission.
+private struct BlinkPadDesktopBackdrop: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        ZStack {
+            base
+
+            if !reduceTransparency {
+                RadialGradient(
+                    colors: [
+                        Color(red: 0.24, green: 0.34, blue: 0.62)
+                            .opacity(colorScheme == .dark ? 0.76 : 0.44),
+                        .clear,
+                    ],
+                    center: UnitPoint(x: 0.10, y: 0.04),
+                    startRadius: 0,
+                    endRadius: 760
+                )
+
+                RadialGradient(
+                    colors: [
+                        Color(red: 0.48, green: 0.28, blue: 0.58)
+                            .opacity(colorScheme == .dark ? 0.58 : 0.34),
+                        .clear,
+                    ],
+                    center: UnitPoint(x: 0.94, y: 0.16),
+                    startRadius: 0,
+                    endRadius: 680
+                )
+
+                RadialGradient(
+                    colors: [
+                        Color(red: 0.10, green: 0.40, blue: 0.48)
+                            .opacity(colorScheme == .dark ? 0.52 : 0.32),
+                        .clear,
+                    ],
+                    center: UnitPoint(x: 0.72, y: 1.02),
+                    startRadius: 0,
+                    endRadius: 720
+                )
+
+                RadialGradient(
+                    colors: [BlinkMobileTheme.signal.opacity(colorScheme == .dark ? 0.24 : 0.14), .clear],
+                    center: UnitPoint(x: 0.30, y: 0.86),
+                    startRadius: 0,
+                    endRadius: 520
+                )
+
+                BlinkPadDesktopGrid()
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var base: Color {
+        if reduceTransparency { return BlinkMobileTheme.canvas }
+        return colorScheme == .dark
+            ? Color(red: 0.055, green: 0.065, blue: 0.115)
+            : Color(red: 0.86, green: 0.88, blue: 0.92)
+    }
+}
+
+private struct BlinkPadDesktopGrid: View {
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let step: CGFloat = 48
+
+            for x in stride(from: CGFloat.zero, through: size.width, by: step) {
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+            }
+            for y in stride(from: CGFloat.zero, through: size.height, by: step) {
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+            }
+
+            context.stroke(
+                path,
+                with: .color(BlinkMobileTheme.hairline.opacity(0.16)),
+                lineWidth: 0.5
+            )
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Native Liquid Glass on iPadOS 26, system material before that, and an opaque
+/// semantic surface when the user asks iPadOS to reduce transparency.
+private enum BlinkPadGlassWeight {
+    case clear
+    case regular
+}
+
+private struct BlinkPadGlassSurface<S: Shape>: View {
+    let shape: S
+    let tint: Color
+    var interactive = false
+    var weight: BlinkPadGlassWeight = .clear
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        Group {
+            if reduceTransparency {
+                shape.fill(BlinkMobileTheme.raisedSurface)
+            } else if #available(iOS 26.0, *) {
+                let glass = weight == .regular ? Glass.regular : Glass.clear
+                shape
+                    .fill(Color.clear)
+                    .glassEffect(
+                        glass.tint(tint).interactive(interactive),
+                        in: shape
+                    )
+            } else {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .overlay(shape.fill(tint))
+            }
+        }
+        .overlay {
+            shape.stroke(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(colorScheme == .dark ? 0.20 : 0.62),
+                        BlinkMobileTheme.hairline.opacity(colorScheme == .dark ? 0.28 : 0.42),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 0.75
+            )
+        }
     }
 }
 
