@@ -46,7 +46,7 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
     public init(identity: BlinkPeerClientIdentity) {
         self.identity = identity
         var displayName = identity.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if displayName.isEmpty { displayName = "iPhone" }
+        if displayName.isEmpty { displayName = "Mobile device" }
         while displayName.utf8.count > 60 { displayName.removeLast() }
         let peerID = MCPeerID(displayName: displayName)
         self.peerID = peerID

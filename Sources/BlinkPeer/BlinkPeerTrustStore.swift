@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-/// The private, app-scoped credential an iPhone presents inside an encrypted
+/// The private, app-scoped credential a mobile device presents inside an encrypted
 /// peer session. The value is random and never shown as part of the pairing UI.
 public struct BlinkPeerClientIdentity: Codable, Equatable, Sendable {
     public var credential: String

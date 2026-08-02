@@ -4,6 +4,7 @@
 dist/
 out/
 *.xcodeproj
+apps/ios/BlinkMobile/Info.plist
 *.tsbuildinfo
 
 # Dependencies

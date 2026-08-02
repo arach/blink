@@ -96,6 +96,12 @@ Other useful references:
   math / panel physics.
 - `Sources/BlinkCLI` — `swift-argument-parser` CLI over BlinkCore. `BlinkPaths`
   keeps the app and CLI on the same locations.
+- `Sources/BlinkPeer` — encrypted Multipeer Connectivity discovery, pairing,
+  and snapshot transport shared by macOS and iOS. Bonjour advertises presence;
+  new devices request explicit Mac approval inside an encrypted session, and
+  remembered device access remains revocable from the Mac.
+- `apps/ios` — XcodeGen source for the read-only, offline-first iPhone/iPad
+  companion. It consumes the local BlinkCore and BlinkPeer package products.
 - `Tests/BlinkCoreTests` — narrow tests for storage, frontmatter, identity,
   workspaces, grid placement, and panel physics; run the matching suite for
   domain changes.
@@ -114,6 +120,7 @@ swift test                   # BlinkCore tests
 swift build --product blink  # notes CLI (docs/cli.md)
 (cd web/editor && bun install && bun run build)   # editor bundle
 ./scripts/run-app.sh --debug --restart            # bundle dist/Blink.app + launch
+(cd apps/ios && xcodegen generate)                 # generate BlinkMobile.xcodeproj
 ```
 
 ## Hard requirements (inherited from v1 bugs)

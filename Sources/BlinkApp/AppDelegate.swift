@@ -1,5 +1,6 @@
 import AppKit
 import BlinkCore
+import BlinkPeer
 import HudsonObservability
 import ServiceManagement
 import SwiftUI
@@ -18,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var activityCatalog: BlinkActivityCatalog?
     private var commandRequestObserver: NSObjectProtocol?
     private var notesWatcher: DirectoryWatcher?
+    private var peerServer: BlinkLANPeerServer?
     private let log = HudLogger(category: "blink.app")
 
     static func notesDirectory() -> URL {
@@ -34,6 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             fileStore: NoteFileStore(directory: Self.notesDirectory()),
             tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
         )
+        startPeerServer()
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)
         panelManager.onWorkspaceScopeRequested = { [weak self] scope in
@@ -265,6 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        peerServer?.stop()
         HotkeyManager.shared.unregisterAll()
         if let commandRequestObserver {
             NotificationCenter.default.removeObserver(commandRequestObserver)
@@ -503,7 +507,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 },
                 beginDictation: { [weak self] in
                     self?.beginPopoverDictation()
-                }
+                },
+                trustedPeerCount: peerServer?.trustedPeers.count ?? 0
             )
         )
         host.sizingOptions = .preferredContentSize
@@ -568,6 +573,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         menu.addItem(.separator())
 
+        let accessItem = NSMenuItem(title: "Mobile Access", action: nil, keyEquivalent: "")
+        let accessMenu = NSMenu()
+        let trustedPeers = peerServer?.trustedPeers ?? []
+        if trustedPeers.isEmpty {
+            let emptyItem = NSMenuItem(title: "No approved devices", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            accessMenu.addItem(emptyItem)
+        } else {
+            for peer in trustedPeers {
+                let item = NSMenuItem(
+                    title: "Revoke “\(peer.name)”…",
+                    action: #selector(menuRevokePeer(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = peer.id
+                accessMenu.addItem(item)
+            }
+        }
+        accessMenu.addItem(.separator())
+        let accessHelp = NSMenuItem(
+            title: "New devices ask for approval on this Mac",
+            action: nil,
+            keyEquivalent: ""
+        )
+        accessHelp.isEnabled = false
+        accessMenu.addItem(accessHelp)
+        accessItem.submenu = accessMenu
+        menu.addItem(accessItem)
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(menuSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -626,8 +662,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         openGuide()
     }
 
+    @objc private func menuRevokePeer(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String,
+              let peer = peerServer?.trustedPeers.first(where: { $0.id == id })
+        else { return }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Revoke access for \(peer.name)?"
+        alert.informativeText = "This device will stop syncing immediately. It must be approved again before it can read notes from this Mac."
+        alert.addButton(withTitle: "Revoke Access")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if peerServer?.revokeTrustedPeer(id: id) == true {
+            log.info("[BLINK] revoked LAN device access", metadata: ["device": peer.name])
+        }
+    }
+
     @objc private func menuQuit() {
         NSApp.terminate(nil)
+    }
+
+    private func startPeerServer() {
+        let defaults = UserDefaults.standard
+        let hostIDKey = "blink.peer.host-id"
+        let hostID: String
+        if let saved = defaults.string(forKey: hostIDKey) {
+            hostID = saved
+        } else {
+            hostID = UUID().uuidString.lowercased()
+            defaults.set(hostID, forKey: hostIDKey)
+        }
+
+        let machineName = Host.current().localizedName ?? "Mac"
+        var displayName = "Blink · \(machineName)"
+        while displayName.utf8.count > 60 { displayName.removeLast() }
+        let server = BlinkLANPeerServer(
+            hostID: hostID,
+            displayName: displayName,
+            snapshotService: BlinkSnapshotService(
+                builder: BlinkSnapshotBuilder(notesDirectory: Self.notesDirectory()),
+                tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
+            ),
+            approvalHandler: { identity in
+                await Self.requestPeerApproval(for: identity)
+            }
+        )
+        server.start()
+        peerServer = server
+        log.info("[BLINK] encrypted LAN sync available", metadata: ["hostID": hostID])
+    }
+
+    @MainActor
+    private static func requestPeerApproval(for identity: BlinkPeerClientIdentity) -> Bool {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Allow \(identity.name) to read your Blink notes?"
+        alert.informativeText = "This request came from a nearby device on your local network. Allowing it creates an encrypted, read-only offline copy. You can revoke access from Blink’s menu."
+        alert.addButton(withTitle: "Allow")
+        alert.addButton(withTitle: "Not Now")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func configureDiscovery() {

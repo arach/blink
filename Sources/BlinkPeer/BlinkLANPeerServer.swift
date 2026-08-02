@@ -117,7 +117,7 @@ public final class BlinkLANPeerServer: NSObject, @unchecked Sendable {
                   requestedIdentity.credential.allSatisfy(\.isHexDigit)
             else {
                 send(
-                    .failure(BlinkPeerFailure(code: "invalid-identity", message: "Blink on this iPhone needs to be reinstalled.")),
+                    .failure(BlinkPeerFailure(code: "invalid-identity", message: "Blink on this device needs to be reinstalled.")),
                     id: envelope.id,
                     to: peer,
                     using: responseKey

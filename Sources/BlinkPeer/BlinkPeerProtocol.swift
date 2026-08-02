@@ -61,7 +61,7 @@ public enum BlinkPeerError: Error, LocalizedError, Equatable, Sendable {
         case .accessDenied:
             return "Access wasn’t allowed on your Mac. You can try again."
         case .unauthorized:
-            return "This iPhone no longer has access to the Mac. Request access again."
+            return "This device no longer has access to the Mac. Request access again."
         case .invalidResponse:
             return "The Mac returned an invalid Blink response."
         case .requestTimedOut:
