@@ -10,5 +10,7 @@
     <!-- The read-mode renderer loads remote images over https (ATS-gated). -->
     <key>com.apple.security.network.client</key>
     <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
 </dict>
 </plist>

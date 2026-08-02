@@ -109,6 +109,12 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
   <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Blink uses your local network to share notes with your paired iPhone or iPad.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_blink-notes._tcp</string>
+  </array>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>

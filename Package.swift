@@ -29,6 +29,7 @@ let package = Package(
             name: "BlinkApp",
             dependencies: [
                 "BlinkCore",
+                "BlinkPeer",
                 .product(name: "HudsonUI", package: "hudson"),
                 .product(name: "HudsonShell", package: "hudson"),
                 .product(name: "HudsonObservability", package: "hudson"),
