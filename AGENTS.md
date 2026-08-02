@@ -75,8 +75,8 @@ When documents disagree, use this order:
 
 Other useful references:
 
-- UI studies / visual spec: `design/studio` (local, untracked, and absent from
-  a fresh clone; `bun dev` → `localhost:3060/studio`).
+- UI studies / visual spec: `design/studio` (tracked shared-Studio app;
+  `bun dev` → `localhost:3060/studio`).
 - The CLI operates on the same files as the app:
   `blink ls/cat/new/present/type/write/search/rm/path/workspace`; see
   `docs/cli.md`.
