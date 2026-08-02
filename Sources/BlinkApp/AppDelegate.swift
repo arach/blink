@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var popover: NSPopover?
     private var contextMenu: NSMenu!
     private var store: NoteStore!
+    private var sourcePanelManager: SourcePanelManager!
     private var panelManager: PanelManager!
     private var model: AppModel!
     private var settingsWindow: NSWindow?
@@ -39,7 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
         )
         startPeerServer()
-        panelManager = PanelManager(store: store)
+        sourcePanelManager = SourcePanelManager()
+        panelManager = PanelManager(store: store, sourcePanels: sourcePanelManager)
         model = AppModel(store: store, panelManager: panelManager)
         panelManager.onWorkspaceScopeRequested = { [weak self] scope in
             self?.model.selectWorkspace(scope)
@@ -147,6 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
 
         appItem("Commands…", action: #selector(menuCommands), keyEquivalent: "k")
+        appItem("Open Source File…", action: #selector(menuOpenSourceFile), keyEquivalent: "o")
         appItem(
             "Help & Shortcuts",
             action: #selector(menuGuide),
@@ -541,6 +544,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         newNoteItem.target = self
         menu.addItem(newNoteItem)
 
+        let sourceItem = NSMenuItem(
+            title: "Open Source File…",
+            action: #selector(menuOpenSourceFile),
+            keyEquivalent: ""
+        )
+        sourceItem.target = self
+        menu.addItem(sourceItem)
+
         menu.addItem(.separator())
 
         // Background: quick control over the drape (the full-screen blur/dim
@@ -678,6 +689,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         toggleCommandPalette(from: NSApp.keyWindow)
     }
 
+    @objc private func menuOpenSourceFile() {
+        popover?.performClose(nil)
+        commandPaletteController?.dismiss()
+        sourcePanelManager.chooseAndOpenFile()
+    }
+
     @objc private func menuGuide() {
         openGuide()
     }
@@ -810,6 +827,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             openConfigFile: {
                 NSWorkspace.shared.open(BlinkConfigStore.shared.fileURL)
             },
+            openSourceFile: { [weak self] in self?.menuOpenSourceFile() },
             toggleCurrentNoteMode: { [weak self] in self?.panelManager.toggleCommandNoteMode() },
             toggleCurrentNoteFocus: { [weak self] in self?.panelManager.toggleCommandNoteFocus() },
             chooseCurrentNoteStyle: { [weak self] in self?.panelManager.chooseCommandNoteStyle() },

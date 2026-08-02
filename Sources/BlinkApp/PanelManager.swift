@@ -18,6 +18,7 @@ struct DeskFrameRequest: Sendable {
 @MainActor
 final class PanelManager: NSObject, NSWindowDelegate {
     private let store: NoteStore
+    private let sourcePanels: SourcePanelManager
     private var panels: [String: NotePanel] = [:]
     private var pendingText: [String: String] = [:]
     /// What each open panel currently displays — the tell between "our own
@@ -27,6 +28,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// `blink.slot` (e.g. `blink present --slot`) can move the panel live and an
     /// unchanged one never re-snaps. Absent = the note declares no slot.
     private var panelSlot: [String: Int] = [:]
+    /// Detects metadata-only source-cast changes without reloading every
+    /// companion after ordinary body saves.
+    private var panelCompanionSignatures: [String: String] = [:]
     private var observers: [NSObjectProtocol] = []
     private var saveTasks: [String: Task<Void, Never>] = [:]
     private var revealCompletionTasks: [String: Task<Void, Never>] = [:]
@@ -62,8 +66,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
         let wasKey: Bool
     }
 
-    init(store: NoteStore) {
+    init(store: NoteStore, sourcePanels: SourcePanelManager) {
         self.store = store
+        self.sourcePanels = sourcePanels
     }
 
     // MARK: - Lifecycle
@@ -138,6 +143,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// A note is being deleted: drop any pending edits for it (so the close
     /// flush doesn't resurrect them against a missing id) and close its panel.
     func handleNoteDeleted(id: String) {
+        sourcePanels.dismissCompanions(for: id)
         discardTypedReveal(id: id)
         saveTasks[id]?.cancel()
         saveTasks[id] = nil
@@ -184,6 +190,19 @@ final class PanelManager: NSObject, NSWindowDelegate {
             presentation.sheet = legacy
         }
         panel.applyPresentation(presentation)
+        panel.configureSourceCompanions(
+            count: presentation.companions?.sources.count ?? 0,
+            visible: sourcePanels.companionsVisible(for: id)
+        )
+        let companionSignature = Self.companionSignature(presentation.companions)
+        if panelCompanionSignatures[id] != companionSignature {
+            panelCompanionSignatures[id] = companionSignature
+            if presentation.companions?.sources.isEmpty != false {
+                sourcePanels.dismissCompanions(for: id)
+            } else if !blinkHidden, panel.isVisible, panelMatchesWorkspace(noteID: id) {
+                sourcePanels.activateCompanions(for: note, relativeTo: panel.frame)
+            }
+        }
 
         // Presentation intent must reach an open panel even when the body is
         // unchanged: `blink present --slot N` moves the panel into its grid cell.
@@ -395,6 +414,14 @@ final class PanelManager: NSObject, NSWindowDelegate {
         // next Hyper+B should hide everything again.
         if shouldPresent { blinkHidden = false }
         if let existing = panels[note.id] {
+            let companionCount = note.presentation.companions?.sources.count ?? 0
+            panelCompanionSignatures[note.id] = Self.companionSignature(
+                note.presentation.companions
+            )
+            existing.configureSourceCompanions(
+                count: companionCount,
+                visible: sourcePanels.companionsVisible(for: note.id)
+            )
             if let deskFrame {
                 applyDeskFrame(noteID: note.id, request: deskFrame, animated: false)
             }
@@ -405,6 +432,11 @@ final class PanelManager: NSObject, NSWindowDelegate {
             } else {
                 workspaceSuppressedPanelIDs.insert(note.id)
                 existing.orderOut(nil)
+            }
+            if shouldPresent, companionCount > 0 {
+                sourcePanels.activateCompanions(for: note, relativeTo: existing.frame)
+            } else {
+                sourcePanels.dismissCompanions(for: note.id)
             }
             return existing
         }
@@ -425,6 +457,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.delegate = self
         panels[note.id] = panel
         panelContent[note.id] = note.content
+        panelCompanionSignatures[note.id] = Self.companionSignature(
+            note.presentation.companions
+        )
 
         // The panel's context menu copies the truthful in-memory document,
         // including edits that have not reached the debounced disk save yet.
@@ -452,7 +487,25 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
         // Hiding a note from its context menu changes how many notes are on
         // screen, which the drape depends on — re-evaluate its backdrops.
-        panel.onVisibilityChanged = { [weak self] in self?.updateFocusOverlay() }
+        panel.onVisibilityChanged = { [weak self] in
+            self?.sourcePanels.dismissCompanions(for: note.id)
+            self?.updateFocusOverlay()
+        }
+        panel.configureSourceCompanions(
+            count: note.presentation.companions?.sources.count ?? 0,
+            visible: sourcePanels.companionsVisible(for: note.id)
+        )
+        panel.onToggleSourceCompanions = { [weak self, weak panel] in
+            guard let self, let panel else { return }
+            Task { @MainActor in
+                guard let current = await self.store.note(id: note.id) else { return }
+                self.sourcePanels.toggleCompanions(for: current, relativeTo: panel.frame)
+                panel.configureSourceCompanions(
+                    count: current.presentation.companions?.sources.count ?? 0,
+                    visible: self.sourcePanels.companionsVisible(for: note.id)
+                )
+            }
+        }
 
         panel.editor.onContentChanged = { [weak self] text in
             // User input is the reveal's hard stop. Web already unmasks its
@@ -544,6 +597,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
         persistOpenList()
         updateFocusOverlay()
         gridOverlay?.refresh()
+        if shouldPresent, playEntrance {
+            sourcePanels.activateCompanions(for: note, relativeTo: panel.frame)
+        }
         return panel
     }
 
@@ -605,6 +661,19 @@ final class PanelManager: NSObject, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         if let panel = notification.object as? NotePanel {
             mostRecentKeyPanelID = panel.noteID
+            Task { [weak self, weak panel] in
+                guard let self, let panel,
+                      !self.blinkHidden,
+                      self.panelMatchesWorkspace(noteID: panel.noteID),
+                      panel.isKeyWindow,
+                      let note = await self.store.note(id: panel.noteID)
+                else { return }
+                self.sourcePanels.activateCompanions(for: note, relativeTo: panel.frame)
+                panel.configureSourceCompanions(
+                    count: note.presentation.companions?.sources.count ?? 0,
+                    visible: self.sourcePanels.companionsVisible(for: note.id)
+                )
+            }
         }
         updateFocusOverlay()
     }
@@ -754,9 +823,12 @@ final class PanelManager: NSObject, NSWindowDelegate {
 
         let matching = panels.filter { panelMatchesWorkspace(noteID: $0.key) }
         let outgoing = panels.filter { !panelMatchesWorkspace(noteID: $0.key) }
-        for (id, panel) in outgoing where panel.isVisible {
-            workspaceSuppressedPanelIDs.insert(id)
-            panel.orderOut(nil)
+        for (id, panel) in outgoing {
+            sourcePanels.dismissCompanions(for: id)
+            if panel.isVisible {
+                workspaceSuppressedPanelIDs.insert(id)
+                panel.orderOut(nil)
+            }
         }
 
         guard !blinkHidden else {
@@ -869,6 +941,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         for panel in panels.values {
             panel.applyTheme(config)
         }
+        sourcePanels.applyTheme(config)
         focusOverlay.applyTheme(dim: config.focus.dim)
         drapeOverlay.applyTheme(
             dim: config.drape.dim,
@@ -910,6 +983,9 @@ final class PanelManager: NSObject, NSWindowDelegate {
         let motion = BlinkConfigStore.shared.config.motion
         let animate = motion.enabled && !NotePanel.reduceMotion
         if blinkHidden {
+            for id in panels.keys where panelMatchesWorkspace(noteID: id) {
+                sourcePanels.dismissCompanions(for: id)
+            }
             if animate {
                 // Synchronized exhale: every panel fades + drifts 6px outward
                 // together over ~180ms, THEN orderOut. The state is already
@@ -995,6 +1071,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// and persists an EMPTY open-notes list — killing session restore.
     func prepareForTermination() {
         isTerminating = true
+        sourcePanels.closeAll()
         for id in Array(revealCompletionTasks.keys) { discardTypedReveal(id: id) }
         gridOverlay?.hide()
         focusOverlay.hide()
@@ -1036,16 +1113,24 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
     }
 
+    private static func companionSignature(_ companions: NoteCompanions?) -> String {
+        guard let companions else { return "" }
+        return ([companions.layout ?? ""] + companions.sources.map(\.locator))
+            .joined(separator: "\u{1F}")
+    }
+
     // MARK: - NSWindowDelegate
 
     func windowWillClose(_ notification: Notification) {
         guard let panel = notification.object as? NotePanel else { return }
         let id = panel.noteID
+        sourcePanels.dismissCompanions(for: id)
         discardTypedReveal(id: id)
         panel.editor.teardown()
         panels[id] = nil
         panelContent[id] = nil
         panelSlot[id] = nil
+        panelCompanionSignatures[id] = nil
         panelWorkspaces[id] = nil
         workspaceSuppressedPanelIDs.remove(id)
         if mostRecentKeyPanelID == id {

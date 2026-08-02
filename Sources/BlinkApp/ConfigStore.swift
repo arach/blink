@@ -8,4 +8,5 @@ enum ConfigKeys {
     static let defaultMode = "blink.defaultMode"        // legacy; migrated into config.json
     static let activeWorkspaceScope = "blink.activeWorkspaceScope"
     static func noteMode(_ id: String) -> String { "blink.noteMode.\(id)" }
+    static func noteCompanionsHidden(_ id: String) -> String { "blink.noteCompanionsHidden.\(id)" }
 }

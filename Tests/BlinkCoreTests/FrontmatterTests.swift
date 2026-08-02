@@ -370,6 +370,96 @@ struct FrontmatterTests {
         #expect(!encoded.contains("blink:"))
     }
 
+    @Test("Source companions decode and round-trip as portable note intent")
+    func sourceCompanionsRoundTrip() throws {
+        let raw = """
+        ---
+        id: review
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          companions:
+            layout: review-bench
+            sources:
+              - "blink/Sources/BlinkCore/Note.swift#L12-28@76fc2d1"
+              - "blink/Sources/BlinkApp/WebBridge.swift"
+        ---
+        # Review
+        """
+
+        let decoded = try Frontmatter.decode(raw)
+        let companions = try #require(decoded.presentation.companions)
+        #expect(companions.layout == "review-bench")
+        #expect(companions.sources.count == 2)
+        #expect(companions.sources[0].lines?.start == 12)
+
+        let encoded = Frontmatter.encode(decoded)
+        #expect(encoded.contains("  companions:"))
+        #expect(encoded.contains("    layout: review-bench"))
+        #expect(encoded.contains("      - \"blink/Sources/BlinkApp/WebBridge.swift\""))
+        #expect(try Frontmatter.decode(encoded).presentation.companions == companions)
+    }
+
+    @Test("Invalid companion entries survive without becoming viewer authority")
+    func invalidCompanionsSurvive() throws {
+        let raw = """
+        ---
+        id: future
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          companions:
+            layout: review-bench
+            futureMode: stacked
+            sources:
+              - "blink/../Secrets.swift"
+              - "blink/Sources/Safe.swift"
+        ---
+        body
+        """
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.presentation.companions?.sources.map(\.path) == ["Sources/Safe.swift"])
+        let encoded = Frontmatter.encode(decoded)
+        #expect(encoded.contains("futureMode: stacked"))
+        #expect(encoded.contains("blink/../Secrets.swift"))
+        let lines = encoded.split(separator: "\n").map(String.init)
+        let invalidIndex = try #require(
+            lines.firstIndex(of: "      - \"blink/../Secrets.swift\"")
+        )
+        let futureIndex = try #require(lines.firstIndex(of: "    futureMode: stacked"))
+        #expect(invalidIndex < futureIndex)
+
+        let reDecoded = try Frontmatter.decode(encoded)
+        #expect(reDecoded.presentation.companions?.sources.map(\.path) == ["Sources/Safe.swift"])
+        #expect(reDecoded.presentation.companions?.extraSourceLines == [
+            "      - \"blink/../Secrets.swift\""
+        ])
+        #expect(reDecoded.presentation.companions?.extraLines == ["    futureMode: stacked"])
+    }
+
+    @Test("Nested foreign companion-shaped data never grants source authority")
+    func nestedForeignCompanionsStayForeign() throws {
+        let raw = """
+        ---
+        id: foreign-companions
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+          futureSurface:
+            companions:
+              sources:
+                - "blink/Sources/ShouldNotOpen.swift"
+        ---
+        body
+        """
+
+        let decoded = try Frontmatter.decode(raw)
+        #expect(decoded.presentation.companions == nil)
+        let encoded = Frontmatter.encode(decoded)
+        #expect(encoded.contains("    companions:"))
+        #expect(encoded.contains("        - \"blink/Sources/ShouldNotOpen.swift\""))
+    }
+
     @Test("Foreign keys survive a decode → edit → encode cycle alongside blink")
     func foreignSurvivesWithBlink() throws {
         let raw = """

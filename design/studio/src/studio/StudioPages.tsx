@@ -1,7 +1,7 @@
 "use client";
 
 import React, { type ReactNode } from "react";
-import { AppWindow, ArrowRight, Command, FileText, Grid3x3, Layers, MenuSquare } from "lucide-react";
+import { AppWindow, ArrowRight, Code2, Command, FileText, Grid3x3, Layers, MenuSquare } from "lucide-react";
 import {
   AnnotatableDoc,
   annotationsToDecisions,
@@ -18,6 +18,7 @@ import { IOSDesignDirectionsStudy } from "@/studio/studies/IOSDesignDirectionsSt
 import { MenubarPopoverStudy } from "@/studio/studies/MenubarPopoverStudy";
 import { NotePanelStudy } from "@/studio/studies/NotePanelStudy";
 import { SettingsStudy } from "@/studio/studies/SettingsStudy";
+import { SpatialCodeReviewStudy } from "@/studio/studies/SpatialCodeReviewStudy";
 import { StacksStudy } from "@/studio/studies/StacksStudy";
 import { StylePermutationsStudy } from "@/studio/studies/StylePermutationsStudy";
 import {
@@ -79,6 +80,29 @@ const STUDIES: Record<string, Study> = {
     open: [
       "Does the resting panel keep the traffic lights, or do those also fade until hover?",
       "Shade interaction: middle-click vs double-click the title bar (or both)?",
+    ],
+  },
+  "/studio/studies/review-bench": {
+    component: SpatialCodeReviewStudy,
+    intent:
+      "The Markdown note is the activation unit. Its blink.companions frontmatter carries portable intent: named-root source references and a preferred arrangement. Activating the note resolves those references into immutable CodeMirror views, but exact frames and the user's Code Auto/Hidden control stay device-local. When companions are hidden, clicking a citation opens one ephemeral peek without rewriting metadata or rearranging the desk. The active note, bundle, source, and anchor become coding-agent context; Cursor or Xcode remains the editing handoff.",
+    specs: [
+      ["driver", "Markdown note · blink.companions frontmatter"],
+      ["portable", "named-root refs · revisions/anchors · preferred arrangement"],
+      ["device", "Code Auto/Hidden · exact frames · current peek"],
+      ["identity", "named root + relative path + revision hash + line range"],
+      ["activation", "Auto lays out cast · Hidden stays quiet · citation peeks"],
+      ["renderer", "CodeMirror 6 view state · parsers/search/selection/decorations"],
+      ["bridge", "no write methods · no contentChanged/saveRequested messages"],
+      ["agent", "bundle + active source + anchor are context · additions require admission"],
+      ["handoff", "Open in Cursor/Xcode for edit, build, debug, deep project work"],
+      ["review", "Opus via Scout · ref:c-kzbjmw"],
+    ],
+    open: [
+      "Should an agent-authored companion addition write frontmatter immediately, or first appear as a local proposal until the user admits it?",
+      "Does a full tree appear only as a temporary source picker, or can a user deliberately pin one without changing Blink's default posture?",
+      "Should revision hashes remain visible in raw citation prose, or be written by Blink and collapsed in rendered Markdown?",
+      "When source drifts, is a visible stale anchor enough, or should a later tool offer an explicit, never-silent rebind?",
     ],
   },
   "/studio/studies/menubar-popover": {
@@ -303,6 +327,7 @@ function HomePage() {
 }
 
 function studyIcon(href: string) {
+  if (href.endsWith("review-bench")) return <Code2 size={16} />;
   if (href.endsWith("menubar-popover")) return <MenuSquare size={16} />;
   if (href.endsWith("command-palette")) return <Command size={16} />;
   if (href.endsWith("grid-overlay")) return <Grid3x3 size={16} />;

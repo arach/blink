@@ -57,10 +57,16 @@ fi
 
 # Editor web bundle (built separately: cd web/editor && bun run build).
 editor_html="$repo_root/web/editor/dist/editor.html"
+source_viewer_html="$repo_root/web/editor/dist/source-viewer.html"
 if [[ -f "$editor_html" ]]; then
   cp "$editor_html" "$app_path/Contents/Resources/editor.html"
 else
   echo "warning: web/editor/dist/editor.html missing — note panels will not load an editor" >&2
+fi
+if [[ -f "$source_viewer_html" ]]; then
+  cp "$source_viewer_html" "$app_path/Contents/Resources/source-viewer.html"
+else
+  echo "warning: web/editor/dist/source-viewer.html missing — source panels will not render" >&2
 fi
 
 # Keep local bundles truthful: the same package version drives the CLI, npm,

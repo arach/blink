@@ -86,6 +86,20 @@ public enum Frontmatter {
         if let v = p.tintEdit { lines.append("  tintEdit: \(formatDouble(v))") }
         if let v = p.radius { lines.append("  radius: \(formatDouble(v))") }
         if let v = p.slot { lines.append("  slot: \(v)") }
+        if let companions = p.companions, !companions.isEmpty {
+            lines.append("  companions:")
+            if let layout = companions.layout {
+                lines.append("    layout: \(quoteIfNeeded(layout))")
+            }
+            if !companions.sources.isEmpty || !companions.extraSourceLines.isEmpty {
+                lines.append("    sources:")
+                for source in companions.sources {
+                    lines.append("      - \(quoteYAMLString(source.locator))")
+                }
+                lines.append(contentsOf: companions.extraSourceLines)
+            }
+            lines.append(contentsOf: companions.extraLines)
+        }
         lines.append(contentsOf: note.extraBlink)
     }
 
@@ -201,8 +215,34 @@ public enum Frontmatter {
         into presentation: inout NotePresentation,
         unknown: inout [String]
     ) {
-        for raw in lines {
+        let fieldIndent = lines
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map(indentation)
+            .min() ?? 0
+        var index = 0
+        while index < lines.count {
+            let raw = lines[index]
+            index += 1
             let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            guard indentation(of: raw) == fieldIndent else {
+                unknown.append(raw)
+                continue
+            }
+            if trimmed == "companions:" {
+                let parentIndent = indentation(of: raw)
+                var block: [String] = []
+                while index < lines.count, indentation(of: lines[index]) > parentIndent {
+                    block.append(lines[index])
+                    index += 1
+                }
+                parseCompanionsBlock(
+                    block,
+                    parentLine: raw,
+                    into: &presentation,
+                    unknown: &unknown
+                )
+                continue
+            }
             guard let colon = trimmed.firstIndex(of: ":") else {
                 unknown.append(raw)
                 continue
@@ -227,6 +267,75 @@ public enum Frontmatter {
             case "slot": if let i = Int(value) { presentation.slot = i } else { unknown.append(raw) }
             default: unknown.append(raw)
             }
+        }
+    }
+
+    private static func parseCompanionsBlock(
+        _ lines: [String],
+        parentLine: String,
+        into presentation: inout NotePresentation,
+        unknown: inout [String]
+    ) {
+        var companions = NoteCompanions()
+        var recognized = false
+        let fieldIndent = lines
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map(indentation)
+            .min() ?? 0
+        var index = 0
+
+        while index < lines.count {
+            let raw = lines[index]
+            index += 1
+            let trimmed = raw.trimmingCharacters(in: .whitespaces)
+            guard indentation(of: raw) == fieldIndent else {
+                companions.preserveExtraLine(raw)
+                continue
+            }
+            guard let colon = trimmed.firstIndex(of: ":") else {
+                companions.preserveExtraLine(raw)
+                continue
+            }
+            let key = String(trimmed[..<colon]).trimmingCharacters(in: .whitespaces)
+            let value = unquote(
+                String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
+            )
+
+            if key == "layout", !value.isEmpty {
+                companions.layout = value
+                recognized = true
+                continue
+            }
+            if key == "sources", value.isEmpty {
+                let sourcesIndent = indentation(of: raw)
+                while index < lines.count, indentation(of: lines[index]) > sourcesIndent {
+                    let item = lines[index]
+                    index += 1
+                    let itemValue = item.trimmingCharacters(in: .whitespaces)
+                    guard itemValue.hasPrefix("-") else {
+                        companions.preserveExtraSourceLine(item)
+                        continue
+                    }
+                    let locator = unquote(
+                        String(itemValue.dropFirst()).trimmingCharacters(in: .whitespaces)
+                    )
+                    if let reference = SourceReference(locator: unescapeYAMLString(locator)),
+                       companions.append(reference) {
+                        recognized = true
+                    } else {
+                        companions.preserveExtraSourceLine(item)
+                    }
+                }
+                continue
+            }
+            companions.preserveExtraLine(raw)
+        }
+
+        if recognized {
+            presentation.companions = companions
+        } else {
+            unknown.append(parentLine)
+            unknown.append(contentsOf: lines)
         }
     }
 
@@ -256,6 +365,25 @@ public enum Frontmatter {
             || v.hasPrefix("#") || v.hasPrefix(" ") || v.hasSuffix(" ")
             || v.contains(":") || v.contains("#")
         return needsQuote ? "\"\(v)\"" : v
+    }
+
+    private static func quoteYAMLString(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    private static func unescapeYAMLString(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .replacingOccurrences(of: "\\\\", with: "\\")
+    }
+
+    private static func indentation(of line: String) -> Int {
+        line.prefix { $0 == " " || $0 == "\t" }.reduce(into: 0) { count, character in
+            count += character == "\t" ? 2 : 1
+        }
     }
 
     /// Render a Double without a trailing `.0` (so `11.0` → `11`, `1.4` → `1.4`).

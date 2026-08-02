@@ -100,6 +100,11 @@ Rules:
     "h1Size": null,             // px, reader scale; default 20 (editor derives slightly smaller)
     "h2Size": null,             // default 17
     "h3Size": null              // default 15
+  },
+  "sources": {                  // local authority for read-only source companions
+    "roots": {},                // portable name → absolute folder on this device
+    "maxPreviewBytes": 2000000, // regular UTF-8 files only; symlinks may not escape a root
+    "autoOpenCompanions": true  // activate note-declared source casts by default
   }
 }
 ```
@@ -121,6 +126,40 @@ Rules:
   (`--blink-font-size`, `--blink-text`, …) and is pushed over the bridge via
   `window.blink.setTheme`. The full variable table lives in
   `web/editor/README.md`.
+- `sources.roots` is deliberately empty by default. A note stores a portable
+  locator such as `blink/Sources/BlinkCore/Note.swift`; this map supplies the
+  local absolute meaning of `blink`. On first activation of an unknown root,
+  Blink offers a folder picker and records the approved mapping here. Reads are
+  contained after resolving symlinks, limited to regular UTF-8 files, and capped
+  by `maxPreviewBytes`.
+
+## Source companions
+
+Any recognized local code/text file can be opened with **⌘O** (or **Open Source
+File** in the command palette). The picker is explicit, one-shot authority; the
+chosen path is not written into a note.
+
+A note can instead declare a portable source cast:
+
+```yaml
+blink:
+  companions:
+    layout: review-bench
+    sources:
+      - "blink/Sources/BlinkCore/Note.swift#L12-28@76fc2d1"
+      - "blink/Sources/BlinkApp/WebBridge.swift"
+```
+
+A cast contains at most three unique files. Line anchors are capped at 1,000
+lines, keeping agent-authored metadata from turning note activation into
+unbounded window or rendering work.
+
+The optional `#Lstart-end` anchor selects and reveals a line range. The optional
+`@revision` is visible provenance; Blink never checks out or mutates a repository.
+`layout: review-bench` gives a fresh cast a deliberate grid, while each panel's
+eventual exact frame remains local to the device. Right-click the note and choose
+**Hide Code Companions** or **Show Code Companions**; that preference is local
+and never changes the Markdown.
 
 ## Examples
 
