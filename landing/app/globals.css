@@ -5,6 +5,7 @@
 @layer base {
   /* Default: warm parchment with bottle-green interaction. Optional: forest dark. */
   :root {
+    color-scheme: light;
     --bg: #efe8d8;
     --bg-2: #f4eddf;
     --panel: #f8f3e8;
@@ -66,6 +67,7 @@
 
   /* Forest dark keeps the same parchment/botanical material world after sunset. */
   [data-theme="black"] {
+    color-scheme: dark;
     --bg: #07100b;
     --bg-2: #0b1710;
     --panel: #102118;
