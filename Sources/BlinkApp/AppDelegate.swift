@@ -20,6 +20,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var commandRequestObserver: NSObjectProtocol?
     private var notesWatcher: DirectoryWatcher?
     private var peerServer: BlinkLANPeerServer?
+    private var peerStartupFailure: String?
+    private let peerSyncStatus = PeerSyncStatus()
     private let log = HudLogger(category: "blink.app")
 
     static func notesDirectory() -> URL {
@@ -508,7 +510,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 beginDictation: { [weak self] in
                     self?.beginPopoverDictation()
                 },
-                trustedPeerCount: peerServer?.trustedPeers.count ?? 0
+                trustedPeerCount: peerServer?.trustedPeers.count ?? 0,
+                peerSyncStatus: peerSyncStatus
             )
         )
         host.sizingOptions = .preferredContentSize
@@ -576,7 +579,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let accessItem = NSMenuItem(title: "Mobile Access", action: nil, keyEquivalent: "")
         let accessMenu = NSMenu()
         let trustedPeers = peerServer?.trustedPeers ?? []
-        if trustedPeers.isEmpty {
+        if let peerSyncUnavailableReason {
+            let unavailableItem = NSMenuItem(
+                title: "Unavailable",
+                action: nil,
+                keyEquivalent: ""
+            )
+            unavailableItem.isEnabled = false
+            accessMenu.addItem(unavailableItem)
+            let reasonItem = NSMenuItem(
+                title: peerSyncUnavailableReason,
+                action: nil,
+                keyEquivalent: ""
+            )
+            reasonItem.isEnabled = false
+            accessMenu.addItem(reasonItem)
+        } else if trustedPeers.isEmpty {
             let emptyItem = NSMenuItem(title: "No approved devices", action: nil, keyEquivalent: "")
             emptyItem.isEnabled = false
             accessMenu.addItem(emptyItem)
@@ -594,7 +612,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         accessMenu.addItem(.separator())
         let accessHelp = NSMenuItem(
-            title: "New devices ask for approval on this Mac",
+            title: peerSyncUnavailableReason == nil
+                ? "New devices ask for approval on this Mac"
+                : "Check local-network access, then relaunch Blink",
             action: nil,
             keyEquivalent: ""
         )
@@ -674,8 +694,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         alert.addButton(withTitle: "Revoke Access")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        if peerServer?.revokeTrustedPeer(id: id) == true {
-            log.info("[BLINK] revoked LAN device access", metadata: ["device": peer.name])
+        do {
+            if try peerServer?.revokeTrustedPeer(id: id) == true {
+                log.info("[BLINK] revoked LAN device access", metadata: ["device": peer.name])
+            }
+        } catch {
+            peerSyncStatus.unavailableReason = peerSyncUnavailableReason
+            log.error(
+                "[BLINK] failed to persist LAN device revocation",
+                metadata: ["device": peer.name, "error": error.localizedDescription]
+            )
+            let failure = NSAlert()
+            failure.alertStyle = .critical
+            failure.messageText = "Couldn’t Revoke Access"
+            failure.informativeText = "Blink couldn’t update its secure device list. Access remains approved. \(error.localizedDescription)"
+            failure.addButton(withTitle: "OK")
+            failure.runModal()
         }
     }
 
@@ -684,6 +718,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func startPeerServer() {
+        if let override = ProcessInfo.processInfo.environment["BLINK_HOME"],
+           !override.isEmpty {
+            peerSyncStatus.unavailableReason = "Disabled while BLINK_HOME is set"
+            log.info("[BLINK] mobile sync disabled for BLINK_HOME sandbox")
+            return
+        }
+        peerStartupFailure = nil
+
         let defaults = UserDefaults.standard
         let hostIDKey = "blink.peer.host-id"
         let hostID: String
@@ -697,20 +739,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let machineName = Host.current().localizedName ?? "Mac"
         var displayName = "Blink · \(machineName)"
         while displayName.utf8.count > 60 { displayName.removeLast() }
-        let server = BlinkLANPeerServer(
-            hostID: hostID,
-            displayName: displayName,
-            snapshotService: BlinkSnapshotService(
-                builder: BlinkSnapshotBuilder(notesDirectory: Self.notesDirectory()),
-                tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
-            ),
-            approvalHandler: { identity in
-                await Self.requestPeerApproval(for: identity)
-            }
-        )
-        server.start()
+        let server: BlinkLANPeerServer
+        do {
+            server = try BlinkLANPeerServer(
+                hostID: hostID,
+                displayName: displayName,
+                snapshotService: BlinkSnapshotService(
+                    builder: BlinkSnapshotBuilder(notesDirectory: Self.notesDirectory()),
+                    tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
+                ),
+                approvalHandler: { identity in
+                    await Self.requestPeerApproval(for: identity)
+                }
+            )
+        } catch {
+            let reason = "Secure Mac identity unavailable: \(error.localizedDescription)"
+            peerStartupFailure = reason
+            peerSyncStatus.unavailableReason = reason
+            log.error("[BLINK] encrypted LAN sync unavailable", metadata: ["error": reason])
+            return
+        }
         peerServer = server
-        log.info("[BLINK] encrypted LAN sync available", metadata: ["hostID": hostID])
+        server.observeStatus { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.peerSyncStatus.unavailableReason = self?.peerSyncUnavailableReason
+            }
+        }
+        server.start()
+        peerSyncStatus.unavailableReason = peerSyncUnavailableReason
+        log.info("[BLINK] starting encrypted LAN sync", metadata: ["hostID": hostID])
+    }
+
+    private var peerSyncUnavailableReason: String? {
+        if let override = ProcessInfo.processInfo.environment["BLINK_HOME"],
+           !override.isEmpty {
+            return "Disabled while BLINK_HOME is set"
+        }
+        if let peerStartupFailure { return peerStartupFailure }
+        if let failure = peerServer?.advertisingFailure {
+            return "Advertising failed: \(failure)"
+        }
+        if let failure = peerServer?.trustPersistenceFailure {
+            return "Approvals won’t persist: \(failure)"
+        }
+        return peerServer == nil ? "Mobile sync did not start" : nil
     }
 
     @MainActor

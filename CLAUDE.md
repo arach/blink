@@ -53,7 +53,9 @@ NoteStore notifications → AppModel snapshot → popover / palette / open panel
   `NoteStore.reconcile()`, producing the same notifications as in-app edits.
 - `config.json` owns behavior and appearance and hot-applies independently of
   note state. `BLINK_HOME` overrides the file-backed root (notes, config, and
-  attachments) for tests/agents; it does not redirect `UserDefaults`.
+  attachments) for tests/agents; it does not redirect `UserDefaults`. The Mac
+  peer host is disabled whenever `BLINK_HOME` is set so sandbox notes can never
+  inherit the production device identity or trust list.
 
 ## Source-of-truth order
 
@@ -99,7 +101,10 @@ Other useful references:
 - `Sources/BlinkPeer` — encrypted Multipeer Connectivity discovery, pairing,
   and snapshot transport shared by macOS and iOS. Bonjour advertises presence;
   new devices request explicit Mac approval inside an encrypted session, and
-  remembered device access remains revocable from the Mac.
+  remembered device access remains revocable from the Mac. Both sides keep
+  their private identity and trust material in non-synchronizing Keychain
+  storage, never preferences; the iOS seed and note cache do not travel in
+  device backups.
 - `apps/ios` — XcodeGen source for the read-only, offline-first iPhone/iPad
   companion. It consumes the local BlinkCore and BlinkPeer package products.
 - `Tests/BlinkCoreTests` — narrow tests for storage, frontmatter, identity,

@@ -8,6 +8,15 @@ private struct WorkspaceMenuEntry: Identifiable, Equatable {
     let noteCount: Int
 }
 
+@MainActor
+final class PeerSyncStatus: ObservableObject {
+    @Published var unavailableReason: String?
+
+    init(unavailableReason: String? = nil) {
+        self.unavailableReason = unavailableReason
+    }
+}
+
 /// The menubar popover is Blink's compact workspace: capture/search spans the
 /// whole workspace, with recents on the left and a spatial overview on the
 /// right.
@@ -25,6 +34,7 @@ struct CapturePopoverView: View {
     var showGrid: () -> Void
     var beginDictation: () -> Void
     var trustedPeerCount: Int
+    @ObservedObject var peerSyncStatus: PeerSyncStatus
 
     @ObservedObject private var appearance = AppearanceManager.shared
     @ObservedObject private var configStore = BlinkConfigStore.shared
@@ -41,6 +51,7 @@ struct CapturePopoverView: View {
     private var pal: PopoverPalette { .forScheme(appearance.scheme) }
     private var accent: Color { pal.accent }
     private var accentBright: Color { pal.accentBright }
+    private var peerSyncUnavailableReason: String? { peerSyncStatus.unavailableReason }
     private var blinkShortcut: String {
         KeyChord.parse(configStore.config.hotkeys.blink)?.display
             ?? configStore.config.hotkeys.blink
@@ -429,17 +440,26 @@ struct CapturePopoverView: View {
             Spacer()
 
             Label(
-                trustedPeerCount == 0
+                peerSyncUnavailableReason != nil
+                    ? "MOBILE OFF"
+                    : trustedPeerCount == 0
                     ? "MOBILE READY"
                     : "MOBILE · \(trustedPeerCount) APPROVED",
-                systemImage: trustedPeerCount == 0 ? "iphone.badge.plus" : "lock.shield"
+                systemImage: peerSyncUnavailableReason != nil
+                    ? "wifi.slash"
+                    : trustedPeerCount == 0 ? "iphone.badge.plus" : "lock.shield"
             )
             .font(mono(9.5, .medium))
             .tracking(1.2)
             .foregroundStyle(pal.inkMuted)
-            .help("Nearby iPhones and iPads ask for approval on this Mac")
+            .help(
+                peerSyncUnavailableReason
+                    ?? "Nearby iPhones and iPads ask for approval on this Mac"
+            )
             .accessibilityLabel(
-                trustedPeerCount == 0
+                peerSyncUnavailableReason != nil
+                    ? "Mobile access unavailable"
+                    : trustedPeerCount == 0
                     ? "Mobile access ready"
                     : "\(trustedPeerCount) approved mobile \(trustedPeerCount == 1 ? "device" : "devices")"
             )

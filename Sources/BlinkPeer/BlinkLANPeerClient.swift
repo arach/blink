@@ -31,6 +31,9 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
     private var connectedPeer: MCPeerID?
     private var connectionPrivateKey: Curve25519.KeyAgreement.PrivateKey?
     private var connectionKey: SymmetricKey?
+    /// The host-scoped credential for the current connection. Every data-bearing
+    /// request re-presents it, so the Mac never has to trust `MCPeerID`.
+    private var connectionCredential: String?
     private var pairedHostStorage: BlinkPeerHost?
     private var connectionObserver: (@Sendable (Bool) -> Void)?
     private var browsingFailureStorage: String?
@@ -133,6 +136,7 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
             guard activeAttemptID == attemptID, session === nextSession else { return false }
             connectionPrivateKey = privateKey
             connectionKey = responseKey
+            connectionCredential = securedIdentity.credential
             return true
         }
         guard installed else {
@@ -195,8 +199,13 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
     }
 
     public func fetchSnapshot(ifNoneMatch etag: String?) async throws -> BlinkSnapshotFetchResult {
-        guard pairedHost != nil else { throw BlinkPeerError.unauthorized }
-        let response = try await request(.fetchSnapshot(ifNoneMatch: etag))
+        let credential = lock.withLock { () -> String? in
+            pairedHostStorage == nil ? nil : connectionCredential
+        }
+        guard let credential else { throw BlinkPeerError.unauthorized }
+        let response = try await request(
+            .fetchSnapshot(credential: credential, ifNoneMatch: etag)
+        )
         switch response {
         case .snapshot(let result): return result
         case .failure(let failure) where failure.code == "unauthorized":
@@ -319,6 +328,7 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
                 activeAttemptID = nil
                 connectionPrivateKey = nil
                 connectionKey = nil
+                connectionCredential = nil
             }
             return pendingConnection?.continuation
         }
@@ -346,6 +356,7 @@ public final class BlinkLANPeerClient: NSObject, BlinkPeerTransport, @unchecked 
             connectedPeer = nil
             connectionPrivateKey = nil
             connectionKey = nil
+            connectionCredential = nil
             return (connection, responses)
         }
         pending.0?.resume(throwing: error)
@@ -368,7 +379,7 @@ extension BlinkLANPeerClient: MCNearbyServiceBrowserDelegate {
         foundPeer peerID: MCPeerID,
         withDiscoveryInfo info: [String: String]?
     ) {
-        guard info?["version"] == "3",
+        guard info?["version"] == BlinkPeerWire.discoveryVersion,
               let hostID = info?["hostID"],
               !hostID.isEmpty,
               let encodedKey = info?["hostKey"],
@@ -431,7 +442,7 @@ extension BlinkLANPeerClient: MCSessionDelegate {
     public func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
         guard lock.withLock({ self.session === session && connectedPeer == peerID }) else { return }
         guard let envelope = try? JSONDecoder().decode(BlinkPeerResponseEnvelope.self, from: data),
-              envelope.version == 3,
+              envelope.version == BlinkPeerWire.version,
               let responseKey = lock.withLock({ connectionKey }),
               let response = try? BlinkPeerCrypto.open(
                   BlinkPeerResponse.self,

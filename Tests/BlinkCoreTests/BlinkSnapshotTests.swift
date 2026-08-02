@@ -271,6 +271,182 @@ struct BlinkSnapshotTests {
         #expect(removed.notes.isEmpty)
     }
 
+    @Test("mobile cache never retains quarantined notes across peer identities")
+    func mobileCachePeerIsolation() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = BlinkSnapshotCache(fileURL: root.appendingPathComponent("snapshot.json"))
+        let now = Date(timeIntervalSince1970: 20)
+        let note = BlinkSnapshotNote(
+            id: "private-a",
+            revision: "r1",
+            markdown: "---\nid: private-a\ncreated: 1970-01-01T00:00:20.000Z\nupdated: 1970-01-01T00:00:20.000Z\ntags: []\npinned: false\n---\nPrivate A",
+            title: "Private A",
+            updatedAt: now,
+            tags: [],
+            pinned: false,
+            presentation: NotePresentation()
+        )
+        let first = BlinkSnapshot(
+            generatedAt: now,
+            etag: "\"peer-a\"",
+            notes: [note],
+            tombstones: [],
+            issues: []
+        )
+        _ = try await cache.apply(
+            first,
+            sourceIdentity: "public-key-a",
+            syncedAt: now
+        )
+
+        let peerB = BlinkSnapshot(
+            generatedAt: now.addingTimeInterval(1),
+            etag: "\"peer-b\"",
+            notes: [],
+            tombstones: [],
+            issues: [
+                BlinkSnapshotIssue(
+                    code: .invalidFrontmatter,
+                    fileName: "private-a.md",
+                    expectedID: "private-a"
+                )
+            ]
+        )
+        let isolated = try await cache.apply(
+            peerB,
+            sourceIdentity: "public-key-b",
+            syncedAt: now.addingTimeInterval(1)
+        )
+
+        #expect(isolated.notes.isEmpty)
+        let record = try await cache.loadRecord()
+        #expect(record?.sourceIdentity == "public-key-b")
+        #expect(record?.snapshot.etag == "\"peer-b\"")
+    }
+
+    @Test("legacy mobile caches load unbound and cannot retain notes for a new peer")
+    func legacyMobileCacheMigration() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = root.appendingPathComponent("snapshot.json")
+        let cache = BlinkSnapshotCache(fileURL: fileURL)
+        let now = Date(timeIntervalSince1970: 25)
+        let note = BlinkSnapshotNote(
+            id: "legacy-note",
+            revision: "r1",
+            markdown: "---\nid: legacy-note\ncreated: 1970-01-01T00:00:25.000Z\nupdated: 1970-01-01T00:00:25.000Z\ntags: []\npinned: false\n---\nLegacy",
+            title: "Legacy",
+            updatedAt: now,
+            tags: [],
+            pinned: false,
+            presentation: NotePresentation()
+        )
+        let legacy = BlinkSnapshot(
+            generatedAt: now,
+            etag: "\"legacy\"",
+            notes: [note],
+            tombstones: [],
+            issues: []
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        try encoder.encode(legacy).write(to: fileURL)
+
+        let loaded = try await cache.loadRecord()
+        #expect(loaded?.sourceIdentity == nil)
+        #expect(loaded?.lastSuccessfulSyncAt == nil)
+        #expect(loaded?.snapshot == legacy)
+
+        let incoming = BlinkSnapshot(
+            generatedAt: now.addingTimeInterval(1),
+            etag: "\"new-peer\"",
+            notes: [],
+            tombstones: [],
+            issues: [
+                BlinkSnapshotIssue(
+                    code: .invalidFrontmatter,
+                    fileName: "legacy-note.md",
+                    expectedID: "legacy-note"
+                )
+            ]
+        )
+        let isolated = try await cache.apply(
+            incoming,
+            sourceIdentity: "new-peer-public-key",
+            syncedAt: now.addingTimeInterval(1)
+        )
+        #expect(isolated.notes.isEmpty)
+    }
+
+    @Test("peer identity and successful sync time persist with the snapshot")
+    func mobileCacheRecordMetadata() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cache = BlinkSnapshotCache(fileURL: root.appendingPathComponent("snapshot.json"))
+        let generatedAt = Date(timeIntervalSince1970: 30)
+        let firstSync = Date(timeIntervalSince1970: 40)
+        let secondSync = Date(timeIntervalSince1970: 50)
+        let snapshot = BlinkSnapshot(
+            generatedAt: generatedAt,
+            etag: "\"stable\"",
+            notes: [],
+            tombstones: [],
+            issues: []
+        )
+
+        _ = try await cache.apply(
+            snapshot,
+            sourceIdentity: "public-key-a",
+            syncedAt: firstSync
+        )
+        #expect(
+            try await cache.recordSuccessfulSync(
+                sourceIdentity: "public-key-a",
+                at: secondSync
+            )
+        )
+        #expect(
+            try await cache.recordSuccessfulSync(
+                sourceIdentity: "public-key-b",
+                at: secondSync.addingTimeInterval(1)
+            ) == false
+        )
+
+        let record = try await cache.loadRecord()
+        #expect(record?.sourceIdentity == "public-key-a")
+        #expect(record?.lastSuccessfulSyncAt == secondSync)
+        #expect(record?.snapshot == snapshot)
+    }
+
+    @Test("replaceable mobile cache is excluded from device backups after every save")
+    func mobileCacheBackupExclusion() async throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileURL = root.appendingPathComponent("snapshot.json")
+        let cache = BlinkSnapshotCache(fileURL: fileURL, excludeFromBackup: true)
+        let first = BlinkSnapshot(
+            generatedAt: Date(timeIntervalSince1970: 60),
+            etag: "\"first\"",
+            notes: [],
+            tombstones: [],
+            issues: []
+        )
+        _ = try await cache.apply(first, sourceIdentity: "peer-a")
+        #expect(
+            try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+                .isExcludedFromBackup == true
+        )
+
+        var replacement = first
+        replacement.etag = "\"replacement\""
+        _ = try await cache.apply(replacement, sourceIdentity: "peer-a")
+        #expect(
+            try fileURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+                .isExcludedFromBackup == true
+        )
+    }
+
     private func temporaryDirectory() -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("blink-snapshot-tests-\(UUID().uuidString)", isDirectory: true)

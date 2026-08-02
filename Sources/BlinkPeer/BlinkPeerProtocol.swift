@@ -14,8 +14,15 @@ public struct BlinkPeerHost: Codable, Equatable, Sendable {
     }
 }
 
+enum BlinkPeerWire {
+    /// Bumped whenever the request/response shape or key schedule changes.
+    /// Discovery filters on the same value, so mismatched builds never pair.
+    static let version = 4
+    static let discoveryVersion = "4"
+}
+
 struct BlinkPeerRequestEnvelope: Codable {
-    var version: Int = 3
+    var version: Int = BlinkPeerWire.version
     var id: UUID
     var clientPublicKey: Data
     var sealedPayload: Data
@@ -23,11 +30,14 @@ struct BlinkPeerRequestEnvelope: Codable {
 
 enum BlinkPeerRequest: Codable {
     case requestAccess(BlinkPeerClientIdentity)
-    case fetchSnapshot(ifNoneMatch: String?)
+    /// The credential travels with every data-bearing request. Multipeer's
+    /// `MCPeerID` is client-chosen and not a stable identity, so it can only be
+    /// bookkeeping — the credential is the authorization boundary.
+    case fetchSnapshot(credential: String, ifNoneMatch: String?)
 }
 
 struct BlinkPeerResponseEnvelope: Codable {
-    var version: Int = 3
+    var version: Int = BlinkPeerWire.version
     var id: UUID
     var sealedPayload: Data
 }
@@ -87,7 +97,14 @@ public struct BlinkLANPeerCandidate: Equatable, Identifiable, Sendable {
 }
 
 enum BlinkPeerCrypto {
-    private static let salt = Data("dev.arach.blink.peer.v3".utf8)
+    private static let salt = Data("dev.arach.blink.peer.v4".utf8)
+
+    /// A credential is a 64-character lowercase hex HMAC scoped to one host key.
+    static func isWellFormedCredential(_ credential: String) -> Bool {
+        credential.utf8.count == 64 && credential.utf8.allSatisfy {
+            (48...57).contains($0) || (97...102).contains($0)
+        }
+    }
 
     static func symmetricKey(
         privateKey: Curve25519.KeyAgreement.PrivateKey,

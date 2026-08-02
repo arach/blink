@@ -102,6 +102,7 @@ struct BlinkPadWorkspaceView: View {
                         }
                     }
                 }
+                .frame(minWidth: 44, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -119,12 +120,15 @@ struct BlinkPadWorkspaceView: View {
                 Button {
                     Task { await model.refresh() }
                 } label: {
-                    if model.isSyncing {
-                        ProgressView()
-                            .frame(width: 20, height: 20)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
+                    Group {
+                        if model.isSyncing {
+                            ProgressView()
+                                .frame(width: 20, height: 20)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
                     }
+                    .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.bordered)
                 .buttonBorderShape(.circle)
@@ -134,6 +138,7 @@ struct BlinkPadWorkspaceView: View {
 
             Button(action: onOpenSettings) {
                 Image(systemName: "gearshape")
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.bordered)
             .buttonBorderShape(.circle)
@@ -221,6 +226,7 @@ struct BlinkPadWorkspaceView: View {
                     deskIndex = max(0, deskIndex - 1)
                 } label: {
                     Image(systemName: "chevron.left")
+                        .frame(width: 44, height: 44)
                 }
                 .disabled(deskIndex == 0)
                 .accessibilityLabel("Previous desk")
@@ -229,6 +235,7 @@ struct BlinkPadWorkspaceView: View {
                     deskIndex = min(desks.count - 1, deskIndex + 1)
                 } label: {
                     Image(systemName: "chevron.right")
+                        .frame(width: 44, height: 44)
                 }
                 .disabled(deskIndex == desks.count - 1)
                 .accessibilityLabel("Next desk")
@@ -236,7 +243,7 @@ struct BlinkPadWorkspaceView: View {
         }
         .foregroundStyle(BlinkMobileTheme.faintInk)
         .padding(.horizontal, 16)
-        .frame(height: 40)
+        .frame(height: 44)
         .background {
             BlinkPadGlassSurface(
                 shape: RoundedRectangle(cornerRadius: 14, style: .continuous),
@@ -307,13 +314,14 @@ private struct BlinkPadSearchField: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .symbolRenderingMode(.hierarchical)
+                        .frame(width: 44, height: 44)
                 }
                 .foregroundStyle(BlinkMobileTheme.faintInk)
                 .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, 13)
-        .frame(height: 42)
+        .frame(height: 44)
         .background(BlinkMobileTheme.raisedSurface.opacity(0.28))
         .overlay {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -559,7 +567,7 @@ private struct BlinkPadReader: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.subheadline.weight(.semibold))
-                        .frame(width: 30, height: 30)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(BlinkMobileTheme.secondaryInk)
