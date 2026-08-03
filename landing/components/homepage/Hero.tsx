@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import SpatialDemo from './SpatialDemo'
-import { Chord, PrimaryButton, GhostButton } from './shared'
+import { GhostButton, HyperChord, PrimaryButton } from './shared'
 
 export default function Hero() {
   return (
@@ -38,11 +38,11 @@ export default function Hero() {
 
             <div className="mt-7 space-y-2.5 text-[13px] text-dimx">
               <div className="flex items-center gap-3 flex-wrap">
-                <Chord keys={['⌃', '⌥', '⇧', '⌘', 'N']} />
+                <HyperChord letter="N" action="New note" />
                 <span className="text-faintx">new note</span>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
-                <Chord keys={['⌃', '⌥', '⇧', '⌘', 'B']} />
+                <HyperChord letter="B" action="Blink all panels" />
                 <span className="text-faintx">blink all panels</span>
               </div>
             </div>

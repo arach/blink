@@ -17,9 +17,9 @@ export default function Home() {
       <main>
         <Hero />
         <SpecStrip />
+        <AgentFilm />
         <FilesystemAPI />
         <AgentGuide />
-        <AgentFilm />
         <AgentCaseStudy />
         <Sheets />
         <Keys />
