@@ -197,6 +197,13 @@ body {
 [data-theme="black"] .corner-frame::after {
   display: block;
 }
+[data-theme="black"] .corner-frame > :first-child {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+[data-theme="black"] .corner-frame > :last-child {
+  border-bottom-right-radius: 0;
+}
 
 @layer base {
   * {
