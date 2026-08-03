@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { SectionHeader, Reveal } from './shared'
+import { useEffect, useId, useState } from 'react'
+import { SectionHeader, Reveal, MockTitleBar } from './shared'
 
 type SheetId = 'glass' | 'card' | 'dotted' | 'bracket' | 'marginalia'
 
@@ -104,6 +104,8 @@ function SheetSurface({ id, compact = false }: { id: SheetId; compact?: boolean 
 export default function Sheets() {
   const [active, setActive] = useState<SheetId>('glass')
   const [touched, setTouched] = useState(false)
+  const baseId = useId()
+  const panelId = `${baseId}-panel`
 
   useEffect(() => {
     if (touched) return
@@ -134,34 +136,40 @@ export default function Sheets() {
           sub="Five render sheets, per note or as default. One key in config — hot-applied to every open panel."
         />
 
-        <Reveal className="grid gap-8 lg:grid-cols-[minmax(0,14rem)_1fr] lg:gap-10 items-start">
+        <Reveal className="grid items-start gap-6 lg:grid-cols-[minmax(0,13.5rem)_1fr] lg:gap-8">
           <div
-            className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0 lg:flex-col lg:overflow-visible lg:pb-0 lg:gap-1"
+            className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0 lg:gap-1"
             role="tablist"
             aria-label="Sheet styles"
+            aria-orientation="horizontal"
           >
             {SHEETS.map((s) => {
               const on = active === s.id
+              const tabId = `${baseId}-tab-${s.id}`
               return (
                 <button
                   key={s.id}
+                  id={tabId}
                   type="button"
                   role="tab"
                   aria-selected={on}
+                  aria-controls={panelId}
+                  tabIndex={on ? 0 : -1}
                   onClick={() => {
                     setActive(s.id)
                     setTouched(true)
                   }}
-                  className={`shrink-0 text-left rounded-[6px] border px-3.5 py-2.5 transition-colors ${
+                  className={[
+                    'shrink-0 rounded-[6px] border px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow] duration-150',
                     on
-                      ? 'border-[rgba(var(--acc-rgb),0.45)] bg-[rgba(var(--acc-rgb),0.05)]'
-                      : 'border-linex bg-panelx hover:border-line2x lg:border-transparent lg:bg-transparent lg:hover:border-linex'
-                  }`}
+                      ? 'border-[rgba(var(--acc-rgb),0.45)] bg-[var(--acc-soft)] shadow-[inset_0_0_0_1px_rgba(var(--acc-rgb),0.12)]'
+                      : 'border-linex bg-panelx hover:border-line2x hover:bg-panel2x lg:border-transparent lg:bg-transparent lg:hover:border-linex lg:hover:bg-[var(--acc-soft)]',
+                  ].join(' ')}
                 >
-                  <span className={`text-[13px] font-bold ${on ? 'text-acc' : 'text-[var(--text)]'}`}>
+                  <span className={`block text-[12.5px] font-bold leading-none ${on ? 'text-acc' : 'text-[var(--text)]'}`}>
                     {s.name}
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-dimx whitespace-nowrap lg:whitespace-normal">
+                  <span className="mt-1 block text-[10.5px] leading-[1.45] text-dimx whitespace-nowrap lg:whitespace-normal">
                     {s.desc}
                   </span>
                 </button>
@@ -169,12 +177,17 @@ export default function Sheets() {
             })}
           </div>
 
-          <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden min-w-0">
-            <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5 text-[10px] text-faintx">
-              <span>preview</span>
-              <span className="text-acc">sheet: {current.name}</span>
-            </div>
-            <div className="demo-desktop h-[220px] md:h-[260px] p-5 md:p-7">
+          <div
+            id={panelId}
+            role="tabpanel"
+            aria-labelledby={`${baseId}-tab-${active}`}
+            className="min-w-0 overflow-hidden rounded-[8px] border border-linex bg-panelx"
+          >
+            <MockTitleBar
+              title="preview"
+              trailing={<span className="text-acc">sheet: {current.name}</span>}
+            />
+            <div className="demo-desktop h-[220px] p-5 md:h-[260px] md:p-7">
               <div className="mx-auto h-full max-w-[560px]">
                 <div key={active} className="sheet-swap h-full">
                   <SheetSurface id={active} />

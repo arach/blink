@@ -1,4 +1,4 @@
-import { SectionHeader, PrimaryButton, GhostButton, Reveal } from './shared'
+import { SectionHeader, PrimaryButton, GhostButton, Reveal, MockTitleBar } from './shared'
 import { BlinkMark } from './BlinkMark'
 
 export function Install() {
@@ -17,29 +17,27 @@ export function Install() {
 
         <Reveal>
           <div className="corner-frame">
-            <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden">
-          <div className="border-b border-linex bg-panel2x px-4 py-2.5 text-[10px] tracking-[0.14em] uppercase text-faintx">
-            release — latest
-          </div>
-          <div className="flex flex-col gap-6 p-5 md:flex-row md:items-center md:justify-between md:gap-8 md:p-6">
-            <div className="min-w-0">
-              <div className="text-[15px] font-bold text-[var(--text)]">Blink.dmg</div>
-              <div className="mt-1 text-[11px] text-faintx">
-                Apple Silicon · macOS 14+ · notarized · no account
+            <div className="overflow-hidden rounded-[8px] border border-linex bg-panelx">
+              <MockTitleBar title="release — latest" />
+              <div className="flex flex-col gap-6 p-5 md:flex-row md:items-center md:justify-between md:gap-8 md:p-6">
+                <div className="min-w-0">
+                  <div className="text-[15px] font-bold text-[var(--text)]">Blink.dmg</div>
+                  <div className="mt-1 text-[11px] text-faintx">
+                    Apple Silicon · macOS 14+ · notarized · no account
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 shrink-0">
+                  <PrimaryButton href="https://github.com/arach/blink/releases/latest">
+                    <span className="text-[15px] leading-none" aria-hidden>
+                      ↓
+                    </span>{' '}
+                    download for macOS
+                  </PrimaryButton>
+                  <GhostButton href="https://github.com/arach/blink">
+                    source <span className="text-faintx" aria-hidden>↗</span>
+                  </GhostButton>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-3 shrink-0">
-              <PrimaryButton href="https://github.com/arach/blink/releases/latest">
-                <span className="text-[15px] leading-none" aria-hidden>
-                  ↓
-                </span>{' '}
-                download for macOS
-              </PrimaryButton>
-              <GhostButton href="https://github.com/arach/blink">
-                source <span className="text-faintx" aria-hidden>↗</span>
-              </GhostButton>
-            </div>
-          </div>
             </div>
           </div>
         </Reveal>
@@ -48,49 +46,54 @@ export function Install() {
   )
 }
 
+const FOOTER_LINKS = [
+  { href: 'https://github.com/arach/blink', label: 'GitHub', external: true },
+  { href: 'https://github.com/arach/blink/releases/latest', label: 'Releases', external: true },
+  { href: '/agents.md', label: 'AGENTS.md', external: false },
+  { href: '/llms.txt', label: 'llms.txt', external: false },
+  {
+    href: 'https://github.com/arach/blink/blob/main/docs/cli.md',
+    label: 'CLI docs',
+    external: true,
+  },
+] as const
+
 export function Footer() {
   return (
     <footer className="border-t border-linex pb-12 pt-8">
       <div className="mx-auto max-w-5xl px-4 md:px-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[12px] font-bold text-[var(--text)]">
-            <BlinkMark className="h-[16px] w-[16px] text-acc" />
-            blink
-            <span className="font-normal text-faintx">· spatial notes for your Mac</span>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[12px] font-bold text-[var(--text)]">
+              <BlinkMark className="h-4 w-4 shrink-0 text-acc" />
+              <span>blink</span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-faintx">
+              spatial notes for your Mac
+            </p>
           </div>
-          <div className="flex items-center gap-5 text-[11px] text-dimx">
-            <a
-              href="/agents.md"
-              className="hover:text-acc transition-colors"
-            >
-              agents.md
-            </a>
-            <a
-              href="/llms.txt"
-              className="hover:text-acc transition-colors"
-            >
-              llms.txt
-            </a>
-            <a
-              href="https://github.com/arach/blink"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-acc transition-colors"
-            >
-              github
-            </a>
-            <a
-              href="https://github.com/arach/blink/releases/latest"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-acc transition-colors"
-            >
-              releases
-            </a>
-          </div>
+
+          <nav
+            aria-label="Footer"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-dimx sm:justify-end sm:max-w-md"
+          >
+            {FOOTER_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                {...(link.external
+                  ? { target: '_blank', rel: 'noreferrer' }
+                  : {})}
+                className="rounded-[3px] py-0.5 transition-colors hover:text-acc"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
         </div>
-        <div className="mt-6 text-[10px] text-[var(--ghost)]">
-          JetBrains Mono · blink.arach.dev
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 text-[10px] text-[var(--ghost)]">
+          <span>JetBrains Mono</span>
+          <span>blink.arach.dev</span>
         </div>
       </div>
     </footer>
