@@ -238,6 +238,29 @@ struct BlinkConfig: Codable, Equatable {
         }
     }
 
+    /// Local source-viewer authority. Notes carry only `root/path`; each device
+    /// maps the root name to an absolute directory it has explicitly approved.
+    struct Sources: Codable, Equatable {
+        var roots: [String: String] = [:]
+        var maxPreviewBytes: Int = SourceFileResolver.defaultMaxByteSize
+        var autoOpenCompanions = true
+
+        init() {}
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            roots = try container.decodeIfPresent([String: String].self, forKey: .roots) ?? [:]
+            maxPreviewBytes = max(
+                1,
+                try container.decodeIfPresent(Int.self, forKey: .maxPreviewBytes)
+                    ?? SourceFileResolver.defaultMaxByteSize
+            )
+            autoOpenCompanions = try container.decodeIfPresent(
+                Bool.self,
+                forKey: .autoOpenCompanions
+            ) ?? true
+        }
+    }
+
     /// A named, reusable presentation preset — a *partial* overlay onto the
     /// panel/editor defaults, every field optional. A note references one by name
     /// via its `blink.style`, and a workspace brands every one of its notes with
@@ -265,6 +288,7 @@ struct BlinkConfig: Codable, Equatable {
     var motion = Motion()
     var physics = Physics()
     var editor = Editor()
+    var sources = Sources()
     /// Named presentation presets, referenced by a note's `blink.style` and
     /// reusable as a workspace's brand base.
     var styles: [String: Treatment]?
@@ -284,6 +308,7 @@ struct BlinkConfig: Codable, Equatable {
         motion = try c.decodeIfPresent(Motion.self, forKey: .motion) ?? Motion()
         physics = try c.decodeIfPresent(Physics.self, forKey: .physics) ?? Physics()
         editor = try c.decodeIfPresent(Editor.self, forKey: .editor) ?? Editor()
+        sources = try c.decodeIfPresent(Sources.self, forKey: .sources) ?? Sources()
         styles = try c.decodeIfPresent([String: Treatment].self, forKey: .styles)
         workspaces = try c.decodeIfPresent([String: Workspace].self, forKey: .workspaces)
     }

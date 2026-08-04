@@ -32,6 +32,19 @@ bun run build       # esbuild -> dist/editor.html (single file, guardrailed)
 read-mode surface (`#reader` element, `.blink-reader` styles, empty-note
 placeholder).
 
+The same command also emits `dist/source-viewer.html`. That bundle is a separate
+CodeMirror surface for source companions: line numbers, real Swift and common
+language modes, selection, search, viewport rendering, and anchored line-range
+decoration. Its contract is structurally read-only:
+
+- CodeMirror installs both `EditorState.readOnly.of(true)` and
+  `EditorView.editable.of(false)`.
+- JS → native posts only `{ type: "ready" }` on the `blinkSource` handler.
+- Native → JS exposes `setDocument`, `setTheme`, `focus`, and `showFind` on
+  `window.blinkSource`.
+- There is no content getter, change message, save request, or native write
+  callback. Source viewing cannot enter the note bridge by configuration error.
+
 ## Native bridge contract
 
 Two directions. `JS -> native` posts to the WKWebView message handler; when that

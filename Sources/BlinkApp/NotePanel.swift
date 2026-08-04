@@ -87,6 +87,12 @@ final class NotePanel: NSPanel {
     /// panel asks rather than reading a potentially stale file from disk.
     var markdownProvider: (() -> String?)?
 
+    /// Note-declared code cast. The panel only exposes the local visibility
+    /// control; SourcePanelManager owns resolving, placement, and windows.
+    private var sourceCompanionCount = 0
+    private var sourceCompanionsVisible = true
+    var onToggleSourceCompanions: (() -> Void)?
+
     let modeState = PanelModeState()
     var currentMode: String { modeState.mode }
 
@@ -587,6 +593,11 @@ final class NotePanel: NSPanel {
         applyTheme(BlinkConfigStore.shared.config)
     }
 
+    func configureSourceCompanions(count: Int, visible: Bool) {
+        sourceCompanionCount = count
+        sourceCompanionsVisible = visible
+    }
+
     private func updateMetadata(_ theme: BlinkConfig) {
         modeState.sheet = theme.panel.sheet
         modeState.style = notePresentation.style
@@ -675,6 +686,16 @@ final class NotePanel: NSPanel {
         styleItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
         styleItem.submenu = makeStyleMenu()
         menu.addItem(styleItem)
+
+        if sourceCompanionCount > 0 {
+            menu.addItem(contextItem(
+                sourceCompanionsVisible ? "Hide Code Companions" : "Show Code Companions",
+                symbol: sourceCompanionsVisible
+                    ? "eye.slash"
+                    : "chevron.left.forwardslash.chevron.right",
+                action: #selector(contextToggleSourceCompanions(_:))
+            ))
+        }
 
         menu.addItem(.separator())
         menu.addItem(contextItem(
@@ -795,6 +816,11 @@ final class NotePanel: NSPanel {
 
     @objc private func contextToggleFocus(_ sender: NSMenuItem) {
         toggleFocus()
+    }
+
+    @objc private func contextToggleSourceCompanions(_ sender: NSMenuItem) {
+        sourceCompanionsVisible.toggle()
+        onToggleSourceCompanions?()
     }
 
     /// Soft hide: tuck the panel away but keep it in the session, so clicking
