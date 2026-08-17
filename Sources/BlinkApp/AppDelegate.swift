@@ -507,6 +507,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                     self?.popover?.performClose(nil)
                     self?.panelManager.toggleGridOverlay()
                 },
+                quit: {
+                    NSApp.terminate(nil)
+                },
                 beginDictation: { [weak self] in
                     self?.beginPopoverDictation()
                 },
