@@ -20,6 +20,10 @@ Options:
 Environment:
   BLINK_APP_PATH        Override output .app path (default: dist/Blink.app)
   BLINK_HUDSON_SOURCE   "path" (default, ../hudson checkout) or "git"
+  BLINK_SIGN_IDENTITY   Code-signing identity for the local bundle. Defaults to
+                        a "Blink Dev" certificate if one exists. A stable
+                        identity stops macOS re-prompting for the login password
+                        on every rebuild (Keychain ACLs key off code identity).
 EOF
 }
 
@@ -110,6 +114,44 @@ cat > "$app_path/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# Keychain ACLs bind to designated requirement + bundle id. Prefer Developer
+# ID (or BLINK_SIGN_IDENTITY) so rebuilds keep one identity. If none is
+# available, launch unsigned and warn — agents without a cert can still run.
+sign_identity="${BLINK_SIGN_IDENTITY:-}"
+if [[ -z "$sign_identity" ]]; then
+  sign_identity="$(
+    security find-identity -v -p codesigning 2>/dev/null \
+      | sed -n 's/^[[:space:]]*[0-9]*)[[:space:]]*\([A-F0-9]\{40\}\)[[:space:]]*"Developer ID Application:[^"]*".*/\1/p' \
+      | head -n 1
+  )"
+fi
+entitlements="$repo_root/tools/release/Blink.entitlements"
+if [[ -n "$sign_identity" && -f "$entitlements" ]]; then
+  sign_bundle() {
+    local bundle="$1"
+    local binary="$bundle/Contents/MacOS/$app_name"
+    codesign --force --options runtime --timestamp \
+      --entitlements "$entitlements" --sign "$sign_identity" \
+      "$binary"
+    codesign --force --options runtime --timestamp \
+      --entitlements "$entitlements" --identifier "dev.arach.blink" --sign "$sign_identity" \
+      "$bundle"
+    codesign --verify --strict --deep "$bundle"
+  }
+  if sign_bundle "$app_path"; then
+    echo "Signed $app_path as \"$sign_identity\""
+  else
+    echo "warning: codesign as \"$sign_identity\" failed — Keychain may re-prompt" >&2
+  fi
+elif [[ -n "$sign_identity" ]]; then
+  echo "warning: missing entitlements at $entitlements — launched unsigned" >&2
+else
+  echo "warning: no Developer ID / BLINK_SIGN_IDENTITY — launched unsigned; Keychain will re-prompt each rebuild" >&2
+fi
+
+
+
 
 if [[ "$restart_existing" == true ]]; then
   # Precise kill: only processes running from this exact bundle path.

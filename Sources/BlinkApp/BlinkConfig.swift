@@ -32,6 +32,9 @@ struct BlinkConfig: Codable, Equatable {
         var grid: String = "hyper+c"
         var toggleMode: String = "cmd+shift+p"
         var focus: String = "cmd+."
+        /// Pin the detached chrome rail so it stays up after hover leaves.
+        /// Panel-local, like `toggleMode` and `focus`.
+        var toggleChrome: String = "cmd+shift+t"
 
         init() {}
         init(from decoder: Decoder) throws {
@@ -41,6 +44,7 @@ struct BlinkConfig: Codable, Equatable {
             grid = try c.decodeIfPresent(String.self, forKey: .grid) ?? "hyper+c"
             toggleMode = try c.decodeIfPresent(String.self, forKey: .toggleMode) ?? "cmd+shift+p"
             focus = try c.decodeIfPresent(String.self, forKey: .focus) ?? "cmd+."
+            toggleChrome = try c.decodeIfPresent(String.self, forKey: .toggleChrome) ?? "cmd+shift+t"
         }
     }
 
@@ -51,8 +55,8 @@ struct BlinkConfig: Codable, Equatable {
         var sheet: String = "glass"
         var material: String = "hud"  // hud | underWindow | popover | sidebar | menu
         var cornerRadius: Double = 12
-        var tintRead: Double = 0.18
-        var tintEdit: Double = 0.28
+        var tintRead: Double = 0.28
+        var tintEdit: Double = 0.38
         var shadow: Bool = true
         var defaultWidth: Double = 420
         var defaultHeight: Double = 340
@@ -63,15 +67,25 @@ struct BlinkConfig: Codable, Equatable {
         /// paths resolve under `$BLINK_HOME/attachments`; note markdown never
         /// needs to carry presentation-only brand assets.
         var mark: String?
+        /// Where the ✕ and the mode toggle live.
+        ///
+        /// - "rail": lifted out of the note into a detached strip above it, so
+        ///   no control ever sits on the page. Shown on hover (or pinned with
+        ///   hotkeys.toggleChrome). Crossing onto the strip keeps it up; idle
+        ///   notes stay bare. Edit mode does not force it.
+        /// - "inside": the original hover-earned chrome floating over the note's
+        ///   own top corners.
+        var chrome: String = "rail"
 
         init() {}
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             sheet = try c.decodeIfPresent(String.self, forKey: .sheet) ?? "glass"
+            chrome = try c.decodeIfPresent(String.self, forKey: .chrome) ?? "rail"
             material = try c.decodeIfPresent(String.self, forKey: .material) ?? "hud"
             cornerRadius = try c.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 12
-            tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead) ?? 0.18
-            tintEdit = try c.decodeIfPresent(Double.self, forKey: .tintEdit) ?? 0.28
+            tintRead = try c.decodeIfPresent(Double.self, forKey: .tintRead) ?? 0.28
+            tintEdit = try c.decodeIfPresent(Double.self, forKey: .tintEdit) ?? 0.38
             shadow = try c.decodeIfPresent(Bool.self, forKey: .shadow) ?? true
             defaultWidth = try c.decodeIfPresent(Double.self, forKey: .defaultWidth) ?? 420
             defaultHeight = try c.decodeIfPresent(Double.self, forKey: .defaultHeight) ?? 340
@@ -392,12 +406,68 @@ struct BlinkConfig: Codable, Equatable {
         if let v = editor.h3Size { vars["--blink-h3-size"] = "\(v)px" }
         return vars
     }
+
+    /// Signal color for native chrome. Treatments set `editor.accentColor`;
+    /// otherwise the scheme default — cool paper-blue in light, signal-blue
+    /// in dark. Same hex the editor CSS uses.
+    func chromeAccent(scheme: AppScheme) -> NSColor {
+        if let raw = editor.accentColor, let color = NSColor(blinkCSS: raw) {
+            return color
+        }
+        return scheme.isDark
+            ? NSColor(srgbRed: 93 / 255, green: 158 / 255, blue: 250 / 255, alpha: 1)
+            : NSColor(srgbRed: 45 / 255, green: 93 / 255, blue: 175 / 255, alpha: 1)
+    }
+
 }
 
 /// Clamp a value into `[lo, hi]` — defensive bound for resolved presentation.
 private func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
     min(max(v, lo), hi)
 }
+
+extension NSColor {
+    /// `#rgb`, `#rrggbb`, or `rgba(r,g,b,a)` — the shapes config.json already
+    /// accepts for editor colors.
+    convenience init?(blinkCSS raw: String) {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") {
+            var hex = String(value.dropFirst())
+            if hex.count == 3 {
+                hex = hex.map { "\($0)\($0)" }.joined()
+            }
+            guard hex.count == 6, let n = UInt64(hex, radix: 16) else { return nil }
+            self.init(
+                srgbRed: CGFloat((n >> 16) & 0xFF) / 255,
+                green: CGFloat((n >> 8) & 0xFF) / 255,
+                blue: CGFloat(n & 0xFF) / 255,
+                alpha: 1
+            )
+            return
+        }
+        if value.lowercased().hasPrefix("rgba("), value.hasSuffix(")") {
+            let inner = value.dropFirst(5).dropLast()
+            let parts = inner.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+            guard parts.count == 4,
+                  let r = Double(parts[0]),
+                  let g = Double(parts[1]),
+                  let b = Double(parts[2]),
+                  let a = Double(parts[3])
+            else { return nil }
+            self.init(
+                srgbRed: r / 255,
+                green: g / 255,
+                blue: b / 255,
+                alpha: a
+            )
+            return
+        }
+        return nil
+    }
+}
+
 
 /// Loads, saves, and hot-reloads the config file. Agent-first: any process may
 /// edit the file; a directory watcher picks the change up and re-applies it
