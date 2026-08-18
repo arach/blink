@@ -298,6 +298,23 @@ final class PanelChromeRail {
         }
     }
 
+    /// AppKit will not rehome a parent+child pair onto another display. A
+    /// cross-monitor drag has to travel as a lone window; we follow by frame
+    /// and reattach once the note has a new screen.
+    func detachFromParent() {
+        guard window.parent != nil else { return }
+        panel?.removeChildWindow(window)
+        window.level = panel?.level ?? .floating
+        window.orderFront(nil)
+    }
+
+    func attachToParent() {
+        guard let panel, window.parent == nil else { return }
+        panel.addChildWindow(window, ordered: .above)
+        syncFrame()
+    }
+
+
     /// Detach and close. The rail is a child window, so leaving it behind would
     /// strand a floating strip with no note under it.
     func dismantle() {
@@ -338,6 +355,13 @@ private final class RailHoverView: NSView {
 private final class RailPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+
+    /// Positioned only relative to the note. AppKit must not pin it to the
+    /// origin display while the note is crossing a seam.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
 
     override func sendEvent(_ event: NSEvent) {
         switch event.type {

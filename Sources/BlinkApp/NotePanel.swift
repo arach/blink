@@ -172,6 +172,8 @@ final class NotePanel: NSPanel {
         hidesOnDeactivate = false
         acceptsMouseMovedEvents = true
         isMovableByWindowBackground = true
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
         // Title never renders (borderless) but names the window for AX/scripts.
         self.title = title
         isOpaque = false
@@ -1209,6 +1211,7 @@ final class NotePanel: NSPanel {
 
     private let physicsLog = HudLogger(category: "blink.panel")
 
+
     /// Shake-to-shade is a physics gesture: config-gated, and off under Reduce
     /// Motion like the fling. (Double-click shading stays available regardless —
     /// an instant fold involves no motion.)
@@ -1317,26 +1320,23 @@ final class NotePanel: NSPanel {
 
     // MARK: Drag → fling
 
-    /// The drag strip went down: take the frame over from any in-flight glide
-    /// and suspend autosave until the gesture (plus any fling it starts) rests.
     func beginManualDrag() {
         cancelFling()
         dragInProgress = true
+        chromeRail?.detachFromParent()
         refreshAutosaveSuspension()
     }
 
     /// Released. A fast enough throw becomes a glide; anything slower is just
     /// a drop — persist the resting frame either way, exactly once.
     func endManualDrag(velocity: CGPoint) {
-        dragInProgress = false
         let physics = BlinkConfigStore.shared.config.physics
         let speed = hypot(velocity.x, velocity.y)
         guard physics.flingEnabled, !Self.reduceMotion,
               speed >= physics.flingMinVelocity,
               let bounds = flingBounds()
         else {
-            persistRestingGeometry()
-            refreshAutosaveSuspension()
+            settleAfterManualMove()
             return
         }
         physicsLog.info("[BLINK] fling", metadata: ["speed": "\(Int(speed))"])
@@ -1358,14 +1358,48 @@ final class NotePanel: NSPanel {
         refreshAutosaveSuspension()
     }
 
-    /// The visible frame of the screen the panel is MOSTLY on (max intersection
+    /// Drop or fling rest: pin the global frame while constrain is still
+    /// bypassed so AppKit assigns the destination display, then persist and
+    /// reattach the rail. Clearing `dragInProgress` first remaps the drop
+    /// onto the origin display.
+    private func settleAfterManualMove() {
+        let dest = frame
+        persistRestingGeometry()
+        dragInProgress = false
+        applyingPhysicsFrame = true
+        refreshAutosaveSuspension()
+        setFrame(dest, display: true)
+        saveFrame(usingName: autosaveName)
+        applyingPhysicsFrame = false
+        chromeRail?.syncFrame()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.moveByPhysics(to: dest.origin)
+            self.chromeRail?.attachToParent()
+        }
+    }
+
+
+
+    func moveByPhysics(to origin: NSPoint) {
+        let want = NSRect(origin: origin, size: frame.size)
+        applyingPhysicsFrame = true
+        setFrame(want, display: true)
+        applyingPhysicsFrame = false
+        chromeRail?.syncFrame()
+    }
+
+
+
+    /// The visible frame of the screen `rect` is MOSTLY on (max intersection
     /// area) — the arena the glide bounces within.
-    private func flingBounds() -> CGRect? {
+    private func flingBounds(for rect: CGRect? = nil) -> CGRect? {
+        let probe = rect ?? frame
         var best: CGRect?
         var bestArea: CGFloat = 0
         for screen in NSScreen.screens {
-            let hit = screen.visibleFrame.intersection(frame)
-            guard !hit.isNull else { continue }
+            let hit = screen.visibleFrame.intersection(probe)
+            guard !hit.isNull, !hit.isEmpty else { continue }
             let area = hit.width * hit.height
             if area > bestArea {
                 bestArea = area
@@ -1384,13 +1418,22 @@ final class NotePanel: NSPanel {
         // Clamp long frames (stalls, breakpoint hits) so one dt never teleports.
         let dt = min(now - flingLastTime, 1.0 / 20)
         flingLastTime = now
+        // Probe the unconstrained next origin so a seam-crossing throw can
+        // adopt the destination screen before this tick's bounce.
+        let nextOrigin = CGPoint(
+            x: f.origin.x + f.velocity.x * CGFloat(dt),
+            y: f.origin.y + f.velocity.y * CGFloat(dt)
+        )
+        if let next = flingBounds(for: CGRect(origin: nextOrigin, size: f.size)),
+           next != f.bounds {
+            f.bounds = next
+        }
         let alive = f.step(dt: dt)
         fling = f
-        applyingPhysicsFrame = true
-        setFrameOrigin(f.origin)
-        applyingPhysicsFrame = false
+        moveByPhysics(to: f.origin)
         if !alive { stopFling() }
     }
+
 
     /// End a glide: unhook the display link, persist the resting frame, and
     /// hand autosave back. Safe to call redundantly — a no-op without a fling.
@@ -1399,8 +1442,12 @@ final class NotePanel: NSPanel {
         flingLink = nil
         let wasGliding = fling != nil
         fling = nil
-        if wasGliding { persistRestingGeometry() }
-        refreshAutosaveSuspension()
+        if wasGliding {
+            settleAfterManualMove()
+        } else {
+            chromeRail?.attachToParent()
+            refreshAutosaveSuspension()
+        }
     }
 
     /// Any interruption — a new grab, a shade fold, a programmatic placement,
@@ -1423,6 +1470,25 @@ final class NotePanel: NSPanel {
         if !applyingPhysicsFrame { cancelFling() }
         super.setFrame(frameRect, display: flag)
     }
+
+    /// AppKit remaps a borderless panel onto the screen it already owns.
+    /// A drop that already intersects some display is a real destination —
+    /// do not rewrite it onto the origin monitor. Off-screen restores still
+    /// go through the default constraint.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        let proposed: NSRect
+        if dragInProgress || fling != nil || applyingPhysicsFrame {
+            proposed = frameRect
+        } else {
+            let landsOnADisplay = NSScreen.screens.contains { candidate in
+                let hit = candidate.frame.intersection(frameRect)
+                return !hit.isNull && !hit.isEmpty
+            }
+            proposed = landsOnADisplay ? frameRect : super.constrainFrameRect(frameRect, to: screen)
+        }
+        return proposed
+    }
+
 
     @objc dynamic override func setFrame(_ frameRect: NSRect, display flag: Bool, animate flag2: Bool) {
         if !applyingPhysicsFrame { cancelFling() }
@@ -1708,6 +1774,9 @@ final class DragHandle: NSView {
     private var grabOrigin = NSPoint.zero  // window origin at mouseDown
     private var tracker = DragVelocityTracker()
     private var shake = ShakeDetector()
+    /// Held for the whole gesture. The rail detaches from its parent mid-drag
+    /// so the note can change displays; `window?.parent` would go nil.
+    private weak var dragTarget: NotePanel?
 
     /// The in-panel strip paints a hairline grip to advertise itself. The
     /// detached rail is already visibly grabbable, so it opts out.
@@ -1717,8 +1786,9 @@ final class DragHandle: NSView {
     /// window; on the detached chrome rail it is the rail's parent, so the
     /// gesture moves the note rather than the strip sitting on top of it.
     private var notePanel: NotePanel? {
-        window as? NotePanel ?? window?.parent as? NotePanel
+        dragTarget ?? window as? NotePanel ?? window?.parent as? NotePanel
     }
+
 
     override var isOpaque: Bool { false }
 
@@ -1770,6 +1840,7 @@ final class DragHandle: NSView {
             panel.toggleShade()
             return
         }
+        dragTarget = panel
         panel.beginManualDrag()
         grabMouse = NSEvent.mouseLocation
         grabOrigin = panel.frame.origin
@@ -1787,7 +1858,7 @@ final class DragHandle: NSView {
             x: grabOrigin.x + mouse.x - grabMouse.x,
             y: grabOrigin.y + mouse.y - grabMouse.y
         )
-        panel.setFrameOrigin(origin)
+        panel.moveByPhysics(to: origin)
         tracker.add(origin, at: event.timestamp)
         // Shake → shade. The fold/grow moves the origin under the cursor, so
         // re-anchor the grab and restart the gesture's sensors or the panel
@@ -1804,6 +1875,7 @@ final class DragHandle: NSView {
     override func mouseUp(with event: NSEvent) {
         guard isDragging, let panel = notePanel else { return }
         isDragging = false
+        dragTarget = nil
         NSCursor.openHand.set()
         needsDisplay = true
         tracker.add(panel.frame.origin, at: event.timestamp)
