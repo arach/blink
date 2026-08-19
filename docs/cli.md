@@ -33,16 +33,17 @@ go to stderr with a nonzero exit code.
 ```sh
 blink ls [--limit N] [--json]     # list notes, most recently updated first
 blink cat <id> [--json]           # print content (exact bytes); --json adds all metadata
-blink new [text ...] [--json]     # create from args or stdin; prints the assigned id
-blink present <id> [text ...] [--style … --slot … …] [--json]  # create/update content + presentation
-blink append <id> [text ...] [--json]  # append a line from args or stdin; prints the id
-blink type <id> [text ...] [--json]    # append text the open panel types on (the visible hand)
-blink write <id> [text ...] [--json]   # replace content wholesale, silently (no typed reveal)
-blink search <query> [--json]     # case-insensitive substring over title + content
-blink rm <id> [--json]            # delete a note
-blink path [<id>]                 # the notes directory, or a note's file path
-blink workspace <subcommand>      # named groups of notes + their brand
-blink desk <subcommand>           # open/focus/move/close live panels
+blink new [text ...] [--writer W] [--json]
+blink present <id> [text ...] [--style … --slot … --writer W] [--json]
+blink append <id> [text ...] [--writer W] [--json]
+blink type <id> [text ...] [--writer W] [--json]
+blink write <id> [text ...] [--writer W] [--json]
+blink search <query> [--json]
+blink rm <id> [--writer W] [--json]
+blink log <id> [--limit N] [--json]   # append-only edit ledger
+blink path [<id>]
+blink workspace <subcommand>
+blink desk <subcommand>
 ```
 
 `workspace` is the grouping/branding verb set — see `docs/workspaces.md` for the
@@ -79,6 +80,13 @@ app reveals it character by character (the visible hand); `write` replaces the
 whole body, so the panel updates in place with no animation. `append` is the
 established sibling of `type` (identical behavior). All three preserve presentation
 and foreign frontmatter.
+
+`--writer` stamps `blink.lastWriter` on the note and appends a row to
+`$BLINK_HOME/edits.sqlite` (or the default Application Support ledger).
+The markdown file stays truth: a ledger failure never fails the save.
+Omit `--writer` and the CLI records `cli`. In-app edits record `user`.
+`blink log` reads that sidecar even after `rm`; it is not a second note store.
+
 
 `desk` is the intentionally small live counterpart to the file API. It asks the
 running Blink app to realize an existing note as a panel while `PanelManager`

@@ -35,9 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         installMainMenu()
 
         store = NoteStore(
-            fileStore: NoteFileStore(directory: Self.notesDirectory()),
+            fileStore: NoteFileStore(
+                directory: Self.notesDirectory(),
+                ledger: NoteEditLedger(fileURL: BlinkPaths.edits())
+            ),
             tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
         )
+
         startPeerServer()
         panelManager = PanelManager(store: store)
         model = AppModel(store: store, panelManager: panelManager)

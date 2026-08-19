@@ -11,11 +11,14 @@ public enum NoteFileStoreError: Error, Equatable, Sendable {
 /// destination.
 public struct NoteFileStore: Sendable {
     public let directory: URL
+    public let ledger: NoteEditLedger?
 
-    public init(directory: URL) {
+    public init(directory: URL, ledger: NoteEditLedger? = nil) {
         self.directory = directory
+        self.ledger = ledger
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     }
+
 
     /// `<directory>/<id>.md`
     public func url(for id: String) -> URL {
@@ -27,14 +30,16 @@ public struct NoteFileStore: Sendable {
     }
 
     /// Atomically write a note to disk: temp file + fsync + rename.
-    public func save(_ note: Note) throws {
+    /// `writer` is recorded only after the rename succeeds. Ledger failure
+    /// never fails the save.
+    public func save(_ note: Note, writer: String? = nil) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         let destination = url(for: note.id)
+        let existed = FileManager.default.fileExists(atPath: destination.path)
         let temp = tempURL(for: note.id)
         let data = Data(Frontmatter.encode(note).utf8)
 
-        // Remove any stale temp file first.
         if FileManager.default.fileExists(atPath: temp.path) {
             try FileManager.default.removeItem(at: temp)
         }
@@ -43,7 +48,7 @@ public struct NoteFileStore: Sendable {
         let handle = try FileHandle(forWritingTo: temp)
         do {
             try handle.write(contentsOf: data)
-            try handle.synchronize() // fsync before rename
+            try handle.synchronize()
             try handle.close()
         } catch {
             try? handle.close()
@@ -51,9 +56,15 @@ public struct NoteFileStore: Sendable {
             throw error
         }
 
-        // Atomic replace of destination.
         _ = try FileManager.default.replaceItemAt(destination, withItemAt: temp)
+        _ = ledger?.record(
+            noteID: note.id,
+            kind: existed ? .update : .create,
+            writer: writer,
+            at: note.updatedAt
+        )
     }
+
 
     /// Load every `*.md` file in the directory (skipping dotfiles and `.tmp`).
     public func loadAll() throws -> [Note] {
@@ -125,12 +136,13 @@ public struct NoteFileStore: Sendable {
         return try Frontmatter.decode(contents)
     }
 
-    /// Delete a note's file by id.
-    public func delete(id: String) throws {
+    /// Delete a note's file by id. Ledger is appended only after the file is gone.
+    public func delete(id: String, writer: String? = nil) throws {
         let target = url(for: id)
         guard FileManager.default.fileExists(atPath: target.path) else {
             throw NoteFileStoreError.noteNotFound(id: id)
         }
         try FileManager.default.removeItem(at: target)
+        _ = ledger?.record(noteID: id, kind: .delete, writer: writer)
     }
 }

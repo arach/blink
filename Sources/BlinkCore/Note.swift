@@ -32,6 +32,9 @@ public struct NotePresentation: Equatable, Sendable, Codable {
     public var radius: Double?
     /// Durable grid-slot intent, 1...9 (not pixels — pixels are device state).
     public var slot: Int?
+    /// Last known writer for display. Overwritten on each attributed write.
+    /// Full history lives in `edits.sqlite`, not here.
+    public var lastWriter: String?
 
     public init() {}
 
@@ -40,7 +43,9 @@ public struct NotePresentation: Equatable, Sendable, Codable {
         workspace == nil && style == nil && sheet == nil && accent == nil && font == nil
             && fontSize == nil && lineHeight == nil && tint == nil
             && tintRead == nil && tintEdit == nil && radius == nil && slot == nil
+            && lastWriter == nil
     }
+
 }
 
 /// A single note. The `id` is the slug identity (see `Slug`), the `content` is the

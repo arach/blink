@@ -32,6 +32,14 @@ public enum BlinkPaths {
         home(environment: environment).appendingPathComponent("config.json", isDirectory: false)
     }
 
+    /// Append-only edit ledger: `<home>/edits.sqlite`. Not note truth —
+    /// markdown files stay authoritative if this file is missing or unwritable.
+    public static func edits(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("edits.sqlite", isDirectory: false)
+    }
+
     /// Durable deletion evidence for peer replication. Full snapshots are
     /// authoritative today; this journal preserves delete intent for later
     /// incremental sync and multi-writer conflict handling.

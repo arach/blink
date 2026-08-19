@@ -440,7 +440,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
             Task { @MainActor in
                 guard let self else { return }
                 do {
-                    try await self.store.updateSheet(id: note.id, sheet: sheet)
+                    try await self.store.updateSheet(id: note.id, sheet: sheet, writer: "user")
                 } catch {
                     self.log.error(
                         "[BLINK] failed to persist sheet",
@@ -1025,7 +1025,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         saveTasks[noteID] = nil
         guard let text = pendingText.removeValue(forKey: noteID) else { return }
         do {
-            let updated = try await store.update(id: noteID, content: text)
+            let updated = try await store.update(id: noteID, content: text, writer: "user")
             if let panel = panels[noteID], panel.title != updated.title {
                 panel.title = updated.title
             }
