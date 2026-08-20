@@ -148,6 +148,7 @@ body { background: var(--blink-sheet-bg); }
  * displayed at a time (toggled via inline display in main.ts).
  * ------------------------------------------------------------------------- */
 .blink-reader {
+  display: none;
   position: absolute;
   inset: 0;
   width: 100%;

@@ -25,6 +25,18 @@ public enum BlinkPaths {
         home(environment: environment).appendingPathComponent("Notes", isDirectory: true)
     }
 
+    public static func desks(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("desks", isDirectory: true)
+    }
+
+    public static func socket(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("blink.sock", isDirectory: false)
+    }
+
     /// The agent-first config file: `<home>/config.json`.
     public static func config(
         environment: [String: String] = ProcessInfo.processInfo.environment
