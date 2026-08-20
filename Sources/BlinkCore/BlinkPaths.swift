@@ -25,11 +25,31 @@ public enum BlinkPaths {
         home(environment: environment).appendingPathComponent("Notes", isDirectory: true)
     }
 
+    public static func desks(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("desks", isDirectory: true)
+    }
+
+    public static func socket(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("blink.sock", isDirectory: false)
+    }
+
     /// The agent-first config file: `<home>/config.json`.
     public static func config(
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> URL {
         home(environment: environment).appendingPathComponent("config.json", isDirectory: false)
+    }
+
+    /// Append-only edit ledger: `<home>/edits.sqlite`. Not note truth —
+    /// markdown files stay authoritative if this file is missing or unwritable.
+    public static func edits(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> URL {
+        home(environment: environment).appendingPathComponent("edits.sqlite", isDirectory: false)
     }
 
     /// Durable deletion evidence for peer replication. Full snapshots are

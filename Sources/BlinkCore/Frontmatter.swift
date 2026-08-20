@@ -86,6 +86,7 @@ public enum Frontmatter {
         if let v = p.tintEdit { lines.append("  tintEdit: \(formatDouble(v))") }
         if let v = p.radius { lines.append("  radius: \(formatDouble(v))") }
         if let v = p.slot { lines.append("  slot: \(v)") }
+        if let v = p.lastWriter { lines.append("  lastWriter: \(quoteIfNeeded(v))") }
         lines.append(contentsOf: note.extraBlink)
     }
 
@@ -225,6 +226,7 @@ public enum Frontmatter {
             case "tintEdit": if let d = Double(value) { presentation.tintEdit = d } else { unknown.append(raw) }
             case "radius": if let d = Double(value) { presentation.radius = d } else { unknown.append(raw) }
             case "slot": if let i = Int(value) { presentation.slot = i } else { unknown.append(raw) }
+            case "lastWriter": presentation.lastWriter = value
             default: unknown.append(raw)
             }
         }

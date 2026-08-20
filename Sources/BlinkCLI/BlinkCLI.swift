@@ -20,6 +20,7 @@ struct BlinkCommand: AsyncParsableCommand {
         subcommands: [
             Ls.self, Cat.self, New.self, Present.self, Append.self, Type.self, Write.self,
             Search.self, Rm.self, PathCommand.self, WorkspaceCommand.self, DeskCommand.self,
+            Log.self,
         ]
     )
 }
@@ -68,6 +69,8 @@ struct New: AsyncParsableCommand {
 
     @Option(help: "Create the note inside this workspace (blink.workspace).")
     var workspace: String?
+    @Option(help: "Who is writing (blink.lastWriter). Defaults to cli.")
+    var writer: String?
     @Argument(parsing: .remaining, help: "Note content (omit to read stdin).")
     var content: [String] = []
     @Flag(help: "Structured output.") var json = false
@@ -83,7 +86,11 @@ struct New: AsyncParsableCommand {
         if let workspace {
             presentation.workspace = try WorkspaceStore.normalize(workspace)
         }
-        let note = try await loadedStore().create(content: text, presentation: presentation)
+        let note = try await loadedStore().create(
+            content: text,
+            presentation: presentation,
+            writer: attributedWriter(writer)
+        )
         if json {
             try printJSON(NoteJSON(note, full: false))
         } else {
@@ -120,11 +127,11 @@ struct Present: AsyncParsableCommand {
     @Option(name: .customLong("tint-edit"), help: "Edit-mode tint 0–1 (blink.tintEdit).") var tintEdit: Double?
     @Option(help: "Corner radius in px (blink.radius).") var radius: Double?
     @Option(help: "Grid slot 1–9 — placement intent (blink.slot).") var slot: Int?
+    @Option(help: "Who is writing (blink.lastWriter). Defaults to cli.")
+    var writer: String?
     @Flag(help: "Full note as JSON.") var json = false
 
     func run() throws {
-        // Normalize the id to a canonical slug so `present "Q3 Planning"` and
-        // `present q3-planning` address the same note (get-or-create).
         let canonicalID = Slug.generate(from: id)
 
         var text = content.joined(separator: " ")
@@ -145,7 +152,6 @@ struct Present: AsyncParsableCommand {
             note = Note(id: canonicalID, content: haveContent ? text : "", createdAt: now, updatedAt: now)
         }
 
-        // Overlay only the presentation fields provided — never erase the rest.
         var p = note.presentation
         if let workspace { p.workspace = try WorkspaceStore.normalize(workspace) }
         if let style { p.style = style }
@@ -159,9 +165,10 @@ struct Present: AsyncParsableCommand {
         if let tintEdit { p.tintEdit = tintEdit }
         if let radius { p.radius = radius }
         if let slot { p.slot = slot }
+        p.lastWriter = attributedWriter(writer)
         note.presentation = p
 
-        try store.save(note)
+        try store.save(note, writer: p.lastWriter)
         if json {
             try printJSON(NoteJSON(note, full: true))
         } else {
@@ -169,6 +176,7 @@ struct Present: AsyncParsableCommand {
         }
     }
 }
+
 
 struct Append: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -181,9 +189,11 @@ struct Append: AsyncParsableCommand {
     @Argument(parsing: .allUnrecognized, help: "Text to append (omit to read stdin).")
     var content: [String] = []
     @Flag(help: "Full updated note as JSON.") var json = false
+    @Option(help: "Who is writing (blink.lastWriter). Defaults to cli.")
+    var writer: String?
 
     func run() async throws {
-        try await appendToNote(id: id, text: readText(content), json: json)
+        try await appendToNote(id: id, text: readText(content), json: json, writer: writer)
     }
 }
 
@@ -201,9 +211,11 @@ struct Type: AsyncParsableCommand {
     @Argument(parsing: .allUnrecognized, help: "Text to type (omit to read stdin).")
     var content: [String] = []
     @Flag(help: "Full updated note as JSON.") var json = false
+    @Option(help: "Who is writing (blink.lastWriter). Defaults to cli.")
+    var writer: String?
 
     func run() async throws {
-        try await appendToNote(id: id, text: readText(content), json: json)
+        try await appendToNote(id: id, text: readText(content), json: json, writer: writer)
     }
 }
 
@@ -221,13 +233,19 @@ struct Write: AsyncParsableCommand {
     @Argument(parsing: .allUnrecognized, help: "New content (omit to read stdin).")
     var content: [String] = []
     @Flag(help: "Full updated note as JSON.") var json = false
+    @Option(help: "Who is writing (blink.lastWriter). Defaults to cli.")
+    var writer: String?
 
     func run() async throws {
         let store = try await loadedStore()
         guard await store.note(id: id) != nil else {
             throw NoteNotFound(id: id)
         }
-        let note = try await store.update(id: id, content: readText(content))
+        let note = try await store.update(
+            id: id,
+            content: readText(content),
+            writer: attributedWriter(writer)
+        )
         if json {
             try printJSON(NoteJSON(note, full: true))
         } else {
@@ -260,11 +278,13 @@ struct Rm: AsyncParsableCommand {
 
     @Argument(help: "The note id (slug).") var id: String
     @Flag(help: "Structured output.") var json = false
+    @Option(help: "Who is deleting (ledger writer). Defaults to cli.")
+    var writer: String?
 
     func run() async throws {
         _ = try existingNote(id: id)
         try await BlinkTombstoneStore(fileURL: BlinkPaths.tombstones()).recordDeletion(id: id)
-        try fileStore().delete(id: id)
+        try fileStore().delete(id: id, writer: attributedWriter(writer))
         if json {
             try printJSON(["deleted": id])
         } else {
@@ -291,10 +311,65 @@ struct PathCommand: ParsableCommand {
     }
 }
 
+struct Log: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Show the append-only edit ledger for a note."
+    )
+
+    @Argument(help: "The note id (slug).") var id: String
+    @Option(name: .shortAndLong, help: "Show at most this many rows.") var limit: Int = 50
+    @Flag(help: "Structured output.") var json = false
+
+    func run() throws {
+        let rows = fileStore().ledger?.history(noteID: id, limit: limit) ?? []
+        if json {
+            try printJSON(rows.map(EditJSON.init))
+            return
+        }
+        if rows.isEmpty {
+            FileHandle.standardError.write(Data("no edits recorded\n".utf8))
+            return
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        for row in rows {
+            let who = row.writer ?? "-"
+            let when = formatter.string(from: row.at)
+            if row.kind == .externalDetected, let detected = row.detectedAt {
+                print("\(when)  \(row.kind.rawValue)  \(who)  detected \(formatter.string(from: detected))")
+            } else {
+                print("\(when)  \(row.kind.rawValue)  \(who)")
+            }
+        }
+    }
+}
+
+private struct EditJSON: Encodable {
+    let id: Int64
+    let noteID: String
+    let kind: String
+    let writer: String?
+    let at: Date
+    let detectedAt: Date?
+
+    init(_ event: NoteEditEvent) {
+        id = event.id
+        noteID = event.noteID
+        kind = event.kind.rawValue
+        writer = event.writer
+        at = event.at
+        detectedAt = event.detectedAt
+    }
+}
+
+
 // MARK: - Shared plumbing
 
 func fileStore() -> NoteFileStore {
-    NoteFileStore(directory: BlinkPaths.notes())
+    NoteFileStore(
+        directory: BlinkPaths.notes(),
+        ledger: NoteEditLedger(fileURL: BlinkPaths.edits())
+    )
 }
 
 func loadedStore() async throws -> NoteStore {
@@ -305,6 +380,12 @@ func loadedStore() async throws -> NoteStore {
     try await store.load()
     return store
 }
+
+func attributedWriter(_ explicit: String?) -> String {
+    let trimmed = explicit?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return trimmed.isEmpty ? "cli" : trimmed
+}
+
 
 /// Resolve command text: joined arguments, or stdin when piped and no args given.
 private func readText(_ content: [String]) -> String {
@@ -318,12 +399,16 @@ private func readText(_ content: [String]) -> String {
 
 /// Append one separated line to an existing note (shared by `append`/`type`).
 /// The anchored suffix is what lets the open panel type the new text on.
-private func appendToNote(id: String, text: String, json: Bool) async throws {
+private func appendToNote(id: String, text: String, json: Bool, writer: String?) async throws {
     let store = try await loadedStore()
     guard let existing = await store.note(id: id) else {
         throw NoteNotFound(id: id)
     }
-    let note = try await store.update(id: id, content: existing.content + "\n" + text)
+    let note = try await store.update(
+        id: id,
+        content: existing.content + "\n" + text,
+        writer: attributedWriter(writer)
+    )
     if json {
         try printJSON(NoteJSON(note, full: true))
     } else {

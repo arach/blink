@@ -48,6 +48,68 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// model to move the durable UI selection before realizing a cross-workspace
     /// target, so every launcher converges on the same active scope.
     var onWorkspaceScopeRequested: ((WorkspaceScope) -> Void)?
+    var onPlacementChanged: ((String, String) -> Void)?
+
+    func deskLayout(named name: String) -> DeskLayout {
+        let order = Dictionary(uniqueKeysWithValues: NSApp.orderedWindows.enumerated().compactMap {
+            index, window in (window as? NotePanel).map { ($0.noteID, index) }
+        })
+        let snapshots = panels.values.map { panel -> DeskPanel in
+            let display = (NSScreen.screens.firstIndex(where: { $0 === panel.screen }) ?? 0) + 1
+            let visible = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+            let frame = panel.frame
+            return DeskPanel(
+                id: panel.noteID, slot: panelSlot[panel.noteID] ?? nil, mode: panel.currentMode,
+                frame: DeskFrame(x: frame.minX - visible.minX, y: visible.maxY - frame.maxY,
+                    width: frame.width, height: frame.height), display: display
+            )
+        }.sorted { (order[$0.id] ?? .max) < (order[$1.id] ?? .max) }
+        return DeskLayout(name: name, panels: snapshots)
+    }
+
+    func placementList() -> [[String: Any]] {
+        let ordered = NSApp.orderedWindows.compactMap { $0 as? NotePanel }
+        return panels.values.map { panel in
+            let screen = (NSScreen.screens.firstIndex(where: { $0 === panel.screen }) ?? 0) + 1
+            var dict: [String: Any] = [
+                "id": panel.noteID,
+                "frame": [
+                    "x": panel.frame.minX,
+                    "y": panel.frame.minY,
+                    "width": panel.frame.width,
+                    "height": panel.frame.height
+                ],
+                "screen": screen,
+                "mode": panel.currentMode,
+                "shaded": panel.isShaded,
+                "focused": panel.isKeyWindow,
+                "z": ordered.firstIndex(where: { $0 === panel }) ?? ordered.count
+            ]
+            if let slot = panelSlot[panel.noteID] {
+                dict["slot"] = slot
+            } else {
+                dict["slot"] = NSNull()
+            }
+            return dict
+        }
+    }
+
+    func restoreDesk(_ layout: DeskLayout) async {
+        await flushAll()
+        let wanted = Set(layout.panels.map(\.id))
+        for id in Array(panels.keys) where !wanted.contains(id) { _ = closePanel(noteID: id) }
+        for entry in layout.panels.reversed() {
+            guard let note = await store.note(id: entry.id),
+                  let panel = openPanel(for: note, initialMode: entry.mode, playEntrance: false)
+            else { continue }
+            panel.selectMode(entry.mode)
+            _ = applyDeskFrame(noteID: entry.id, x: entry.frame.x, y: entry.frame.y,
+                width: entry.frame.width, height: entry.frame.height,
+                display: entry.display, animated: false)
+            panel.orderFront(nil)
+        }
+        persistOpenList()
+    }
 
     private static let openNotesKey = "blink.openNotes"
     private static let saveDebounce: Duration = .seconds(1)
@@ -313,19 +375,12 @@ final class PanelManager: NSObject, NSWindowDelegate {
     }
 
     private func playRevealTicks(id: String, suffixCount: Int) {
-        let interval = 4 / Self.typeOnCharactersPerSecond
-        let audibleCap = 3.0
-        let ticks = min(suffixCount / 4, Int(audibleCap / interval))
-        guard ticks > 0, let sound = NSSound(named: NSSound.Name("Tink")) else { return }
-        sound.volume = 0.15
-        revealSounds[id] = sound
-        revealSoundTasks[id] = Task { @MainActor [weak self, weak sound] in
-            for _ in 0..<ticks {
-                try? await Task.sleep(for: .seconds(interval))
-                guard !Task.isCancelled, self?.revealSounds[id] === sound else { return }
-                // Tink is longer than four characters at this cadence. Never
-                // overlap copies — one soft sample represents the latest group.
-                if sound?.isPlaying == false { sound?.play() }
+        // Subtle single arrival cue instead of noisy rapid typewriter clicks
+        guard suffixCount >= 20 else { return }
+        if let sound = NSSound(named: NSSound.Name("Pop")) {
+            sound.volume = 0.08
+            if !sound.isPlaying {
+                sound.play()
             }
         }
     }
@@ -440,7 +495,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
             Task { @MainActor in
                 guard let self else { return }
                 do {
-                    try await self.store.updateSheet(id: note.id, sheet: sheet)
+                    try await self.store.updateSheet(id: note.id, sheet: sheet, writer: "user")
                 } catch {
                     self.log.error(
                         "[BLINK] failed to persist sheet",
@@ -619,6 +674,16 @@ final class PanelManager: NSObject, NSWindowDelegate {
         updateFocusOverlay()
     }
 
+    func windowDidMove(_ notification: Notification) {
+        guard let panel = notification.object as? NotePanel else { return }
+        onPlacementChanged?(panel.noteID, "panel.moved")
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard let panel = notification.object as? NotePanel else { return }
+        onPlacementChanged?(panel.noteID, "panel.resized")
+    }
+
     // MARK: - Read surface for overlays (grid, constellation)
 
     /// Snapshot of open panels in the active workspace by note id. The grid is
@@ -712,6 +777,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         }
         updateFocusOverlay()
         gridOverlay?.refresh()
+        onPlacementChanged?(noteID, "panel.moved")
         return true
     }
 
@@ -1025,7 +1091,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         saveTasks[noteID] = nil
         guard let text = pendingText.removeValue(forKey: noteID) else { return }
         do {
-            let updated = try await store.update(id: noteID, content: text)
+            let updated = try await store.update(id: noteID, content: text, writer: "user")
             if let panel = panels[noteID], panel.title != updated.title {
                 panel.title = updated.title
             }

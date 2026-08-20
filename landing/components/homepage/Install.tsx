@@ -51,6 +51,7 @@ const FOOTER_LINKS = [
   { href: 'https://github.com/arach/blink/releases/latest', label: 'Releases', external: true },
   { href: '/agents.md', label: 'AGENTS.md', external: false },
   { href: '/llms.txt', label: 'llms.txt', external: false },
+  { href: '/privacy/', label: 'Privacy', external: false },
   {
     href: 'https://github.com/arach/blink/blob/main/docs/cli.md',
     label: 'CLI docs',

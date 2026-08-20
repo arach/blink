@@ -44,8 +44,13 @@ let package = Package(
             ],
             path: "Sources/BlinkCLI"
         ),
+        .systemLibrary(
+            name: "CSQLite",
+            path: "Sources/CSQLite"
+        ),
         .target(
             name: "BlinkCore",
+            dependencies: ["CSQLite"],
             path: "Sources/BlinkCore"
         ),
         .target(

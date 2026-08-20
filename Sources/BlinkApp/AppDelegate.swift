@@ -21,6 +21,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var notesWatcher: DirectoryWatcher?
     private var peerServer: BlinkLANPeerServer?
     private var peerStartupFailure: String?
+    private var socketServer: BlinkSocketServer?
+    private var socketNoteObservers: [NSObjectProtocol] = []
     private let peerSyncStatus = PeerSyncStatus()
     private let log = HudLogger(category: "blink.app")
 
@@ -35,11 +37,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         installMainMenu()
 
         store = NoteStore(
-            fileStore: NoteFileStore(directory: Self.notesDirectory()),
+            fileStore: NoteFileStore(
+                directory: Self.notesDirectory(),
+                ledger: NoteEditLedger(fileURL: BlinkPaths.edits())
+            ),
             tombstoneStore: BlinkTombstoneStore(fileURL: BlinkPaths.tombstones())
         )
+
         startPeerServer()
         panelManager = PanelManager(store: store)
+        startSocketServer()
         model = AppModel(store: store, panelManager: panelManager)
         panelManager.onWorkspaceScopeRequested = { [weak self] scope in
             self?.model.selectWorkspace(scope)
@@ -270,6 +277,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        socketServer?.stop()
+        socketNoteObservers.forEach(NotificationCenter.default.removeObserver)
         peerServer?.stop()
         HotkeyManager.shared.unregisterAll()
         if let commandRequestObserver {
@@ -280,6 +289,80 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             name: BlinkDeskCommand.notificationName,
             object: nil
         )
+    }
+
+    private func startSocketServer() {
+        let server = BlinkSocketServer { [weak self] data, client in
+            await self?.handleSocketRequest(data, client: client)
+        }
+        do {
+            try server.start(); socketServer = server
+            panelManager.onPlacementChanged = { [weak server] id, method in
+                server?.publish(method: method, params: ["id": id])
+            }
+            for name in [Notification.Name.blinkNoteCreated, .blinkNoteUpdated, .blinkNoteDeleted] {
+                socketNoteObservers.append(NotificationCenter.default.addObserver(
+                    forName: name, object: nil, queue: .main
+                ) { [weak server] notification in
+                    let method = name == .blinkNoteCreated ? "note.created" : (name == .blinkNoteUpdated ? "note.updated" : "note.deleted")
+                    server?.publish(method: method, params: ["id": notification.userInfo?["id"] as? String ?? ""])
+                })
+            }
+            log.info("[BLINK] agent socket listening", metadata: ["path": BlinkPaths.socket().path])
+        } catch {
+            log.error("[BLINK] agent socket failed", metadata: ["error": "\(error)"])
+        }
+    }
+
+    private func handleSocketRequest(_ data: Data, client: BlinkSocketServer.Client) async {
+        guard let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              request["jsonrpc"] as? String == "2.0", let method = request["method"] as? String
+        else { socketServer?.send(rpcError(id: NSNull(), code: -32600, message: "Invalid Request"), to: client); return }
+        let id = request["id"] ?? NSNull()
+        let params = request["params"] as? [String: Any] ?? [:]
+        do {
+            let result: Any
+            switch method {
+            case "system.hello": result = ["protocol": "2.0", "version": "2.0.0", "app": "Blink"]
+            case "placements.list": result = panelManager.placementList()
+            case "notes.list":
+                result = await store.all().map { ["id": $0.id, "title": $0.title, "updated": ISO8601DateFormatter().string(from: $0.updatedAt)] }
+            case "notes.get":
+                guard let noteID = params["id"] as? String, let note = await store.note(id: noteID) else { throw RPCFailure(code: -32004, message: "Note not found") }
+                var value: [String: Any] = ["id": note.id, "title": note.title, "frontmatter": note.extraFrontmatter]
+                if params["content"] as? Bool == true { value["content"] = note.content }
+                result = value
+            case "notes.present":
+                guard let rawID = params["id"] as? String else { throw RPCFailure(code: -32602, message: "id is required") }
+                let noteID = Slug.generate(from: rawID); let now = Date(); let disk = NoteFileStore(directory: BlinkPaths.notes(), ledger: NoteEditLedger(fileURL: BlinkPaths.edits()))
+                var note = (try? disk.load(id: noteID)) ?? Note(id: noteID, content: "", createdAt: now, updatedAt: now)
+                if let content = params["content"] as? String { note.content = content }
+                if let slot = params["slot"] as? Int { note.presentation.slot = slot }
+                if let style = params["style"] as? String { note.presentation.style = style }
+                note.presentation.lastWriter = "agent-socket"; note.updatedAt = now
+                try disk.save(note, writer: "agent-socket"); _ = await store.reconcile(); _ = panelManager.openPanel(for: note)
+                result = ["id": note.id]
+            case "desk.save":
+                guard let name = params["name"] as? String else { throw RPCFailure(code: -32602, message: "name is required") }
+                let layout = panelManager.deskLayout(named: try DeskLayoutStore.validate(name)); try DeskLayoutStore().save(layout); result = layoutJSON(layout)
+            case "desk.restore":
+                guard let name = params["name"] as? String else { throw RPCFailure(code: -32602, message: "name is required") }
+                let layout = try DeskLayoutStore().load(name); await panelManager.restoreDesk(layout); result = layoutJSON(layout)
+            case "events.subscribe": client.subscribed = true; result = ["subscribed": params["topics"] ?? []]
+            default: throw RPCFailure(code: -32601, message: "Method not found")
+            }
+            socketServer?.send(["jsonrpc": "2.0", "id": id, "result": result], to: client)
+        } catch let failure as RPCFailure {
+            socketServer?.send(rpcError(id: id, code: failure.code, message: failure.message), to: client)
+        } catch { socketServer?.send(rpcError(id: id, code: -32000, message: error.localizedDescription), to: client) }
+    }
+
+    private struct RPCFailure: Error { let code: Int; let message: String }
+    private func rpcError(id: Any, code: Int, message: String) -> [String: Any] {
+        ["jsonrpc": "2.0", "id": id, "error": ["code": code, "message": message]]
+    }
+    private func layoutJSON(_ layout: DeskLayout) -> [String: Any] {
+        ["name": layout.name, "updated": ISO8601DateFormatter().string(from: layout.updated), "panels": layout.panels.count]
     }
 
     /// Realize the CLI's narrow live-desk verbs through AppModel and
