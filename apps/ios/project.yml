@@ -2,7 +2,7 @@ name: BlinkMobile
 options:
   bundleIdPrefix: dev.arach
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "26.0"
   xcodeVersion: "26.0"
 packages:
   Blink:

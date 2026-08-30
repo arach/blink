@@ -1,7 +1,6 @@
 import BlinkCore
 import BlinkPeer
 import SwiftUI
-import UIKit
 
 struct BlinkBackdrop: View {
     var body: some View {
@@ -412,12 +411,7 @@ struct ContentView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Menu {
-                Button("All Notes") { workspace = .all }
-                Button("Unfiled") { workspace = .unfiled }
-                if !workspaceIDs.isEmpty { Divider() }
-                ForEach(workspaceIDs, id: \.self) { id in
-                    Button(id) { workspace = .workspace(id) }
-                }
+                WorkspaceScopeMenuContent(workspace: $workspace, workspaceIDs: workspaceIDs)
             } label: {
                 HStack(spacing: 5) {
                     BlinkMark(size: 24)
@@ -526,6 +520,22 @@ enum WorkspaceScope: Hashable {
     }
 }
 
+/// Shared menu items for choosing the note scope, used by the phone toolbar
+/// menu and the iPad workspace top bar.
+struct WorkspaceScopeMenuContent: View {
+    @Binding var workspace: WorkspaceScope
+    let workspaceIDs: [String]
+
+    var body: some View {
+        Button("All Notes") { workspace = .all }
+        Button("Unfiled") { workspace = .unfiled }
+        if !workspaceIDs.isEmpty { Divider() }
+        ForEach(workspaceIDs, id: \.self) { id in
+            Button(id) { workspace = .workspace(id) }
+        }
+    }
+}
+
 private struct SyncSummary: View {
     let state: BlinkMobileModel.ConnectionState
     let lastSyncedAt: Date
@@ -561,11 +571,16 @@ private struct SyncSummary: View {
     }
 
     private var isDegraded: Bool {
-        issueCount > 0 || isStale
+        issueCount > 0 || syncStatusIsStale(lastSyncedAt)
     }
 
-    private var isStale: Bool {
-        Date().timeIntervalSince(lastSyncedAt) > 7 * 24 * 60 * 60
+    private var statusLine: String {
+        syncStatusLine(
+            state: state,
+            lastSyncedAt: lastSyncedAt,
+            issueCount: issueCount,
+            isSyncing: isSyncing
+        )
     }
 
     private var statusColor: Color {
@@ -578,27 +593,6 @@ private struct SyncSummary: View {
         if isDegraded { return BlinkMobileTheme.amber }
         if isSyncing || state.host != nil { return BlinkMobileTheme.signal }
         return BlinkMobileTheme.faintInk
-    }
-
-    private var statusLine: String {
-        let age = conciseAge(since: lastSyncedAt)
-        if issueCount > 0 {
-            return "\(issueCount) SYNC ISSUE\(issueCount == 1 ? "" : "S") · UPDATED \(age)"
-        }
-        if isSyncing {
-            if let host = state.host {
-                return "SYNCING · \(host.name.uppercased())"
-            }
-            return "SYNCING"
-        }
-        switch state {
-        case .disconnected:
-            return isStale ? "SYNC DUE · UPDATED \(age)" : "UPDATED \(age)"
-        case .requestingAccess(let name):
-            return "APPROVAL NEEDED · \(name.uppercased())"
-        case .connected(let host):
-            return "\(host.name.uppercased()) · UPDATED \(age)"
-        }
     }
 }
 
@@ -630,6 +624,8 @@ private struct NoteRow: View {
                     if !dynamicTypeSize.isAccessibilitySize {
                         Text(indexTapeStamp(for: note.updatedAt))
                             .font(.caption2.monospaced())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                     }
                 }
                 .foregroundStyle(BlinkMobileTheme.faintInk)
@@ -729,13 +725,13 @@ private struct NoteDetailView: View {
                                 .font(.caption2.monospaced().weight(.semibold))
                             Text(indexTapeStamp(for: note.updatedAt))
                                 .font(.caption2.monospaced())
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
                         }
                         .foregroundStyle(BlinkMobileTheme.faintInk)
                         .padding(.top, 29)
                         .padding(.trailing, 8)
                         .frame(width: 48, alignment: .topTrailing)
-                        .frame(maxHeight: .infinity, alignment: .topTrailing)
-                        .background(BlinkMobileTheme.rail)
                         .accessibilityHidden(true)
                     }
 
@@ -794,6 +790,21 @@ private struct NoteDetailView: View {
                 )
             }
         }
+        .background(alignment: .topLeading) {
+            // The rail is a fixed margin band behind the note: full height
+            // regardless of note length, pierced through the bottom safe
+            // area. Only the index text scrolls with the note.
+            if !dynamicTypeSize.isAccessibilitySize {
+                BlinkMobileTheme.rail
+                    .frame(width: 48)
+                    .frame(maxHeight: .infinity)
+                    .overlay(alignment: .trailing) {
+                        BlinkMobileTheme.hairline.frame(width: 1)
+                    }
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .accessibilityHidden(true)
+            }
+        }
         .background(BlinkBackdrop())
         .navigationTitle(note.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -814,386 +825,4 @@ private struct NoteDetailView: View {
                 }
         }
     }
-}
-
-private let indexTapeClockFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = .autoupdatingCurrent
-    formatter.setLocalizedDateFormatFromTemplate("HHmm")
-    return formatter
-}()
-
-private let indexTapeOldDateFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.locale = .autoupdatingCurrent
-    formatter.dateFormat = "M·yy"
-    return formatter
-}()
-
-func indexTapeStamp(for date: Date, now: Date = Date()) -> String {
-    let calendar = Calendar.autoupdatingCurrent
-    if calendar.isDate(date, inSameDayAs: now) {
-        return indexTapeClockFormatter.string(from: date)
-    }
-
-    let days = calendar.dateComponents(
-        [.day],
-        from: calendar.startOfDay(for: date),
-        to: calendar.startOfDay(for: now)
-    ).day ?? 0
-    if days >= 0, days < 7 {
-        return date.formatted(.dateTime.weekday(.abbreviated)).uppercased()
-    }
-    if calendar.component(.year, from: date) == calendar.component(.year, from: now) {
-        return date.formatted(.dateTime.day().month(.abbreviated)).uppercased()
-    }
-    return indexTapeOldDateFormatter.string(from: date).uppercased()
-}
-
-func conciseAge(since date: Date, now: Date = Date()) -> String {
-    let interval = max(0, now.timeIntervalSince(date))
-    if interval < 60 { return "JUST NOW" }
-    if interval < 3_600 { return "\(Int(interval / 60))M AGO" }
-    if interval < 86_400 { return "\(Int(interval / 3_600))H AGO" }
-    if interval < 30 * 86_400 { return "\(Int(interval / 86_400))D AGO" }
-    return date.formatted(date: .abbreviated, time: .omitted).uppercased()
-}
-
-struct MarkdownDocumentView: View {
-    let markdown: String
-    let noteTitle: String
-
-    private var blocks: [MarkdownBlock] {
-        MarkdownBlock.parse(markdown, omittingRepeatedTitle: noteTitle)
-    }
-
-    var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
-            ForEach(blocks) { block in
-                blockView(block)
-            }
-        }
-        .foregroundStyle(BlinkMobileTheme.ink)
-        .textSelection(.enabled)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func blockView(_ block: MarkdownBlock) -> some View {
-        switch block.kind {
-        case .heading(let level, let text):
-            Text(inlineMarkdown(text))
-                .font(headingFont(level))
-                .foregroundStyle(BlinkMobileTheme.ink)
-                .accessibilityAddTraits(.isHeader)
-        case .paragraph(let text):
-            Text(inlineMarkdown(text))
-                .font(.body)
-        case .listItem(let marker, let text):
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(marker)
-                    .font(.body.monospaced())
-                    .foregroundStyle(BlinkMobileTheme.signal)
-                    .frame(minWidth: 18, alignment: .trailing)
-                Text(inlineMarkdown(text))
-                    .font(.body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .accessibilityElement(children: .combine)
-        case .code(let text):
-            ScrollView(.horizontal) {
-                Text(text)
-                    .font(.body.monospaced())
-                    .padding()
-            }
-            .background(BlinkMobileTheme.surface)
-            .overlay {
-                Rectangle()
-                    .stroke(BlinkMobileTheme.hairline, lineWidth: 1)
-            }
-            .accessibilityLabel("Code block")
-            .accessibilityValue(text)
-        }
-    }
-
-    private func headingFont(_ level: Int) -> Font {
-        switch level {
-        case 1: .system(.title2, design: .serif, weight: .semibold)
-        case 2: .system(.title3, design: .serif, weight: .semibold)
-        default: .headline
-        }
-    }
-
-    private func inlineMarkdown(_ text: String) -> AttributedString {
-        (try? AttributedString(
-            markdown: text,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        )) ?? AttributedString(text)
-    }
-}
-
-private struct MarkdownBlock: Identifiable {
-    enum Kind {
-        case heading(level: Int, text: String)
-        case paragraph(String)
-        case listItem(marker: String, text: String)
-        case code(String)
-    }
-
-    var id: Int
-    var kind: Kind
-
-    static func parse(_ markdown: String, omittingRepeatedTitle title: String) -> [MarkdownBlock] {
-        let lines = markdown.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        var blocks: [MarkdownBlock] = []
-        var paragraph: [String] = []
-        var code: [String]?
-
-        func append(_ kind: Kind) {
-            blocks.append(MarkdownBlock(id: blocks.count, kind: kind))
-        }
-
-        func flushParagraph() {
-            guard !paragraph.isEmpty else { return }
-            append(.paragraph(paragraph.joined(separator: " ")))
-            paragraph.removeAll()
-        }
-
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") {
-                if let codeLines = code {
-                    append(.code(codeLines.joined(separator: "\n")))
-                    code = nil
-                } else {
-                    flushParagraph()
-                    code = []
-                }
-                continue
-            }
-            if code != nil {
-                code?.append(line)
-                continue
-            }
-            if trimmed.isEmpty {
-                flushParagraph()
-                continue
-            }
-            if let heading = heading(in: trimmed) {
-                flushParagraph()
-                append(.heading(level: heading.level, text: heading.text))
-                continue
-            }
-            if let item = listItem(in: trimmed) {
-                flushParagraph()
-                append(.listItem(marker: item.marker, text: item.text))
-                continue
-            }
-            paragraph.append(trimmed)
-        }
-
-        flushParagraph()
-        if let code { append(.code(code.joined(separator: "\n"))) }
-
-        if let first = blocks.first,
-           case .heading(_, let headingTitle) = first.kind,
-           headingTitle.caseInsensitiveCompare(title) == .orderedSame {
-            blocks.removeFirst()
-            for index in blocks.indices { blocks[index].id = index }
-        }
-        return blocks
-    }
-
-    private static func heading(in line: String) -> (level: Int, text: String)? {
-        let level = line.prefix(while: { $0 == "#" }).count
-        guard (1...6).contains(level) else { return nil }
-        let boundary = line.index(line.startIndex, offsetBy: level)
-        guard boundary < line.endIndex, line[boundary].isWhitespace else { return nil }
-        return (level, line[boundary...].trimmingCharacters(in: .whitespaces))
-    }
-
-    private static func listItem(in line: String) -> (marker: String, text: String)? {
-        for marker in ["-", "*", "+"] where line.hasPrefix(marker + " ") {
-            return ("•", String(line.dropFirst(2)))
-        }
-        let digits = line.prefix(while: { $0.isNumber })
-        guard !digits.isEmpty else { return nil }
-        let boundary = line.index(line.startIndex, offsetBy: digits.count)
-        guard boundary < line.endIndex, line[boundary] == "." || line[boundary] == ")" else {
-            return nil
-        }
-        let afterMarker = line.index(after: boundary)
-        guard afterMarker < line.endIndex, line[afterMarker].isWhitespace else { return nil }
-        return ("\(digits).", line[afterMarker...].trimmingCharacters(in: .whitespaces))
-    }
-}
-
-struct ConnectionView: View {
-    @ObservedObject var model: BlinkMobileModel
-    @State private var pendingPeer: BlinkLANPeerCandidate?
-
-    var body: some View {
-        List {
-            if let host = model.connectionState.host {
-                Section("Mac") {
-                    Label(host.name, systemImage: "desktopcomputer")
-                    LabeledContent("Transport", value: "Local network")
-                    LabeledContent("Security", value: "Encrypted")
-                }
-                .listRowBackground(BlinkMobileTheme.surface)
-                Section {
-                    Button("Sync Now") {
-                        Task { await model.refresh() }
-                    }
-                    .disabled(model.isSyncing)
-                    Button("Disconnect", role: .destructive) {
-                        model.disconnect()
-                    }
-                }
-                .listRowBackground(BlinkMobileTheme.surface)
-            } else {
-                nearbySection
-                approvalSection
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(BlinkBackdrop())
-        .navigationTitle("Connection")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(BlinkMobileTheme.canvas, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .alert(
-            "Connect to \(pendingPeer?.name ?? "this Mac")?",
-            isPresented: Binding(
-                get: { pendingPeer != nil },
-                set: { if !$0 { pendingPeer = nil } }
-            )
-        ) {
-            Button("Cancel", role: .cancel) { pendingPeer = nil }
-            Button("Request Access") {
-                guard let peer = pendingPeer else { return }
-                pendingPeer = nil
-                Task {
-                    _ = await model.connect(to: peer)
-                }
-            }
-        } message: {
-            Text("Your Mac will ask you to allow this device. Access remains until you revoke it on the Mac.")
-        }
-    }
-
-    @ViewBuilder
-    private var nearbySection: some View {
-        Section {
-            switch model.discoveryState {
-            case .searching:
-                HStack(spacing: 12) {
-                    ProgressView()
-                    Text("Looking for Blink on your network…")
-                        .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                }
-            case .found:
-                ForEach(model.nearbyPeers) { peer in
-                    Button {
-                        pendingPeer = peer
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Label(peer.name, systemImage: "desktopcomputer")
-                                Text("Nearby")
-                                    .font(.caption)
-                                    .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                            }
-                            Spacer()
-                            if case .requestingAccess(let name) = model.connectionState,
-                               name == peer.name {
-                                ProgressView()
-                            } else {
-                                Image(systemName: "chevron.forward")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(BlinkMobileTheme.faintInk)
-                            }
-                        }
-                    }
-                    .foregroundStyle(.primary)
-                    .disabled(model.connectionState != .disconnected)
-                }
-            case .noPeers:
-                Label("No Macs found", systemImage: "desktopcomputer.trianglebadge.exclamationmark")
-                    .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                Button("Look Again") { model.retryDiscovery() }
-            case .failed(let message):
-                Label("Discovery unavailable", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                Button("Try Again") { model.retryDiscovery() }
-                Button("Open Settings") {
-                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-                    UIApplication.shared.open(url)
-                }
-            }
-        } header: {
-            Text("Nearby Macs")
-        } footer: {
-            Text("Open Blink on your Mac. Both devices must be on the same network.")
-        }
-        .listRowBackground(BlinkMobileTheme.surface)
-    }
-
-    @ViewBuilder
-    private var approvalSection: some View {
-        switch model.connectionState {
-        case .requestingAccess(let name):
-            Section {
-                HStack(alignment: .top, spacing: 12) {
-                    ProgressView()
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Approve on \(name)")
-                            .font(.headline)
-                        Text("Waiting for approval")
-                            .font(.subheadline)
-                            .foregroundStyle(BlinkMobileTheme.secondaryInk)
-                    }
-                }
-            } header: {
-                Text("Access")
-            }
-            .listRowBackground(BlinkMobileTheme.surface)
-        case .disconnected:
-            Section {
-                Label("Approval is required on the Mac.", systemImage: "lock.shield")
-                    .foregroundStyle(BlinkMobileTheme.secondaryInk)
-            } footer: {
-                Text("The Mac remembers this device until you revoke access.")
-            }
-            .listRowBackground(BlinkMobileTheme.surface)
-        case .connected:
-            EmptyView()
-        }
-    }
-}
-
-func noteContent(_ note: BlinkSnapshotNote) -> String {
-    (try? Frontmatter.decode(note.markdown).content) ?? note.markdown
-}
-
-func noteExcerpt(_ note: BlinkSnapshotNote) -> String {
-    var lines = noteContent(note)
-        .split(separator: "\n", omittingEmptySubsequences: false)
-        .map(String.init)
-    if let firstContentIndex = lines.firstIndex(where: {
-        !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }) {
-        let first = lines[firstContentIndex]
-            .trimmingCharacters(in: CharacterSet(charactersIn: "# "))
-        if first.caseInsensitiveCompare(note.title) == .orderedSame {
-            lines.remove(at: firstContentIndex)
-        }
-    }
-    return lines.joined(separator: " ")
-        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-        .trimmingCharacters(in: .whitespacesAndNewlines)
 }
