@@ -1,6 +1,6 @@
 # Blink Mobile — App Store Connect submission prep
 
-**Last checked:** 2026-08-04 09:24 EDT  
+**Last checked:** 2026-08-30 14:55 EDT  
 **Bundle ID:** `dev.arach.blink.mobile` (Developer Portal ID `MF8456KF59`)  
 **Team / public provider:** `2U83JFPW66`  
 **Version / build:** `0.1.0` / `1`  
@@ -13,8 +13,8 @@
 
 | Artifact | Status |
 |---|---|
-| IPA | `.asc/artifacts/BlinkMobile.ipa` — export passed |
-| IPA SHA-256 | `f0b3dc0737b8936e024b95697121d5c355da851c293d9009627dc5ef93f02218` |
+| IPA | `.asc/artifacts/BlinkMobile.ipa` — export passed, rebuilt 2026-08-30 from `baa7138` (iOS cleanup + reader/theme polish) |
+| IPA SHA-256 | `6dc05125c314ce8dba7630868bebe9c02dc708ae194f0eaa3c8a5efb60982383` |
 | Archive | `.asc/artifacts/BlinkMobile.xcarchive` — archive passed |
 | Metadata | `.asc/metadata/` — offline validation passed, 0 errors / 0 warnings |
 | iPhone screenshot | `.asc/screenshots/iphone-69/en-US/blink-notes.png` — 1320×2868, local validation passed |
