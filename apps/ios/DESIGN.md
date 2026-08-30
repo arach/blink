@@ -42,7 +42,7 @@ rule `#DAD5CB`, ink `#17130F`, secondary `#5C554F`, faint `#6F695F`, signal
 `#2D5DAF`, amber `#7E6029`.
 
 Dark: canvas `#0A0B0C`, surface `#121416`, raised `#17191C`, rail `#0E1012`,
-rule `#2A2E31`, ink `#FBEEE8`, secondary `#9AA0A2`, faint `#7A7F81`, signal
+rule `#2A2E31`, ink `#FBEEE8`, secondary `#B8BEC0`, faint `#9AA0A2`, signal
 `#83B4FF`, amber `#D6B96C`.
 
 ## Native adaptation
@@ -62,9 +62,9 @@ as color.
   grid. It reflects the Mac app's atmosphere without copying desktop pixels,
   requesting Screen Recording access, or adding wallpaper data to replication.
 - On iPadOS 26, resting notes and compact chrome use clear interactive Liquid
-  Glass while the raised reader uses regular glass for contrast. Earlier
-  systems use native materials; Reduce Transparency produces opaque semantic
-  surfaces and removes the atmospheric drape.
+  Glass while the raised reader uses regular glass for contrast. Reduce
+  Transparency produces opaque semantic surfaces and removes the atmospheric
+  drape.
 - Unplaced notes and slot collisions fill the next open cells in chronological
   order. More than nine notes create additional swipeable desks, preserving a
   predictable grid rather than shrinking notes into thumbnails.

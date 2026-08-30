@@ -27,12 +27,6 @@ enum BlinkAppearance: String, CaseIterable, Identifiable {
         case .dark: .dark
         }
     }
-
-    static var stored: BlinkAppearance {
-        BlinkAppearance(
-            rawValue: UserDefaults.standard.string(forKey: storageKey) ?? ""
-        ) ?? .default
-    }
 }
 
 enum BlinkThemeChoice: String, CaseIterable, Identifiable {
@@ -132,7 +126,7 @@ enum BlinkThemeChoice: String, CaseIterable, Identifiable {
             )
         case .focus:
             BlinkThemePalette(
-                signal: .init(light: 0x706B00, dark: 0xEAE434),
+                signal: .init(light: 0x706B00, dark: 0xE6C447),
                 canvas: .init(light: 0xFAF7F1, dark: 0x17120F),
                 surface: .init(light: 0xFFFCF7, dark: 0x251D17),
                 raisedSurface: .init(light: 0xFFFFFF, dark: 0x30261E),
