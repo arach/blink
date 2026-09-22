@@ -543,6 +543,7 @@ final class PanelManager: NSObject, NSWindowDelegate {
         panel.reflectMode(mode)
         panel.editor.onReady = { [weak panel] in
             if mode == "edit" { panel?.editor.focus() }
+            panel?.refreshAdaptiveInk()
         }
         let persistMode = { (newMode: String) in
             UserDefaults.standard.set(newMode, forKey: ConfigKeys.noteMode(note.id))
@@ -672,16 +673,19 @@ final class PanelManager: NSObject, NSWindowDelegate {
     /// move the backing surface with it, even when key focus does not change.
     func windowDidChangeScreen(_ notification: Notification) {
         updateFocusOverlay()
+        (notification.object as? NotePanel)?.refreshAdaptiveInk()
     }
 
     func windowDidMove(_ notification: Notification) {
         guard let panel = notification.object as? NotePanel else { return }
         onPlacementChanged?(panel.noteID, "panel.moved")
+        panel.refreshAdaptiveInk()
     }
 
     func windowDidResize(_ notification: Notification) {
         guard let panel = notification.object as? NotePanel else { return }
         onPlacementChanged?(panel.noteID, "panel.resized")
+        panel.refreshAdaptiveInk()
     }
 
     // MARK: - Read surface for overlays (grid, constellation)

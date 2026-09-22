@@ -263,7 +263,7 @@ final class EditorWebView: NSObject, WKScriptMessageHandler, WKNavigationDelegat
     /// without setTheme is a no-op rather than an error.
     func setTheme(_ vars: [String: String]) {
         guard isReady else {
-            pendingTheme = vars
+            pendingTheme = (pendingTheme ?? [:]).merging(vars) { _, new in new }
             return
         }
         guard let data = try? JSONSerialization.data(withJSONObject: vars),
