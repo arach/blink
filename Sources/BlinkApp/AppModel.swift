@@ -110,7 +110,11 @@ final class AppModel: ObservableObject {
         do {
             var presentation = NotePresentation()
             presentation.workspace = workspaceScope.workspaceIDForNewNote
-            let note = try await store.create(content: content, presentation: presentation)
+            let note = try await store.create(
+                content: content,
+                presentation: presentation,
+                writer: "user"
+            )
             // New notes always open in edit — you just created it to type.
             panelManager.openPanel(for: note, initialMode: "edit")
         } catch {
@@ -146,7 +150,7 @@ final class AppModel: ObservableObject {
     func deleteNote(id: String) async {
         panelManager.handleNoteDeleted(id: id)
         do {
-            try await store.delete(id: id)
+            try await store.delete(id: id, writer: "user")
         } catch {
             log.error("[BLINK] delete failed", metadata: ["id": id, "error": "\(error)"])
         }

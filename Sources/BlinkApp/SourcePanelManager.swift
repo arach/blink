@@ -98,7 +98,10 @@ final class SourcePanelManager: NSObject, NSWindowDelegate {
                 return root
             }).first {
                 self.dismissCompanions(for: note.id)
-                if self.locateRoot(named: missingRoot) {
+                if !force {
+                    self.log.info("[BLINK] Source root needs explicit location", metadata: ["root": missingRoot])
+                }
+                if force && self.locateRoot(named: missingRoot) {
                     self.activateCompanions(for: note, relativeTo: noteFrame, force: true)
                 }
                 return
@@ -133,7 +136,8 @@ final class SourcePanelManager: NSObject, NSWindowDelegate {
                 guard case .failure(_, let error) = outcome else { return nil }
                 return error
             }).first {
-                self.present(failure)
+                if force { self.present(failure) }
+                else { self.log.info("[BLINK] Automatic source resolution failed", metadata: ["reason": failure.localizedDescription]) }
             }
         }
     }
@@ -145,6 +149,13 @@ final class SourcePanelManager: NSObject, NSWindowDelegate {
         }
         let ids = companionPanelIDs.removeValue(forKey: noteID) ?? []
         releaseCompanionPanels(ids, from: noteID)
+    }
+
+    func setStandalonePanelsVisible(_ visible: Bool) {
+        for id in standalonePanelIDs {
+            if visible { panels[id]?.orderFront(nil) }
+            else { panels[id]?.orderOut(nil) }
+        }
     }
 
     func applyTheme(_ config: BlinkConfig) {

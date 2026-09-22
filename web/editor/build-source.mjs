@@ -49,6 +49,9 @@ async function main() {
     target: ["safari17"],
   });
   const js = result.outputFiles[0].text;
+  if (/<\/script/i.test(js)) {
+    throw new Error("Source viewer JS contains a closing script tag; inlining unsafe");
+  }
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${PAGE_CSS}</style></head>
 <body><main id="source" aria-label="Read-only source file"></main><script>${js}</script></body></html>`;

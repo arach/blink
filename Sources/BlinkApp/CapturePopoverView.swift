@@ -32,6 +32,7 @@ struct CapturePopoverView: View {
     var showCommands: () -> Void
     var toggleBlink: () -> Void
     var showGrid: () -> Void
+    var quit: () -> Void
     var beginDictation: () -> Void
     var trustedPeerCount: Int
     @ObservedObject var peerSyncStatus: PeerSyncStatus
@@ -493,6 +494,16 @@ struct CapturePopoverView: View {
             FooterUtilitiesMenu(
                 openHelp: openGuide,
                 openSettings: openSettings
+            )
+
+            footerSeparator
+
+            FooterActionButton(
+                icon: "power",
+                label: "Quit",
+                shortcut: "⌘Q",
+                help: "Quit Blink (⌘Q)",
+                action: quit
             )
         }
         .padding(.horizontal, 18)

@@ -39,20 +39,28 @@ Rules:
     "blink": "hyper+b",         // global — show all notes / hide all
     "grid": "hyper+c",          // global — grid/constellation overlay ("c" — hyper+g collides with Lattices)
     "toggleMode": "cmd+shift+p",// per-panel — flip read/edit
-    "focus": "cmd+."            // per-panel — quiet everything else
+    "focus": "cmd+.",           // per-panel — quiet everything else
+    "toggleChrome": "cmd+shift+t" // per-panel — pin the chrome rail after hover leaves
   },
   "panel": {
     "sheet": "glass",           // sheet template: "glass" | "card" | "dotted" | "bracket" | "marginalia"
                                 // per-note override: a `sheet:` frontmatter key in the note file
     "material": "hud",          // glass material: "hud" | "underWindow" | "popover" | "sidebar" | "menu"
     "cornerRadius": 12,
-    "tintRead": 0.18,           // 0–1 black tint over the glass in read mode (contrast floor)
-    "tintEdit": 0.28,           // 0–1 tint in edit mode (focused writing surface)
+    "tintRead": 0.28,           // 0–1 black tint over the glass in read mode (contrast floor)
+    "tintEdit": 0.38,           // 0–1 tint in edit mode (focused writing surface)
     "shadow": true,             // window drop shadow
     "defaultWidth": 420,        // size for panels opening for the first time
     "defaultHeight": 340,
     "background": null,         // optional CSS color; null keeps the glass sheet transparent
-    "mark": null                // optional identity mark from $BLINK_HOME/attachments
+    "mark": null,               // optional identity mark from $BLINK_HOME/attachments
+    "chrome": "rail"            // where the ✕ and mode toggle live:
+                                // "rail"   — a detached strip above the note, off the page.
+                                //            Shown on hover (or pinned with hotkeys.toggleChrome);
+                                //            the strip stays reachable across the seam. Idle notes
+                                //            stay bare. Edit mode does not force it.
+                                // "inside" — the original hover-earned chrome floating over
+                                //            the note's own top corners.
   },
   "focus": {
     "dim": 0.30                 // 0–1 strength of the focus-mode veil over everything else

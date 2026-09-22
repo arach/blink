@@ -36,6 +36,9 @@ public struct NotePresentation: Equatable, Sendable, Codable {
     /// device-local named roots; visibility and exact source-panel frames do not
     /// travel in Markdown.
     public var companions: NoteCompanions?
+    /// Last known writer for display. Overwritten on each attributed write.
+    /// Full history lives in `edits.sqlite`, not here.
+    public var lastWriter: String?
 
     public init() {}
 
@@ -45,7 +48,9 @@ public struct NotePresentation: Equatable, Sendable, Codable {
             && fontSize == nil && lineHeight == nil && tint == nil
             && tintRead == nil && tintEdit == nil && radius == nil && slot == nil
             && (companions == nil || companions?.isEmpty == true)
+            && lastWriter == nil
     }
+
 }
 
 /// A single note. The `id` is the slug identity (see `Slug`), the `content` is the

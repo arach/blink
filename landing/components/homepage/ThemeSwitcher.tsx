@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 const THEMES = [
   { id: 'light', label: 'Light', detail: 'Parchment light' },
-  { id: 'dark', label: 'Dark', detail: 'Forest dark' },
+  { id: 'dark', label: 'Dark', detail: 'Neutral dark' },
   { id: 'auto', label: 'Auto', detail: 'Follow macOS' },
 ] as const
 
@@ -126,7 +126,7 @@ export function ThemeSwitcher() {
 
   return (
     <div
-      className="inline-flex items-center rounded-[6px] border border-line2x bg-panelx p-0.5"
+      className="inline-flex h-8 items-center rounded-[6px] border border-line2x bg-panelx p-0.5"
       role="radiogroup"
       aria-label="Color theme"
     >
@@ -141,13 +141,13 @@ export function ThemeSwitcher() {
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={`${theme.label} theme`}
+            aria-label={`${theme.label} theme — ${theme.detail}`}
             title={`${theme.label} — ${theme.detail}`}
             tabIndex={selected ? 0 : -1}
             onClick={() => pick(theme.id)}
             onKeyDown={(event) => onKeyDown(event, index)}
             className={[
-              'inline-flex h-11 w-11 items-center justify-center rounded-[4px] transition-[color,background-color,box-shadow] duration-150',
+              'inline-flex h-7 w-7 items-center justify-center rounded-[4px] transition-[color,background-color,box-shadow] duration-150',
               selected
                 ? 'bg-[var(--acc-soft)] text-acc shadow-[inset_0_0_0_1px_rgba(var(--acc-rgb),0.28)]'
                 : 'text-faintx hover:bg-[var(--acc-soft)] hover:text-[var(--text)]',

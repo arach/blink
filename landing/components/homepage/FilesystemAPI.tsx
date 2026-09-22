@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SectionHeader, Reveal } from './shared'
+import { SectionHeader, Reveal, MockTitleBar } from './shared'
 
 interface TermLine {
   kind: 'cmd' | 'out' | 'json'
@@ -104,16 +104,11 @@ export default function FilesystemAPI() {
           sub="Notes are markdown files in a folder you own. Agents and the CLI write the same files the panels render — live, no plugins."
         />
 
-        <Reveal className="grid gap-5 lg:grid-cols-2 items-stretch">
-          <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
-            <div className="flex min-h-8 items-center gap-2 border-b border-linex bg-panel2x px-3 py-1">
-              <span className="h-[7px] w-[7px] rounded-full bg-[var(--ghost)]" />
-              <span className="h-[7px] w-[7px] rounded-full bg-[var(--faint)]" />
-              <span className="h-[7px] w-[7px] rounded-full bg-[var(--dim)]" />
-              <span className="ml-1.5 text-[10px] text-faintx">blink CLI</span>
-            </div>
+        <Reveal className="grid items-stretch gap-5 lg:grid-cols-2">
+          <div className="flex flex-col overflow-hidden rounded-[8px] border border-linex bg-panelx">
+            <MockTitleBar dots title="blink CLI" />
             <div
-              className="flex-1 p-4 md:p-5 text-[12px] md:text-[12.5px] leading-[1.9] min-h-[200px]"
+              className="min-h-[200px] flex-1 p-4 text-[12px] leading-[1.9] md:p-5 md:text-[12.5px]"
               aria-live="polite"
               aria-atomic="false"
             >
@@ -139,16 +134,18 @@ export default function FilesystemAPI() {
             </div>
           </div>
 
-          <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col">
-            <div className="flex min-h-8 items-center justify-between border-b border-linex bg-panel2x px-3 py-1">
-              <span className="text-[10px] font-medium text-dimx">standup.md</span>
-              <span className={`transition-opacity duration-300 ${badge ? 'opacity-100' : 'opacity-0'}`}>
-                <span className="inline-flex h-5 items-center gap-1.5 rounded-[4px] border border-[rgba(var(--acc-rgb),0.35)] bg-[var(--acc-soft)] px-2 text-[9px] text-acc">
-                  <span className="inline-block h-1 w-1 rounded-full bg-[var(--acc)]" />
-                  typed by agent
+          <div className="flex flex-col overflow-hidden rounded-[8px] border border-linex bg-panelx">
+            <MockTitleBar
+              title="standup.md"
+              trailing={
+                <span className={`transition-opacity duration-300 ${badge ? 'opacity-100' : 'opacity-0'}`}>
+                  <span className="inline-flex h-5 items-center gap-1.5 rounded-[4px] border border-[rgba(var(--acc-rgb),0.35)] bg-[var(--acc-soft)] px-2 text-[9px] text-acc">
+                    <span className="inline-block h-1 w-1 rounded-full bg-[var(--acc)]" />
+                    typed by agent
+                  </span>
                 </span>
-              </span>
-            </div>
+              }
+            />
             <div className="flex-1 p-4 md:p-5 min-h-[200px]">
               {note.map((l, i) => (
                 <div

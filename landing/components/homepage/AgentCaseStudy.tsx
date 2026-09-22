@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { SectionHeader, Reveal } from './shared'
+import { DemoChromeBar, MockTitleBar, SectionHeader, Reveal } from './shared'
 
 /** Distilled priority note placed on the desk. */
 type DeskNote = {
@@ -184,13 +184,15 @@ export function AgentFilm() {
         <Reveal>
           <div className="corner-frame">
             <div className="overflow-hidden rounded-[8px] border border-linex bg-panelx">
-              <div className="demo-chrome flex min-h-10 items-center justify-between gap-3 border-b px-3 py-1.5 text-[10px] text-dimx">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--acc)]" aria-hidden />
-                  <span className="truncate">Pi → CLI → spatial desk</span>
-                </div>
-                <span className="shrink-0 text-faintx">00:47 · sound on</span>
-              </div>
+              <MockTitleBar
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--acc)]" aria-hidden />
+                    Pi → CLI → spatial desk
+                  </span>
+                }
+                trailing={<span className="text-faintx">00:47 · sound on</span>}
+              />
 
               <div className="aspect-video bg-[#050708]">
                 <video
@@ -238,14 +240,14 @@ function TicketPanel({ note, active }: { note: DeskNote; active: boolean }) {
         transition: 'opacity 0.85s ease',
       }}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,0.12)] px-2 py-1">
-        <span className="truncate text-[9px] font-medium text-[rgba(250,250,250,0.92)]">{note.file}</span>
+      <div className="flex items-center justify-between gap-2 border-b border-[rgba(255,255,255,0.12)] px-2.5 py-1.5">
+        <span className="truncate text-[9px] font-medium leading-none text-[rgba(250,250,250,0.92)]">{note.file}</span>
         <span className="shrink-0 text-[8px] uppercase tracking-[0.12em] text-[rgba(220,220,220,0.65)]">
           {note.stack}
         </span>
       </div>
-      <div className="px-2 py-1.5">
-        <p className="text-[10px] leading-[1.45] text-[rgba(240,240,240,0.92)] line-clamp-2">{note.line}</p>
+      <div className="px-2.5 py-2">
+        <p className="line-clamp-2 text-[10px] leading-[1.45] text-[rgba(240,240,240,0.92)]">{note.line}</p>
       </div>
     </div>
   )
@@ -369,20 +371,20 @@ export default function AgentCaseStudy() {
           }
         />
 
-        <Reveal className="grid gap-5 lg:grid-cols-[0.95fr_1.15fr] items-start">
+        <Reveal className="grid items-start gap-5 lg:grid-cols-[0.95fr_1.15fr]">
           {/* coding-agent transcript — conversation leads; tools whisper */}
-          <div className="border border-linex rounded-[8px] bg-panelx overflow-hidden flex flex-col h-[380px] sm:h-[420px]">
-            <div className="flex shrink-0 items-center justify-between border-b border-linex bg-panel2x px-3.5 py-2">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="text-[11px] font-semibold text-[var(--text)]">claude</span>
-                <span className="text-[10px] text-dimx truncate">~/Notes · last 24h</span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 text-[10px]">
-                {status === 'working' && <span className="text-dimx">working</span>}
-                {status === 'done' && <span className="text-acc font-medium">done</span>}
-                {status === 'idle' && <span className="text-dimx">ready</span>}
-              </div>
-            </div>
+          <div className="flex h-[380px] flex-col overflow-hidden rounded-[8px] border border-linex bg-panelx sm:h-[420px]">
+            <MockTitleBar
+              title="claude"
+              detail="~/Notes · last 24h"
+              trailing={
+                <>
+                  {status === 'working' && <span className="text-dimx">working</span>}
+                  {status === 'done' && <span className="font-medium text-acc">done</span>}
+                  {status === 'idle' && <span className="text-dimx">ready</span>}
+                </>
+              }
+            />
 
             <div
               ref={logBoxRef}
@@ -415,22 +417,22 @@ export default function AgentCaseStudy() {
           </div>
 
           {/* desktop with priority stacks */}
-          <div className="corner-frame flex flex-col h-[380px] sm:h-[420px]">
-            <div className="demo-chrome flex shrink-0 items-center justify-between gap-2 border border-b-0 rounded-t-[8px] px-3 min-h-10 py-1.5">
-              <div className="flex min-w-0 items-center gap-2 text-[11px]">
-                <span className="text-[var(--text)] font-semibold truncate">~/Desktop</span>
-                <span className="hidden sm:inline shrink-0 text-dimx">— prioritized board</span>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 text-[10px] text-dimx">
-                <span>
-                  p0 <span className="text-acc font-semibold tabular-nums">{p0Count}</span>
-                </span>
-                <span className="text-faintx">·</span>
-                <span>
-                  p1 <span className="text-acc font-semibold tabular-nums">{p1Count}</span>
-                </span>
-              </div>
-            </div>
+          <div className="corner-frame flex h-[380px] flex-col sm:h-[420px]">
+            <DemoChromeBar
+              title="~/Desktop"
+              detail="— prioritized board"
+              trailing={
+                <>
+                  <span>
+                    p0 <span className="font-semibold tabular-nums text-acc">{p0Count}</span>
+                  </span>
+                  <span className="text-faintx">·</span>
+                  <span>
+                    p1 <span className="font-semibold tabular-nums text-acc">{p1Count}</span>
+                  </span>
+                </>
+              }
+            />
 
             <div
               className="demo-desktop relative flex-1 min-h-0 overflow-hidden rounded-b-[8px] border border-linex"

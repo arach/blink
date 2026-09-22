@@ -100,6 +100,7 @@ public enum Frontmatter {
             }
             lines.append(contentsOf: companions.extraLines)
         }
+        if let v = p.lastWriter { lines.append("  lastWriter: \(quoteIfNeeded(v))") }
         lines.append(contentsOf: note.extraBlink)
     }
 
@@ -224,11 +225,15 @@ public enum Frontmatter {
             let raw = lines[index]
             index += 1
             let trimmed = raw.trimmingCharacters(in: .whitespaces)
-            guard indentation(of: raw) == fieldIndent else {
-                unknown.append(raw)
-                continue
-            }
+            // Scalar presentation keys retain the legacy permissive indentation.
+            // Only the structured companions block requires a sibling field level:
+            // shallow foreign scalars must not disable normal two-space fields,
+            // and nested foreign companions must never become source authority.
             if trimmed == "companions:" {
+                guard indentation(of: raw) == max(2, fieldIndent) else {
+                    unknown.append(raw)
+                    continue
+                }
                 let parentIndent = indentation(of: raw)
                 var block: [String] = []
                 while index < lines.count, indentation(of: lines[index]) > parentIndent {
@@ -251,7 +256,17 @@ public enum Frontmatter {
             let value = unquote(
                 String(trimmed[trimmed.index(after: colon)...]).trimmingCharacters(in: .whitespaces)
             )
-            guard !value.isEmpty else { unknown.append(raw); continue }
+            guard !value.isEmpty else {
+                unknown.append(raw)
+                // Preserve a foreign mapping as a whole. Its nested fields are
+                // not Blink siblings, even if they use canonical indentation.
+                let parentIndent = indentation(of: raw)
+                while index < lines.count, indentation(of: lines[index]) > parentIndent {
+                    unknown.append(lines[index])
+                    index += 1
+                }
+                continue
+            }
             switch key {
             case "workspace": presentation.workspace = value
             case "style": presentation.style = value
@@ -265,6 +280,7 @@ public enum Frontmatter {
             case "tintEdit": if let d = Double(value) { presentation.tintEdit = d } else { unknown.append(raw) }
             case "radius": if let d = Double(value) { presentation.radius = d } else { unknown.append(raw) }
             case "slot": if let i = Int(value) { presentation.slot = i } else { unknown.append(raw) }
+            case "lastWriter": presentation.lastWriter = value
             default: unknown.append(raw)
             }
         }

@@ -28,6 +28,7 @@ targets:
         CFBundleDisplayName: Blink
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
         NSLocalNetworkUsageDescription: Blink uses your local network to securely sync notes from your Mac.
         NSBonjourServices:

@@ -1,4 +1,4 @@
-import { Reveal, SectionHeader } from './shared'
+import { MockTitleBar, Reveal, SectionHeader } from './shared'
 
 const DOCS = [
   {
@@ -88,10 +88,10 @@ export default function AgentGuide() {
 
           <div className="mt-8 grid items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
             <div className="overflow-hidden rounded-[8px] border border-linex bg-panelx">
-              <div className="flex items-center justify-between border-b border-linex bg-panel2x px-4 py-2.5">
-                <span className="text-[11px] font-medium text-[var(--text)]">zero → spatial note</span>
-                <span className="text-[10px] text-faintx">macOS 14+ · arm64</span>
-              </div>
+              <MockTitleBar
+                title="zero → spatial note"
+                trailing={<span className="text-faintx">macOS 14+ · arm64</span>}
+              />
               <div className="p-4 md:p-5">
                 <pre className="whitespace-pre-wrap break-words text-[11.5px] leading-[1.9] text-dimx">
                   <code>{`npm install -g @arach/blink

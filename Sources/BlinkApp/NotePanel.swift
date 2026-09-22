@@ -117,6 +117,27 @@ final class NotePanel: NSPanel {
     private var focusGlyphView: NSView?
     private var closeButtonView: NSView?
     private var isHovered = false
+    /// Pointer is over the detached rail. Combined with `isHovered` so crossing
+    /// the seam does not count as leaving the note.
+    private var railPointerInside = false
+    /// Grace after the pointer leaves note+rail so you can reach the strip.
+    private var railLinger = false
+    private var railHideWork: DispatchWorkItem?
+
+    /// "rail" lifts the ✕ and mode toggle off the page into `chromeRail`;
+    /// "inside" keeps the original hover-earned corner chrome. Config-owned, so
+    /// it flips on hot reload.
+    private var chromeStyle: String
+    private var chromeRail: PanelChromeRail?
+    /// Keeps the rail up even after hover leaves.
+    private var railPinned = false
+
+
+
+    /// The note's title drives the rail's label, so a rename has to reach it.
+    override var title: String {
+        didSet { chromeRail?.setTitle(title) }
+    }
 
     init(
         noteID: String,
@@ -135,6 +156,7 @@ final class NotePanel: NSPanel {
         self.sheetTemplate = theme.panel.sheet
         self.readTint = theme.panel.tintRead
         self.editTint = theme.panel.tintEdit
+        self.chromeStyle = theme.panel.chrome
 
         super.init(
             contentRect: NSRect(
@@ -156,6 +178,8 @@ final class NotePanel: NSPanel {
         hidesOnDeactivate = false
         acceptsMouseMovedEvents = true
         isMovableByWindowBackground = true
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
         // Title never renders (borderless) but names the window for AX/scripts.
         self.title = title
         isOpaque = false
@@ -360,6 +384,10 @@ final class NotePanel: NSPanel {
         }
         setFrameAutosaveName(autosaveName)
 
+        // After the frame is restored: the rail positions itself off the note's
+        // real geometry, so building it earlier would park it at the origin.
+        syncChromeRail()
+
         // Derive the panel's surface from the sheet template: glass-visible for
         // glass/card, fully flat (no glass, no shadow) for the cut-out sheets.
         applySheetAppearance(theme)
@@ -429,11 +457,23 @@ final class NotePanel: NSPanel {
             container.layer?.cornerRadius = config.panel.cornerRadius
             hasShadow = config.panel.shadow
         }
+        applySeamCorners()
     }
 
     /// Nonactivating borderless panels must opt in to becoming key so the
     /// editor can type.
     override var canBecomeKey: Bool { true }
+
+    override func becomeKey() {
+        super.becomeKey()
+        updateChromeVisibility()
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        updateChromeVisibility()
+    }
+
 
     /// Mode flip (⌘⇧P) and focus (⌘.) — chords come from config so they follow
     /// hot reloads. Handled natively so they work even when the webview never
@@ -447,6 +487,10 @@ final class NotePanel: NSPanel {
         }
         if let chord = KeyChord.parse(hotkeys.focus), chord.matches(event) {
             toggleFocus()
+            return true
+        }
+        if let chord = KeyChord.parse(hotkeys.toggleChrome), chord.matches(event) {
+            toggleChromeRail()
             return true
         }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -496,24 +540,155 @@ final class NotePanel: NSPanel {
     }
 
     private func syncHoveredFromPointer() {
-        setHovered(frame.contains(NSEvent.mouseLocation))
+        let mouse = NSEvent.mouseLocation
+        let overNote = frame.contains(mouse)
+        let overRail = chromeRail?.isShowing == true
+            && (chromeRail?.frame.contains(mouse) ?? false)
+        setHovered(overNote)
+        setRailPointerInside(overRail)
     }
 
     private func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
+        refreshChromeHover()
+    }
+
+    func setRailPointerInside(_ inside: Bool) {
+        guard inside != railPointerInside else { return }
+        railPointerInside = inside
+        refreshChromeHover()
+    }
+
+    /// Show immediately on enter; hide only after a short linger so the pointer
+    /// can leave the page and land on the rail without the strip vanishing.
+    private func refreshChromeHover() {
+        if isHovered || railPointerInside {
+            railHideWork?.cancel()
+            railHideWork = nil
+            railLinger = false
+            updateChromeVisibility()
+            return
+        }
+        guard !railLinger else { return }
+        railLinger = true
+        updateChromeVisibility()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.railHideWork = nil
+            self.railLinger = false
+            self.updateChromeVisibility()
+        }
+        railHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22, execute: work)
+    }
+
+
+    // MARK: - Detached chrome rail
+
+    /// Build or tear down the rail to match `chromeStyle`, then re-evaluate what
+    /// should be showing. Safe to call repeatedly — hot reload does.
+    private func syncChromeRail() {
+        let wantsRail = chromeStyle == "rail"
+        if wantsRail, chromeRail == nil {
+            let theme = BlinkConfigStore.shared.config.resolved(for: notePresentation)
+            let scheme = AppearanceManager.shared.scheme
+            let rail = PanelChromeRail(
+                panel: self,
+                state: modeState,
+                title: title,
+                cornerRadius: theme.panel.cornerRadius,
+                material: Self.glassMaterial(theme, scheme),
+                tint: currentMode == "edit" ? editTint : readTint,
+                accent: theme.chromeAccent(scheme: scheme),
+                onClose: { [weak self] in self?.close() },
+                onSelectMode: { [weak self] mode in self?.selectMode(mode) },
+                onToggleFocus: { [weak self] in self?.toggleFocus() }
+            )
+            rail.onHoverChanged = { [weak self] inside in
+                self?.setRailPointerInside(inside)
+            }
+            rail.onPlacementChanged = { [weak self] _ in self?.applySeamCorners() }
+            chromeRail = rail
+        } else if !wantsRail, let rail = chromeRail {
+            rail.dismantle()
+            chromeRail = nil
+            railPinned = false
+            railPointerInside = false
+            railHideWork?.cancel()
+            railHideWork = nil
+            railLinger = false
+        }
+        applySeamCorners()
         updateChromeVisibility()
     }
 
+
+    /// The page keeps all four rounded corners whether the rail is up or not.
+    /// Chrome docks onto that silhouette; it must not mutate the note's shape.
+    private func applySeamCorners() {
+        let all: CACornerMask = [
+            .layerMinXMinYCorner, .layerMaxXMinYCorner,
+            .layerMinXMaxYCorner, .layerMaxXMaxYCorner,
+        ]
+        container.layer?.maskedCorners = all
+        glassView.layer?.maskedCorners = all
+    }
+
+
+    /// Earned chrome, not mode chrome: hover (or pin) shows the rail. Edit
+    /// mode does not keep it up — a writing note that is not under the hand
+    /// should look like a page, not a selected window.
+    private var railShouldShow: Bool {
+        railPinned || isHovered || railPointerInside || railLinger
+    }
+
+    /// Pin/unpin the rail (⌘⇧T by default) so it stays up after hover leaves.
+    func toggleChromeRail() {
+        guard chromeRail != nil else { return }
+        railPinned.toggle()
+        updateChromeVisibility()
+    }
+
+
+    /// Push this note's resolved glass + mode tint onto the rail. One path for
+    /// open, key flips, mode flips, and hot reload — never a second config
+    /// lookup inside the rail.
+    private func applyRailSurface() {
+        guard chromeRail != nil else { return }
+        let theme = BlinkConfigStore.shared.config.resolved(for: notePresentation)
+        let scheme = AppearanceManager.shared.scheme
+        chromeRail?.applySurface(
+            material: Self.glassMaterial(theme, scheme),
+            tint: currentMode == "edit" ? editTint : readTint,
+            accent: theme.chromeAccent(scheme: scheme)
+        )
+    }
+
     private func updateChromeVisibility() {
+        // With the rail carrying the ✕ and the toggle, the in-note copies would
+        // be duplicate controls sitting on the page — the thing being fixed.
+        let railActive = chromeRail != nil
+        let showRail = railActive && railShouldShow
+        chromeRail?.setVisible(showRail)
+        if showRail {
+            applyRailSurface()
+        }
+        applySeamCorners()
+
+
         // NSHostingView can fail to animate out of an initial zero alpha; make
         // the mode control deterministic and reserve animation for the
         // same-cell brand/close crossfade.
-        modePillView?.alphaValue = isHovered ? 1 : 0
+        modePillView?.alphaValue = !railActive && isHovered ? 1 : 0
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.15
-            closeButtonView?.animator().alphaValue = isHovered ? 1 : 0
-            themeMarkView?.animator().alphaValue = isHovered || !modeState.hasThemeMark ? 0 : 0.94
+            closeButtonView?.animator().alphaValue = !railActive && isHovered ? 1 : 0
+            // The brand mark keeps its cell to itself once close moves out, so
+            // it no longer has to yield on hover.
+            themeMarkView?.animator().alphaValue = modeState.hasThemeMark
+                ? (railActive ? 0.94 : (isHovered ? 0 : 0.94))
+                : 0
             noteIDView?.animator().alphaValue = currentMode == "edit"
                 ? (isHovered ? 1 : 0.55)
                 : 0
@@ -524,7 +699,9 @@ final class NotePanel: NSPanel {
                 ? (isHovered ? 1 : 0.75)
                 : 0
             // Active focus leaves a faint trace so the state stays legible.
-            focusGlyphView?.animator().alphaValue = isHovered ? 1 : (modeState.focus ? 0.35 : 0)
+            focusGlyphView?.animator().alphaValue = railActive
+                ? 0
+                : (isHovered ? 1 : (modeState.focus ? 0.35 : 0))
         }
     }
 
@@ -537,6 +714,7 @@ final class NotePanel: NSPanel {
     /// (their mode contrast comes from the sheet's own CSS if needed).
     func reflectMode(_ mode: String) {
         modeState.mode = mode
+        updateChromeVisibility()
         noteIDView?.isHidden = mode != "edit"
         noteIDView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.55) : 0
         styleMetadataView?.isHidden = mode != "edit"
@@ -560,6 +738,15 @@ final class NotePanel: NSPanel {
         readTint = theme.panel.tintRead
         editTint = theme.panel.tintEdit
         updateMetadata(theme)
+
+        if theme.panel.chrome != chromeStyle {
+            chromeStyle = theme.panel.chrome
+            syncChromeRail()
+        }
+        chromeRail?.applyAppearance(appearance)
+        chromeRail?.applyCornerRadius(theme.panel.cornerRadius)
+        applyRailSurface()
+
 
         if theme.panel.sheet != sheetTemplate {
             sheetTemplate = theme.panel.sheet
@@ -604,7 +791,7 @@ final class NotePanel: NSPanel {
         modeState.font = Self.displayFontName(theme.editor.fontFamily)
         modeState.fontSize = theme.editor.fontSize
         modeState.mark = theme.panel.mark
-        themeMarkView?.alphaValue = isHovered || !modeState.hasThemeMark ? 0 : 0.94
+        updateChromeVisibility()
     }
 
     private static func displayFontName(_ cssFamily: String?) -> String {
@@ -1050,6 +1237,7 @@ final class NotePanel: NSPanel {
 
     private let physicsLog = HudLogger(category: "blink.panel")
 
+
     /// Shake-to-shade is a physics gesture: config-gated, and off under Reduce
     /// Motion like the fling. (Double-click shading stays available regardless —
     /// an instant fold involves no motion.)
@@ -1158,26 +1346,23 @@ final class NotePanel: NSPanel {
 
     // MARK: Drag → fling
 
-    /// The drag strip went down: take the frame over from any in-flight glide
-    /// and suspend autosave until the gesture (plus any fling it starts) rests.
     func beginManualDrag() {
         cancelFling()
         dragInProgress = true
+        chromeRail?.detachFromParent()
         refreshAutosaveSuspension()
     }
 
     /// Released. A fast enough throw becomes a glide; anything slower is just
     /// a drop — persist the resting frame either way, exactly once.
     func endManualDrag(velocity: CGPoint) {
-        dragInProgress = false
         let physics = BlinkConfigStore.shared.config.physics
         let speed = hypot(velocity.x, velocity.y)
         guard physics.flingEnabled, !Self.reduceMotion,
               speed >= physics.flingMinVelocity,
               let bounds = flingBounds()
         else {
-            persistRestingGeometry()
-            refreshAutosaveSuspension()
+            settleAfterManualMove()
             return
         }
         physicsLog.info("[BLINK] fling", metadata: ["speed": "\(Int(speed))"])
@@ -1199,14 +1384,48 @@ final class NotePanel: NSPanel {
         refreshAutosaveSuspension()
     }
 
-    /// The visible frame of the screen the panel is MOSTLY on (max intersection
+    /// Drop or fling rest: pin the global frame while constrain is still
+    /// bypassed so AppKit assigns the destination display, then persist and
+    /// reattach the rail. Clearing `dragInProgress` first remaps the drop
+    /// onto the origin display.
+    private func settleAfterManualMove() {
+        let dest = frame
+        persistRestingGeometry()
+        dragInProgress = false
+        applyingPhysicsFrame = true
+        refreshAutosaveSuspension()
+        setFrame(dest, display: true)
+        saveFrame(usingName: autosaveName)
+        applyingPhysicsFrame = false
+        chromeRail?.syncFrame()
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.moveByPhysics(to: dest.origin)
+            self.chromeRail?.attachToParent()
+        }
+    }
+
+
+
+    func moveByPhysics(to origin: NSPoint) {
+        let want = NSRect(origin: origin, size: frame.size)
+        applyingPhysicsFrame = true
+        setFrame(want, display: true)
+        applyingPhysicsFrame = false
+        chromeRail?.syncFrame()
+    }
+
+
+
+    /// The visible frame of the screen `rect` is MOSTLY on (max intersection
     /// area) — the arena the glide bounces within.
-    private func flingBounds() -> CGRect? {
+    private func flingBounds(for rect: CGRect? = nil) -> CGRect? {
+        let probe = rect ?? frame
         var best: CGRect?
         var bestArea: CGFloat = 0
         for screen in NSScreen.screens {
-            let hit = screen.visibleFrame.intersection(frame)
-            guard !hit.isNull else { continue }
+            let hit = screen.visibleFrame.intersection(probe)
+            guard !hit.isNull, !hit.isEmpty else { continue }
             let area = hit.width * hit.height
             if area > bestArea {
                 bestArea = area
@@ -1225,13 +1444,22 @@ final class NotePanel: NSPanel {
         // Clamp long frames (stalls, breakpoint hits) so one dt never teleports.
         let dt = min(now - flingLastTime, 1.0 / 20)
         flingLastTime = now
+        // Probe the unconstrained next origin so a seam-crossing throw can
+        // adopt the destination screen before this tick's bounce.
+        let nextOrigin = CGPoint(
+            x: f.origin.x + f.velocity.x * CGFloat(dt),
+            y: f.origin.y + f.velocity.y * CGFloat(dt)
+        )
+        if let next = flingBounds(for: CGRect(origin: nextOrigin, size: f.size)),
+           next != f.bounds {
+            f.bounds = next
+        }
         let alive = f.step(dt: dt)
         fling = f
-        applyingPhysicsFrame = true
-        setFrameOrigin(f.origin)
-        applyingPhysicsFrame = false
+        moveByPhysics(to: f.origin)
         if !alive { stopFling() }
     }
+
 
     /// End a glide: unhook the display link, persist the resting frame, and
     /// hand autosave back. Safe to call redundantly — a no-op without a fling.
@@ -1240,8 +1468,12 @@ final class NotePanel: NSPanel {
         flingLink = nil
         let wasGliding = fling != nil
         fling = nil
-        if wasGliding { persistRestingGeometry() }
-        refreshAutosaveSuspension()
+        if wasGliding {
+            settleAfterManualMove()
+        } else {
+            chromeRail?.attachToParent()
+            refreshAutosaveSuspension()
+        }
     }
 
     /// Any interruption — a new grab, a shade fold, a programmatic placement,
@@ -1265,6 +1497,25 @@ final class NotePanel: NSPanel {
         super.setFrame(frameRect, display: flag)
     }
 
+    /// AppKit remaps a borderless panel onto the screen it already owns.
+    /// A drop that already intersects some display is a real destination —
+    /// do not rewrite it onto the origin monitor. Off-screen restores still
+    /// go through the default constraint.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        let proposed: NSRect
+        if dragInProgress || fling != nil || applyingPhysicsFrame {
+            proposed = frameRect
+        } else {
+            let landsOnADisplay = NSScreen.screens.contains { candidate in
+                let hit = candidate.frame.intersection(frameRect)
+                return !hit.isNull && !hit.isEmpty
+            }
+            proposed = landsOnADisplay ? frameRect : super.constrainFrameRect(frameRect, to: screen)
+        }
+        return proposed
+    }
+
+
     @objc dynamic override func setFrame(_ frameRect: NSRect, display flag: Bool, animate flag2: Bool) {
         if !applyingPhysicsFrame { cancelFling() }
         super.setFrame(frameRect, display: flag, animate: flag2)
@@ -1272,6 +1523,14 @@ final class NotePanel: NSPanel {
 
     override func close() {
         cancelFling()
+        railHideWork?.cancel()
+        railHideWork = nil
+        railLinger = false
+        railPointerInside = false
+        // A child window outlives its parent's close unless detached, which
+        // would strand a rail floating over nothing.
+        chromeRail?.dismantle()
+        chromeRail = nil
         super.close()
     }
 
@@ -1324,10 +1583,15 @@ final class PanelModeState: ObservableObject {
     }
 }
 
-/// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right.
-private struct ModeToggle: View {
+/// ✎/◧ mode segments; the active segment is lit. Hover-revealed, top-right —
+/// or carried by the detached rail when `panel.chrome` is "rail".
+struct ModeToggle: View {
     @ObservedObject var state: PanelModeState
     @ObservedObject private var configStore = BlinkConfigStore.shared
+    /// Ink for the glyphs. In-note chrome sits on the panel's darkened glass and
+    /// wants white; the detached rail floats over whatever is on the desktop, so
+    /// it passes an appearance-adaptive color instead.
+    var ink: Color = .white
     var onSelect: (String) -> Void
 
     private var shortcut: String {
@@ -1341,8 +1605,12 @@ private struct ModeToggle: View {
             segment(icon: "book", mode: "read", help: "Read (\(shortcut))")
         }
         .padding(2)
-        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        .background(ink.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
     }
+
+    var accent: Color?
+
+    private var lit: Color { accent ?? ink }
 
     private func segment(icon: String, mode: String, help: String) -> some View {
         Button {
@@ -1350,10 +1618,10 @@ private struct ModeToggle: View {
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(state.mode == mode ? .white : .white.opacity(0.4))
+                .foregroundStyle(state.mode == mode ? lit : ink.opacity(0.42))
                 .frame(width: 22, height: 18)
                 .background(
-                    state.mode == mode ? Color.white.opacity(0.18) : .clear,
+                    state.mode == mode ? lit.opacity(0.20) : .clear,
                     in: RoundedRectangle(cornerRadius: 4)
                 )
         }
@@ -1492,9 +1760,11 @@ private struct StyleMetadataBadge: View {
 
 /// The focus ring: a small dashed circle, alone in the bottom-right corner —
 /// deliberately not a peer of the mode segments. Fills in while focus is on.
-private struct FocusGlyph: View {
+struct FocusGlyph: View {
     @ObservedObject var state: PanelModeState
     @ObservedObject private var configStore = BlinkConfigStore.shared
+    var ink: Color = .white
+    var accent: Color?
     var onTap: () -> Void
 
     private var shortcut: String {
@@ -1506,7 +1776,7 @@ private struct FocusGlyph: View {
         Button(action: onTap) {
             Image(systemName: state.focus ? "circle.dashed.inset.filled" : "circle.dashed")
                 .font(.system(size: 11))
-                .foregroundStyle(state.focus ? .white : .white.opacity(0.5))
+                .foregroundStyle(state.focus ? (accent ?? ink) : ink.opacity(0.50))
         }
         .buttonStyle(.plain)
         .help("Focus — quiet everything else (\(shortcut))")
@@ -1522,7 +1792,7 @@ private struct FocusGlyph: View {
 /// momentum fling) and a shake signature (folds the panel into the band).
 /// The move math is the classic grab-relative offset, so an ordinary drag
 /// feels exactly like the native one — the cursor keeps its grip point.
-private final class DragHandle: NSView {
+final class DragHandle: NSView {
     private var isDragging = false
     private var isHovering = false
     private var tracking: NSTrackingArea?
@@ -1530,6 +1800,21 @@ private final class DragHandle: NSView {
     private var grabOrigin = NSPoint.zero  // window origin at mouseDown
     private var tracker = DragVelocityTracker()
     private var shake = ShakeDetector()
+    /// Held for the whole gesture. The rail detaches from its parent mid-drag
+    /// so the note can change displays; `window?.parent` would go nil.
+    private weak var dragTarget: NotePanel?
+
+    /// The in-panel strip paints a hairline grip to advertise itself. The
+    /// detached rail is already visibly grabbable, so it opts out.
+    var showsGrip = true
+
+    /// The note this handle moves. Inside the panel that is the handle's own
+    /// window; on the detached chrome rail it is the rail's parent, so the
+    /// gesture moves the note rather than the strip sitting on top of it.
+    private var notePanel: NotePanel? {
+        dragTarget ?? window as? NotePanel ?? window?.parent as? NotePanel
+    }
+
 
     override var isOpaque: Bool { false }
 
@@ -1549,6 +1834,7 @@ private final class DragHandle: NSView {
         super.draw(dirtyRect)
         // A hairline grip keeps the borderless panel discoverably movable
         // without turning the strip into visible window chrome.
+        guard showsGrip else { return }
         let alpha: CGFloat = isDragging ? 0.38 : (isHovering ? 0.24 : 0.08)
         NSColor.labelColor.withAlphaComponent(alpha).setFill()
         let grip = NSRect(x: bounds.midX - 12, y: bounds.maxY - 5, width: 24, height: 2)
@@ -1571,7 +1857,7 @@ private final class DragHandle: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard let panel = window as? NotePanel else { return }
+        guard let panel = notePanel else { return }
         // Double-click on the band toggles the shade — the classic windowshade
         // gesture. The click that opened the pair already ran a movement-less
         // drag begin/end, so nothing here is left in flight; the paired
@@ -1580,6 +1866,7 @@ private final class DragHandle: NSView {
             panel.toggleShade()
             return
         }
+        dragTarget = panel
         panel.beginManualDrag()
         grabMouse = NSEvent.mouseLocation
         grabOrigin = panel.frame.origin
@@ -1591,13 +1878,13 @@ private final class DragHandle: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard isDragging, let panel = window as? NotePanel else { return }
+        guard isDragging, let panel = notePanel else { return }
         let mouse = NSEvent.mouseLocation
         let origin = NSPoint(
             x: grabOrigin.x + mouse.x - grabMouse.x,
             y: grabOrigin.y + mouse.y - grabMouse.y
         )
-        panel.setFrameOrigin(origin)
+        panel.moveByPhysics(to: origin)
         tracker.add(origin, at: event.timestamp)
         // Shake → shade. The fold/grow moves the origin under the cursor, so
         // re-anchor the grab and restart the gesture's sensors or the panel
@@ -1612,8 +1899,9 @@ private final class DragHandle: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
-        guard isDragging, let panel = window as? NotePanel else { return }
+        guard isDragging, let panel = notePanel else { return }
         isDragging = false
+        dragTarget = nil
         NSCursor.openHand.set()
         needsDisplay = true
         tracker.add(panel.frame.origin, at: event.timestamp)
@@ -1623,16 +1911,17 @@ private final class DragHandle: NSView {
 
 /// The close glyph: a small ✕ alone in the top-left corner, mirroring the mode
 /// pill top-right. Hover-revealed. Replaces the hidden traffic-light close.
-private struct CloseGlyph: View {
+struct CloseGlyph: View {
+    var ink: Color = .white
     var onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             Image(systemName: "xmark")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.55))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(ink.opacity(0.70))
                 .frame(width: 20, height: 20)
-                .background(.white.opacity(0.08), in: Circle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .frame(width: 24, height: 24)

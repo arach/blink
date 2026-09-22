@@ -16,6 +16,10 @@ logs
 
 # OS / editor
 .DS_Store
+
+# Local App Store Connect build outputs and private signing material.
+.asc/artifacts/
+.asc/signing/
 .vscode/*
 !.vscode/extensions.json
 .idea

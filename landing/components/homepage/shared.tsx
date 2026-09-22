@@ -48,6 +48,11 @@ export function Reveal({
 
 /* ---------------------------------- kbd ---------------------------------- */
 
+/** Visual stand-in for the Hyper modifier cluster (⌃⌥⇧⌘). */
+export const HYPER_GLYPH = '◆'
+export const HYPER_EXPAND = '⌃⌥⇧⌘'
+export const HYPER_SPOKEN = 'Control Option Shift Command'
+
 export function Kbd({ children, wide }: { children: ReactNode; wide?: boolean }) {
   return (
     <span
@@ -61,15 +66,114 @@ export function Kbd({ children, wide }: { children: ReactNode; wide?: boolean })
   )
 }
 
-export function Chord({ keys }: { keys: string[] }) {
+export function Chord({ keys, label }: { keys: string[]; label?: string }) {
   return (
-    <span className="inline-flex items-center gap-[4px]">
+    <span
+      className="inline-flex items-center gap-[4px]"
+      role={label ? 'img' : undefined}
+      aria-label={label}
+    >
       {keys.map((k, i) => (
-        <Kbd key={i} wide={k.length > 1}>
+        <Kbd key={i} wide={k.length > 1 && k !== HYPER_GLYPH}>
           {k}
         </Kbd>
       ))}
     </span>
+  )
+}
+
+/** Global Hyper chord: diamond glyph + final letter; full shortcut in accessible label. */
+export function HyperChord({ letter, action }: { letter: string; action?: string }) {
+  const full = `${HYPER_SPOKEN} ${letter}`
+  return (
+    <Chord
+      keys={[HYPER_GLYPH, letter]}
+      label={action ? `${action}: ${full}` : full}
+    />
+  )
+}
+
+/* --------------------------- mock window chrome --------------------------- */
+
+/** Shared title bar for in-page terminal / file / preview mocks. */
+export function MockTitleBar({
+  title,
+  detail,
+  trailing,
+  dots = false,
+  className = '',
+}: {
+  title: ReactNode
+  detail?: ReactNode
+  trailing?: ReactNode
+  dots?: boolean
+  className?: string
+}) {
+  return (
+    <div
+      className={[
+        'flex min-h-9 shrink-0 items-center justify-between gap-3 border-b border-linex bg-panel2x px-3 py-1.5',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        {dots && (
+          <span className="flex items-center gap-1" aria-hidden>
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--ghost)]" />
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--faint)]" />
+            <span className="h-[7px] w-[7px] rounded-full bg-[var(--dim)]" />
+          </span>
+        )}
+        <span className="truncate text-[11px] font-medium text-[var(--text)]">{title}</span>
+        {detail != null && detail !== '' && (
+          <span className="hidden min-w-0 truncate text-[10px] text-faintx sm:inline">{detail}</span>
+        )}
+      </div>
+      {trailing != null && (
+        <div className="flex shrink-0 items-center gap-2 text-[10px] text-dimx">{trailing}</div>
+      )}
+    </div>
+  )
+}
+
+/** Shared desk / live-demo chrome strip (uses --demo-chrome tokens). */
+export function DemoChromeBar({
+  title,
+  detail,
+  trailing,
+  statusDot = false,
+  className = '',
+}: {
+  title: ReactNode
+  detail?: ReactNode
+  trailing?: ReactNode
+  statusDot?: boolean
+  className?: string
+}) {
+  return (
+    <div
+      className={[
+        'demo-chrome flex min-h-9 shrink-0 items-center justify-between gap-2 border border-b-0 rounded-t-[8px] px-3 py-1.5',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="flex min-w-0 items-center gap-2 text-[11px]">
+        {statusDot && (
+          <span className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--acc)] pulse-dot" aria-hidden />
+        )}
+        <span className="truncate font-semibold text-[var(--text)]">{title}</span>
+        {detail != null && (
+          <span className="hidden shrink-0 text-faintx md:inline">{detail}</span>
+        )}
+      </div>
+      {trailing != null && (
+        <div className="flex shrink-0 items-center gap-1.5 text-[10px] text-dimx">{trailing}</div>
+      )}
+    </div>
   )
 }
 

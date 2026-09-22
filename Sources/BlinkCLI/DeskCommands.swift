@@ -12,8 +12,49 @@ struct DeskCommand: ParsableCommand {
         abstract: "Open and arrange note panels in the running Blink app.",
         subcommands: [
             DeskOpen.self, DeskMove.self, DeskFocus.self, DeskClose.self, DeskScreens.self,
+            DeskSave.self, DeskRestore.self, DeskList.self, DeskShow.self, DeskRemove.self,
         ]
     )
+}
+
+struct DeskSave: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "save", abstract: "Save the running panel arrangement.")
+    @Argument var name: String
+    func run() throws { _ = try BlinkSocketClient.call(method: "desk.save", params: ["name": name]); print(name) }
+}
+
+struct DeskRestore: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "restore", abstract: "Restore a saved panel arrangement.")
+    @Argument var name: String
+    func run() throws { _ = try BlinkSocketClient.call(method: "desk.restore", params: ["name": name]); print(name) }
+}
+
+struct DeskList: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "ls", abstract: "List saved desk arrangements.")
+    @Flag var json = false
+    func run() throws {
+        let layouts = try DeskLayoutStore().list()
+        if json { try printJSON(layouts) } else { layouts.forEach { print("\($0.name)  \($0.panels.count) panels") } }
+    }
+}
+
+struct DeskShow: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "show", abstract: "Show a saved desk arrangement.")
+    @Argument var name: String
+    @Flag var json = false
+    func run() throws {
+        let layout = try DeskLayoutStore().load(name)
+        if json { try printJSON(layout) } else {
+            print("\(layout.name)  \(layout.panels.count) panels")
+            layout.panels.forEach { print("\($0.id)  display \($0.display)  \(Int($0.frame.width))x\(Int($0.frame.height))") }
+        }
+    }
+}
+
+struct DeskRemove: ParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "rm", abstract: "Delete a saved desk arrangement.")
+    @Argument var name: String
+    func run() throws { try DeskLayoutStore().delete(name); print(name) }
 }
 
 struct DeskFrameOptions: ParsableArguments {

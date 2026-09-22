@@ -481,4 +481,73 @@ struct FrontmatterTests {
         #expect(encoded.contains("aliases: [a, b]"))
         #expect(encoded.contains("  slot: 9"))
     }
+    @Test("Shallow foreign metadata does not disable presentation or writer fields")
+    func shallowForeignScalarPreservesPresentation() throws {
+        let raw = """
+        ---
+        id: mixed-indent
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+         agentNote: hello
+          style: card
+          slot: 3
+          lastWriter: agent
+          companions:
+            sources:
+              - "blink/Sources/Safe.swift"
+        ---
+        body
+        """
+        let note = try Frontmatter.decode(raw)
+        #expect(note.presentation.style == "card")
+        #expect(note.presentation.slot == 3)
+        #expect(note.presentation.lastWriter == "agent")
+        #expect(note.presentation.companions?.sources.map(\.path) == ["Sources/Safe.swift"])
+        let encoded = Frontmatter.encode(note)
+        #expect(encoded.contains(" agentNote: hello"))
+        #expect(try Frontmatter.decode(encoded).presentation == note.presentation)
+    }
+
+    @Test("Shallow companions cannot consume normal presentation fields")
+    func shallowCompanionsPreserveSiblings() throws {
+        let raw = """
+        ---
+        id: shallow-companions
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+         companions:
+          style: card
+          slot: 3
+        ---
+        body
+        """
+        let note = try Frontmatter.decode(raw)
+        #expect(note.presentation.style == "card")
+        #expect(note.presentation.slot == 3)
+        #expect(note.presentation.companions == nil)
+        #expect(Frontmatter.encode(note).contains(" companions:"))
+    }
+
+    @Test("Shallow foreign mappings cannot grant nested source authority")
+    func shallowForeignMappingStaysForeign() throws {
+        let raw = """
+        ---
+        id: foreign-map
+        created: 2023-11-14T22:13:20.123Z
+        updated: 2023-11-14T22:13:20.123Z
+        blink:
+         futureSurface:
+          companions:
+            sources:
+              - "blink/Sources/ShouldNotOpen.swift"
+        ---
+        body
+        """
+        let note = try Frontmatter.decode(raw)
+        #expect(note.presentation.companions == nil)
+        #expect(Frontmatter.encode(note).contains("      - \"blink/Sources/ShouldNotOpen.swift\""))
+    }
+
 }

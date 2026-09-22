@@ -59,11 +59,14 @@ public actor NoteStore {
     @discardableResult
     public func create(
         content: String,
-        presentation: NotePresentation = NotePresentation()
+        presentation: NotePresentation = NotePresentation(),
+        writer: String? = nil
     ) async throws -> Note {
         let base = Slug.generate(from: Note.extractTitle(from: content))
         let id = Slug.unique(base, existing: Set(notes.keys))
         let now = clock()
+        var presentation = presentation
+        if let writer { presentation.lastWriter = writer }
         let note = normalized(
             Note(
                 id: id,
@@ -75,7 +78,7 @@ public actor NoteStore {
                 presentation: presentation
             )
         )
-        try fileStore.save(note)
+        try fileStore.save(note, writer: writer)
         notes[id] = note
         try? await tombstoneStore?.remove(id: id)
         post(.blinkNoteCreated, id: id)
@@ -89,7 +92,7 @@ public actor NoteStore {
     /// so an agent editing the file's frontmatter while the note is open in a
     /// panel is never clobbered by the editor's next keystroke save.
     @discardableResult
-    public func update(id: String, content: String) throws -> Note {
+    public func update(id: String, content: String, writer: String? = nil) throws -> Note {
         guard var note = notes[id] else {
             throw NoteFileStoreError.noteNotFound(id: id)
         }
@@ -101,8 +104,9 @@ public actor NoteStore {
         }
         note.content = content
         note.updatedAt = clock()
+        if let writer { note.presentation.lastWriter = writer }
         note = normalized(note)
-        try fileStore.save(note)
+        try fileStore.save(note, writer: writer)
         notes[id] = note
         post(.blinkNoteUpdated, id: id)
         return note
@@ -114,7 +118,7 @@ public actor NoteStore {
     /// content stays as last known (an open panel re-flushes its own edits).
     /// Pass `nil` to clear the override and fall back to the config default.
     @discardableResult
-    public func updateSheet(id: String, sheet: String?) throws -> Note {
+    public func updateSheet(id: String, sheet: String?, writer: String? = nil) throws -> Note {
         guard var note = notes[id] else {
             throw NoteFileStoreError.noteNotFound(id: id)
         }
@@ -126,23 +130,21 @@ public actor NoteStore {
         }
         note.presentation.sheet = sheet
         note.updatedAt = clock()
+        if let writer { note.presentation.lastWriter = writer }
         note = normalized(note)
-        try fileStore.save(note)
+        try fileStore.save(note, writer: writer)
         notes[id] = note
         post(.blinkNoteUpdated, id: id)
         return note
     }
 
     /// Delete a note by id. Throws if `id` is unknown.
-    public func delete(id: String) async throws {
+    public func delete(id: String, writer: String? = nil) async throws {
         guard notes[id] != nil else {
             throw NoteFileStoreError.noteNotFound(id: id)
         }
-        // Record first. If the file deletion then fails, full snapshots suppress
-        // the tombstone while the note still exists; a later successful delete
-        // already has durable evidence.
         try await tombstoneStore?.recordDeletion(id: id, at: clock())
-        try fileStore.delete(id: id)
+        try fileStore.delete(id: id, writer: writer)
         notes[id] = nil
         post(.blinkNoteDeleted, id: id)
     }
@@ -216,9 +218,20 @@ public actor NoteStore {
         diff.updated.sort()
         diff.deleted.sort()
         diff.tombstoneFailures.sort()
-        for id in diff.created { post(.blinkNoteCreated, id: id) }
-        for id in diff.updated { post(.blinkNoteUpdated, id: id) }
-        for id in diff.deleted { post(.blinkNoteDeleted, id: id) }
+        let detected = clock()
+        for id in diff.created {
+            recordExternal(id: id, at: notes[id]?.updatedAt ?? detected, writer: notes[id]?.presentation.lastWriter, detected: detected)
+            post(.blinkNoteCreated, id: id)
+        }
+        for id in diff.updated {
+            recordExternal(id: id, at: notes[id]?.updatedAt ?? detected, writer: notes[id]?.presentation.lastWriter, detected: detected)
+            post(.blinkNoteUpdated, id: id)
+        }
+        for id in diff.deleted {
+            recordExternal(id: id, at: detected, writer: nil, detected: detected)
+            post(.blinkNoteDeleted, id: id)
+        }
+
         return diff
     }
 
@@ -244,6 +257,26 @@ public actor NoteStore {
     private func normalized(_ note: Note) -> Note {
         (try? Frontmatter.decode(Frontmatter.encode(note))) ?? note
     }
+
+    /// Reconcile only knows the file changed. Skip if the ledger already
+    /// recorded this mutation (same note, same `at`) so CLI+watcher don't
+    /// double-count. Stamp `detectedAt`; never invent a writer.
+    private func recordExternal(id: String, at: Date, writer: String?, detected: Date) {
+        if let last = fileStore.ledger?.last(noteID: id),
+           last.kind != .externalDetected,
+           abs(last.at.timeIntervalSince(at)) < 0.002 {
+            return
+        }
+        _ = fileStore.ledger?.record(
+            noteID: id,
+            kind: .externalDetected,
+            writer: writer,
+            at: at,
+            detectedAt: detected
+        )
+    }
+
+
 
     private func post(_ name: Notification.Name, id: String) {
         notificationCenter.post(name: name, object: nil, userInfo: ["id": id])

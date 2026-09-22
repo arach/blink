@@ -52,6 +52,7 @@ function mount(): void {
     throw new Error("[BLINK] #reader mount point not found");
   }
   const reader = new Reader(readerEl);
+  reader.hide();
 
   // Establish a default sheet before native pushes its choice (which lands via
   // window.blink.setSheet after `ready`). Keeps the page well-defined if it ever

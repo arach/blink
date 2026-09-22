@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Chord } from './shared'
+import { DemoChromeBar, HyperChord, HYPER_GLYPH } from './shared'
 
 interface DemoNote {
   id: number
@@ -17,7 +17,7 @@ const SAMPLES: { title: string; lines: string[] }[] = [
   { title: 'standup.md', lines: ['## Fri', '- ship the landing', '- port the palette'] },
   { title: 'roadmap.md', lines: ['## v2.1', '- [[sheets]] per note', '- cli: blink watch'] },
   { title: 'inbox.md', lines: ['- read: NSPanel docs', '- atomic writes, again'] },
-  { title: 'scratch.md', lines: ['π ≈ 3.14159', 'hyper = ⌃⌥⇧⌘'] },
+  { title: 'scratch.md', lines: ['π ≈ 3.14159', 'plain markdown, always'] },
   { title: 'reading.md', lines: ['- the unix philosophy', '- codemirror 6 guide'] },
   { title: 'ideas.md', lines: ['- grid snap ±8px', '- sheet: marginalia'] },
 ]
@@ -180,57 +180,59 @@ export default function SpatialDemo() {
   }
 
   const demoBtn =
-    'rounded-[4px] border px-2 py-1 text-[10px] transition-colors border-line2x bg-[var(--panel)] text-dimx hover:text-acc hover:border-[rgba(var(--acc-rgb),0.4)]'
+    'inline-flex h-7 items-center rounded-[4px] border border-line2x bg-[var(--panel)] px-2 text-[10px] leading-none text-dimx transition-colors hover:border-[rgba(var(--acc-rgb),0.4)] hover:text-acc'
   const demoBtnOn =
-    'rounded-[4px] border px-2 py-1 text-[10px] transition-colors border-[rgba(var(--acc-rgb),0.45)] text-acc bg-[var(--acc-soft)]'
+    'inline-flex h-7 items-center rounded-[4px] border border-[rgba(var(--acc-rgb),0.45)] bg-[var(--acc-soft)] px-2 text-[10px] leading-none text-acc transition-colors'
 
   return (
     <div className="corner-frame select-none" role="region" aria-label="Spatial notes demo">
-      {/* window chrome */}
-      <div className="demo-chrome flex min-h-9 items-center justify-between gap-2 rounded-t-[8px] border border-b-0 px-3 py-1">
-        <div className="flex min-w-0 items-center gap-2 text-[11px] text-faintx">
-          <span className="inline-block h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--acc)] pulse-dot" aria-hidden />
-          <span className="text-dimx font-semibold truncate">~/Desktop</span>
-          <span className="hidden md:inline shrink-0 text-faintx">— live demo</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button type="button" onClick={() => spawn()} title="New note (N)" aria-label="New note" className={demoBtn}>
-            <span className="sm:hidden">N</span>
-            <span className="hidden sm:inline">⌃⌥⇧⌘N</span>
-          </button>
-          <button
-            type="button"
-            onClick={toggleBlink}
-            title="Blink all / none (B)"
-            aria-label="Blink all panels"
-            aria-pressed={allHidden}
-            className={allHidden ? demoBtnOn : demoBtn}
-          >
-            <span className="sm:hidden">B</span>
-            <span className="hidden sm:inline">⌃⌥⇧⌘B</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setGrid((g) => !g)}
-            title="Grid overlay (C)"
-            aria-label="Toggle grid overlay"
-            aria-pressed={grid}
-            className={grid ? demoBtnOn : demoBtn}
-          >
-            <span className="sm:hidden">C</span>
-            <span className="hidden sm:inline">⌃⌥⇧⌘C</span>
-          </button>
-          <button
-            type="button"
-            onClick={resetScene}
-            title="Reset surface"
-            aria-label="Reset demo"
-            className="rounded-[4px] border border-line2x bg-[var(--panel)] px-2 py-1 text-[10px] text-faintx hover:text-[var(--text)] hover:border-[rgba(var(--acc-rgb),0.35)] transition-colors"
-          >
-            reset
-          </button>
-        </div>
-      </div>
+      <DemoChromeBar
+        statusDot
+        title="~/Desktop"
+        detail="— live demo"
+        trailing={
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => spawn()}
+              title="New note — Control Option Shift Command N"
+              aria-label="New note, Control Option Shift Command N"
+              className={demoBtn}
+            >
+              {HYPER_GLYPH}N
+            </button>
+            <button
+              type="button"
+              onClick={toggleBlink}
+              title="Blink all / none — Control Option Shift Command B"
+              aria-label="Blink all panels, Control Option Shift Command B"
+              aria-pressed={allHidden}
+              className={allHidden ? demoBtnOn : demoBtn}
+            >
+              {HYPER_GLYPH}B
+            </button>
+            <button
+              type="button"
+              onClick={() => setGrid((g) => !g)}
+              title="Grid overlay — Control Option Shift Command C"
+              aria-label="Toggle grid overlay, Control Option Shift Command C"
+              aria-pressed={grid}
+              className={grid ? demoBtnOn : demoBtn}
+            >
+              {HYPER_GLYPH}C
+            </button>
+            <button
+              type="button"
+              onClick={resetScene}
+              title="Reset surface"
+              aria-label="Reset demo"
+              className="inline-flex h-7 items-center rounded-[4px] border border-line2x bg-[var(--panel)] px-2 text-[10px] leading-none text-faintx transition-colors hover:border-[rgba(var(--acc-rgb),0.35)] hover:text-[var(--text)]"
+            >
+              reset
+            </button>
+          </div>
+        }
+      />
 
       {/* surface — premium layered desktop */}
       <div
@@ -277,8 +279,8 @@ export default function SpatialDemo() {
             notes.length === 0 ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <div className="flex items-center gap-2 text-faintx text-[12px]">
-            <Chord keys={['⌃', '⌥', '⇧', '⌘', 'N']} />
+          <div className="flex items-center gap-2 text-[12px] text-faintx">
+            <HyperChord letter="N" action="New note" />
           </div>
           <p className="text-[11px] text-faintx text-center max-w-[18rem] leading-relaxed">
             click anywhere — or press <span className="text-acc">N</span> — to drop a note
@@ -302,9 +304,9 @@ export default function SpatialDemo() {
               transition: 'opacity 0.22s ease, transform 0.22s ease',
             }}
           >
-            <div className="flex min-h-7 items-center justify-between border-b border-[rgba(255,248,236,0.1)] px-2.5 py-1">
-              <span className="text-[10px] font-medium text-[rgba(245,242,236,0.82)]">{n.title}</span>
-              <span className="text-[9px] tabular-nums text-[rgba(200,196,188,0.55)]">
+            <div className="flex min-h-7 items-center justify-between gap-2 border-b border-[rgba(255,248,236,0.12)] px-2.5 py-1.5">
+              <span className="truncate text-[10px] font-medium leading-none text-[rgba(245,242,236,0.88)]">{n.title}</span>
+              <span className="shrink-0 text-[9px] tabular-nums leading-none text-[rgba(200,196,188,0.55)]">
                 {dragInfo?.id === n.id ? (
                   <span className="text-[rgba(245,242,236,0.9)]">
                     x:{String(dragInfo.x).padStart(3, '0')} y:{String(dragInfo.y).padStart(3, '0')}
@@ -314,7 +316,7 @@ export default function SpatialDemo() {
                 )}
               </span>
             </div>
-            <div className="px-2.5 py-2 space-y-[3px]">
+            <div className="space-y-[3px] px-2.5 py-2">
               {n.lines.map((l, i) => (
                 <div
                   key={i}
@@ -334,7 +336,7 @@ export default function SpatialDemo() {
         {/* bottom-left readout */}
         <div className="absolute bottom-2 left-3 text-[9px] text-faintx pointer-events-none">
           panels: {notes.filter((n) => !n.hidden).length}/{notes.length}
-          {allHidden && <span className="text-acc"> · blinked out — ⌃⌥⇧⌘B to recall</span>}
+          {allHidden && <span className="text-acc"> · blinked out — {HYPER_GLYPH}B to recall</span>}
         </div>
         <div className="absolute bottom-2 right-3 text-[9px] text-faintx pointer-events-none hidden sm:block">
           drag panels · state persists (x, y, w, h)
