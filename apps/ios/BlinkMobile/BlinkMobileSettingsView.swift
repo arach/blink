@@ -150,7 +150,7 @@ struct BlinkMobileSettingsView: View {
 
     private var storageSubtitle: String {
         guard let lastSyncedAt = model.lastSyncedAt else { return "No notes saved" }
-        return "Updated \(blinkSettingsAge(since: lastSyncedAt).lowercased())"
+        return "Updated \(conciseAge(since: lastSyncedAt).lowercased())"
     }
 
     private var version: String {
@@ -324,7 +324,7 @@ private struct BlinkStorageSettingsView: View {
 
     private var updatedValue: String {
         guard let lastSyncedAt = model.lastSyncedAt else { return "Not updated" }
-        return "Updated \(blinkSettingsAge(since: lastSyncedAt).lowercased())"
+        return "Updated \(conciseAge(since: lastSyncedAt).lowercased())"
     }
 }
 
@@ -350,13 +350,4 @@ private struct BlinkSettingsBadge: View {
                     .stroke(color.opacity(0.28), lineWidth: 1)
             }
     }
-}
-
-private func blinkSettingsAge(since date: Date, now: Date = Date()) -> String {
-    let interval = max(0, now.timeIntervalSince(date))
-    if interval < 60 { return "JUST NOW" }
-    if interval < 3_600 { return "\(Int(interval / 60))M AGO" }
-    if interval < 86_400 { return "\(Int(interval / 3_600))H AGO" }
-    if interval < 30 * 86_400 { return "\(Int(interval / 86_400))D AGO" }
-    return date.formatted(date: .abbreviated, time: .omitted).uppercased()
 }

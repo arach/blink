@@ -80,10 +80,26 @@ final class BlinkMobileModel: ObservableObject {
             Task { await loadCache(generation: generation) }
         }
         guard discoveryTask == nil else { return }
+        startDiscovery()
+    }
+
+    func deactivate() {
+        client?.stopBrowsing()
+        discoveryTask?.cancel()
+        discoveryTask = nil
+    }
+
+    func retryDiscovery() {
+        startDiscovery()
+    }
+
+    private func startDiscovery() {
         guard configureClientIfNeeded(), let client else { return }
+        client.stopBrowsing()
         discoveryStartedAt = Date()
         discoveryState = .searching
         client.startBrowsing()
+        guard discoveryTask == nil else { return }
         discoveryTask = Task { [weak self, client] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -100,20 +116,6 @@ final class BlinkMobileModel: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(500))
             }
         }
-    }
-
-    func deactivate() {
-        client?.stopBrowsing()
-        discoveryTask?.cancel()
-        discoveryTask = nil
-    }
-
-    func retryDiscovery() {
-        client?.stopBrowsing()
-        guard configureClientIfNeeded(), let client else { return }
-        discoveryStartedAt = Date()
-        discoveryState = .searching
-        client.startBrowsing()
     }
 
     func connect(to candidate: BlinkLANPeerCandidate) async -> Bool {

@@ -77,12 +77,7 @@ struct BlinkPadWorkspaceView: View {
     private var topBar: some View {
         HStack(spacing: 18) {
             Menu {
-                Button("All Notes") { workspace = .all }
-                Button("Unfiled") { workspace = .unfiled }
-                if !workspaceIDs.isEmpty { Divider() }
-                ForEach(workspaceIDs, id: \.self) { id in
-                    Button(id) { workspace = .workspace(id) }
-                }
+                WorkspaceScopeMenuContent(workspace: $workspace, workspaceIDs: workspaceIDs)
             } label: {
                 HStack(spacing: 12) {
                     BlinkMark(size: 30)
@@ -215,7 +210,7 @@ struct BlinkPadWorkspaceView: View {
             Text("·")
                 .foregroundStyle(BlinkMobileTheme.hairline)
 
-            Text("9 SLOTS")
+            Text("\(BlinkPadSlot.slotsPerDesk) SLOTS")
                 .font(.caption.monospaced())
 
             if desks.count > 1 {
@@ -338,11 +333,18 @@ private struct BlinkPadStatusStrip: View {
     let issueCount: Int
     let noteCount: Int
 
-    private var isStale: Bool {
-        Date().timeIntervalSince(lastSyncedAt) > 7 * 24 * 60 * 60
+    private var isDegraded: Bool {
+        issueCount > 0 || syncStatusIsStale(lastSyncedAt)
     }
 
-    private var isDegraded: Bool { issueCount > 0 || isStale }
+    private var statusLine: String {
+        syncStatusLine(
+            state: state,
+            lastSyncedAt: lastSyncedAt,
+            issueCount: issueCount,
+            isSyncing: isSyncing
+        )
+    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -377,22 +379,6 @@ private struct BlinkPadStatusStrip: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(statusLine.capitalized), \(noteCount) notes")
-    }
-
-    private var statusLine: String {
-        let age = conciseAge(since: lastSyncedAt)
-        if issueCount > 0 {
-            return "\(issueCount) SYNC ISSUE\(issueCount == 1 ? "" : "S") · UPDATED \(age)"
-        }
-        if isSyncing { return "SYNCING" }
-        switch state {
-        case .disconnected:
-            return isStale ? "SYNC DUE · UPDATED \(age)" : "UPDATED \(age)"
-        case .requestingAccess(let name):
-            return "APPROVAL NEEDED · \(name.uppercased())"
-        case .connected(let host):
-            return "\(host.name.uppercased()) · UPDATED \(age)"
-        }
     }
 }
 
@@ -452,6 +438,8 @@ private struct BlinkPadNoteTile: View {
 
                     Text(indexTapeStamp(for: note.updatedAt))
                         .font(.caption2.monospaced())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
 
                     Spacer(minLength: 0)
 
@@ -711,8 +699,8 @@ private struct BlinkPadDesktopGrid: View {
     }
 }
 
-/// Native Liquid Glass on iPadOS 26, system material before that, and an opaque
-/// semantic surface when the user asks iPadOS to reduce transparency.
+/// Native Liquid Glass, or an opaque semantic surface when the user asks
+/// iPadOS to reduce transparency.
 private enum BlinkPadGlassWeight {
     case clear
     case regular
@@ -731,7 +719,7 @@ private struct BlinkPadGlassSurface<S: Shape>: View {
         Group {
             if reduceTransparency {
                 shape.fill(BlinkMobileTheme.raisedSurface)
-            } else if #available(iOS 26.0, *) {
+            } else {
                 let glass = weight == .regular ? Glass.regular : Glass.clear
                 shape
                     .fill(Color.clear)
@@ -739,10 +727,6 @@ private struct BlinkPadGlassSurface<S: Shape>: View {
                         glass.tint(tint).interactive(interactive),
                         in: shape
                     )
-            } else {
-                shape
-                    .fill(.ultraThinMaterial)
-                    .overlay(shape.fill(tint))
             }
         }
         .overlay {
@@ -762,6 +746,8 @@ private struct BlinkPadGlassSurface<S: Shape>: View {
 }
 
 private struct BlinkPadSlot: Identifiable, Sendable {
+    static let slotsPerDesk = 9
+
     let desk: Int
     let number: Int
     let note: BlinkSnapshotNote?
@@ -771,12 +757,12 @@ private struct BlinkPadSlot: Identifiable, Sendable {
     static func makeDesks(notes: [BlinkSnapshotNote]) -> [[BlinkPadSlot]] {
         guard !notes.isEmpty else { return [] }
 
-        var firstDesk = [BlinkSnapshotNote?](repeating: nil, count: 9)
+        var firstDesk = [BlinkSnapshotNote?](repeating: nil, count: slotsPerDesk)
         var deferred: [BlinkSnapshotNote] = []
 
         for note in notes {
             if let slot = note.presentation.slot,
-               (1...9).contains(slot),
+               (1...slotsPerDesk).contains(slot),
                firstDesk[slot - 1] == nil {
                 firstDesk[slot - 1] = note
             } else {
@@ -790,7 +776,7 @@ private struct BlinkPadSlot: Identifiable, Sendable {
 
         var desks: [[BlinkSnapshotNote?]] = [firstDesk]
         while !deferred.isEmpty {
-            var next = [BlinkSnapshotNote?](repeating: nil, count: 9)
+            var next = [BlinkSnapshotNote?](repeating: nil, count: slotsPerDesk)
             for index in next.indices where !deferred.isEmpty {
                 next[index] = deferred.removeFirst()
             }
