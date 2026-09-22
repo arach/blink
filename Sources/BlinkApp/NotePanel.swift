@@ -87,6 +87,12 @@ final class NotePanel: NSPanel {
     /// panel asks rather than reading a potentially stale file from disk.
     var markdownProvider: (() -> String?)?
 
+    /// Note-declared code cast. The panel only exposes the local visibility
+    /// control; SourcePanelManager owns resolving, placement, and windows.
+    private var sourceCompanionCount = 0
+    private var sourceCompanionsVisible = true
+    var onToggleSourceCompanions: (() -> Void)?
+
     let modeState = PanelModeState()
     var currentMode: String { modeState.mode }
 
@@ -102,6 +108,7 @@ final class NotePanel: NSPanel {
     private let container = PanelHoverView()
     private var readTint: CGFloat
     private var editTint: CGFloat
+    private var inkWork: DispatchWorkItem?
 
     private var modePillView: NSView?
     private var themeMarkView: NSView?
@@ -390,6 +397,7 @@ final class NotePanel: NSPanel {
         editor.setContent(initialContent)
         editor.setSheet(sheetTemplate)
         editor.onWillOpenContextMenu = { [weak self] menu in self?.decorateContextMenu(menu) }
+        refreshAdaptiveInk()
         // Focus-on-ready and initial mode are owned by PanelManager (mode-aware).
     }
 
@@ -398,10 +406,14 @@ final class NotePanel: NSPanel {
     /// rectangle reads as a ghost box).
     private static func isFlatSheet(_ name: String) -> Bool {
         switch name {
-        case "dotted", "bracket", "marginalia": true
-        default: false  // glass, card, and any unknown name fall back to glass
+        case "dotted", "bracket": true
+        default: false
         }
     }
+
+    /// Marginalia keeps the left-rule chrome on a faint HUD frost. Light-mode
+    /// popover glass + a white tint is what reads as an opaque gray slab.
+    private static func isMarginalia(_ name: String) -> Bool { name == "marginalia" }
 
     /// The glass material for a scheme. `.hudWindow` is intentionally dark even
     /// under `.aqua`, so in light mode the default swaps to `.popover` — a
@@ -425,27 +437,38 @@ final class NotePanel: NSPanel {
     /// Reconcile the native surface with `sheetTemplate`.
     ///
     /// - glass/card: the glass material and tint stay ON (card draws its own
-    ///   near-opaque paper in the web layer, but the glass behind it is cheap
-    ///   and harmless). Corner radius + shadow come from config.
-    /// - dotted/bracket/marginalia: hide the glass and tint layers entirely and
-    ///   drop the window shadow — the web layer paints everything on a fully
-    ///   transparent page.
+    ///   near-opaque paper in the web layer). Corner radius + shadow from config.
+    /// - marginalia: HUD glass at low alpha, no contrast tint, no shadow — a
+    ///   frost, not a slab. Light-mode `.popover` is avoided on purpose.
+    /// - dotted/bracket: hide glass and tint, drop the shadow — ink on wallpaper.
     private func applySheetAppearance(_ config: BlinkConfig) {
         let scheme = AppearanceManager.shared.scheme
-        // Follow the app scheme first, so the glass/tint below render in the
-        // right mode even when only the appearance flipped.
         appearance = NSAppearance(named: scheme.nsAppearanceName)
         tintLayer.layer?.backgroundColor = Self.tintColor(scheme)
 
-        let flat = Self.isFlatSheet(sheetTemplate)
-        glassView.isHidden = flat
-        tintLayer.isHidden = flat
-        if flat {
+        if Self.isFlatSheet(sheetTemplate) {
+            glassView.isHidden = true
+            tintLayer.isHidden = true
+            glassView.alphaValue = 1
+            glassView.appearance = nil
             hasShadow = false
-            // No rounded clip over a transparent page — the sheet's own frame
-            // (drawn by the web layer) defines the shape.
             container.layer?.cornerRadius = 0
+        } else if Self.isMarginalia(sheetTemplate) {
+            glassView.isHidden = false
+            tintLayer.isHidden = true
+            glassView.material = .hudWindow
+            glassView.blendingMode = .behindWindow
+            glassView.state = .active
+            glassView.appearance = NSAppearance(named: .darkAqua)
+            glassView.alphaValue = 0.42
+            glassView.layer?.cornerRadius = config.panel.cornerRadius
+            container.layer?.cornerRadius = config.panel.cornerRadius
+            hasShadow = false
         } else {
+            glassView.isHidden = false
+            tintLayer.isHidden = false
+            glassView.alphaValue = 1
+            glassView.appearance = nil
             glassView.material = Self.glassMaterial(config, scheme)
             glassView.layer?.cornerRadius = config.panel.cornerRadius
             container.layer?.cornerRadius = config.panel.cornerRadius
@@ -715,7 +738,7 @@ final class NotePanel: NSPanel {
         styleMetadataView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.75) : 0
         versionMetadataView?.isHidden = mode != "edit"
         versionMetadataView?.alphaValue = mode == "edit" ? (isHovered ? 1 : 0.75) : 0
-        guard !Self.isFlatSheet(sheetTemplate) else { return }
+        guard !Self.isFlatSheet(sheetTemplate), !Self.isMarginalia(sheetTemplate) else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.18
             tintLayer.animator().alphaValue = mode == "edit" ? editTint : readTint
@@ -750,10 +773,38 @@ final class NotePanel: NSPanel {
         // Re-derive the native surface (glass vs flat, material, radius, shadow)
         // for the current sheet, then set the mode tint only where it applies.
         applySheetAppearance(theme)
-        if !Self.isFlatSheet(sheetTemplate) {
+        if !Self.isFlatSheet(sheetTemplate), !Self.isMarginalia(sheetTemplate) {
             tintLayer.alphaValue = currentMode == "edit" ? editTint : readTint
         }
-        editor.setTheme(theme.editorThemeVars(scheme: AppearanceManager.shared.scheme))
+        var vars = theme.editorThemeVars(scheme: AppearanceManager.shared.scheme)
+        vars["--blink-ink-fill"] = ""
+        if Self.isMarginalia(sheetTemplate), let fill = WallpaperBackdrop.inkFill(behind: self) {
+            vars["--blink-ink-fill"] = fill
+        }
+        editor.setTheme(vars)
+    }
+
+    /// Re-sample the wallpaper behind this panel and restyle marginalia ink.
+    /// Throttled so a drag doesn't decode the desktop picture every frame.
+    func refreshAdaptiveInk() {
+        inkWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.applyAdaptiveInk()
+        }
+        inkWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.07, execute: work)
+    }
+
+    private func applyAdaptiveInk() {
+        guard Self.isMarginalia(sheetTemplate), isVisible, !isMiniaturized else {
+            editor.setTheme(["--blink-ink-fill": ""])
+            return
+        }
+        guard let fill = WallpaperBackdrop.inkFill(behind: self) else {
+            editor.setTheme(["--blink-ink-fill": ""])
+            return
+        }
+        editor.setTheme(["--blink-ink-fill": fill])
     }
 
     /// Change this note's sheet template live from the context menu: re-derive
@@ -772,6 +823,11 @@ final class NotePanel: NSPanel {
         guard presentation != notePresentation else { return }
         notePresentation = presentation
         applyTheme(BlinkConfigStore.shared.config)
+    }
+
+    func configureSourceCompanions(count: Int, visible: Bool) {
+        sourceCompanionCount = count
+        sourceCompanionsVisible = visible
     }
 
     private func updateMetadata(_ theme: BlinkConfig) {
@@ -862,6 +918,16 @@ final class NotePanel: NSPanel {
         styleItem.image = NSImage(systemSymbolName: "paintpalette", accessibilityDescription: nil)
         styleItem.submenu = makeStyleMenu()
         menu.addItem(styleItem)
+
+        if sourceCompanionCount > 0 {
+            menu.addItem(contextItem(
+                sourceCompanionsVisible ? "Hide Code Companions" : "Show Code Companions",
+                symbol: sourceCompanionsVisible
+                    ? "eye.slash"
+                    : "chevron.left.forwardslash.chevron.right",
+                action: #selector(contextToggleSourceCompanions(_:))
+            ))
+        }
 
         menu.addItem(.separator())
         menu.addItem(contextItem(
@@ -982,6 +1048,11 @@ final class NotePanel: NSPanel {
 
     @objc private func contextToggleFocus(_ sender: NSMenuItem) {
         toggleFocus()
+    }
+
+    @objc private func contextToggleSourceCompanions(_ sender: NSMenuItem) {
+        sourceCompanionsVisible.toggle()
+        onToggleSourceCompanions?()
     }
 
     /// Soft hide: tuck the panel away but keep it in the session, so clicking

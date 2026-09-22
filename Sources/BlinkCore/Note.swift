@@ -32,6 +32,10 @@ public struct NotePresentation: Equatable, Sendable, Codable {
     public var radius: Double?
     /// Durable grid-slot intent, 1...9 (not pixels — pixels are device state).
     public var slot: Int?
+    /// Portable source cast associated with this note. Paths resolve through
+    /// device-local named roots; visibility and exact source-panel frames do not
+    /// travel in Markdown.
+    public var companions: NoteCompanions?
     /// Last known writer for display. Overwritten on each attributed write.
     /// Full history lives in `edits.sqlite`, not here.
     public var lastWriter: String?
@@ -43,6 +47,7 @@ public struct NotePresentation: Equatable, Sendable, Codable {
         workspace == nil && style == nil && sheet == nil && accent == nil && font == nil
             && fontSize == nil && lineHeight == nil && tint == nil
             && tintRead == nil && tintEdit == nil && radius == nil && slot == nil
+            && (companions == nil || companions?.isEmpty == true)
             && lastWriter == nil
     }
 

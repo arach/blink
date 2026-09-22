@@ -103,6 +103,21 @@ export const pages: readonly BlinkStudioPage[] = [
       "The atomic unit: a glass NSPanel that is nothing but the note. Chrome earned on hover; shade to a 28px bar.",
   },
   {
+    href: "/studio/studies/review-bench",
+    label: "Review Bench",
+    bucket: "studies",
+    surface: "macos",
+    status: "study",
+    blurb:
+      "Blink V2's first non-Markdown surface: a note's frontmatter declares its source companions and preferred bench, local controls decide whether they appear, and any citation can still open a temporary CodeMirror peek.",
+    source: [
+      "design/studio/src/studio/studies/SpatialCodeReviewStudy.tsx",
+      "Sources/BlinkApp/SourcePanelManager.swift",
+      "Sources/BlinkCore/SourceReference.swift",
+      "web/editor/src/source-main.ts",
+    ],
+  },
+  {
     href: "/studio/studies/menubar-popover",
     label: "Menubar popover",
     bucket: "studies",

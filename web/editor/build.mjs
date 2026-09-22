@@ -359,8 +359,8 @@ body[data-type-on] .cm-cursor {
  * SHEET TEMPLATES (Ink)
  *
  * A note's visual identity is a "sheet", chosen via body[data-sheet="…"]. The
- * native panel is an invisible carrier: for GLASS/CARD it keeps its glass
- * material; for the FLAT sheets (dotted/bracket/marginalia) native hides the
+ * native panel is an invisible carrier: for GLASS/CARD/MARGINALIA it keeps
+ * its glass material; for the FLAT sheets (dotted/bracket) native hides the
  * glass entirely and this layer paints everything on a transparent page.
  *
  * Both surfaces (editor + reader) must honor the sheet, so sheet chrome is
@@ -419,9 +419,11 @@ body[data-sheet="card"] .blink-reader-empty {
   font-family: var(--blink-card-serif);
 }
 
-/* --- FLAT sheets: transparent page, ink on the wallpaper. Shared halo so white
- *     ink survives any wallpaper. The frame chrome gets a faint dark duplicate
- *     beneath it (drop-shadow) for the same reason. ------------------------- */
+/* --- FLAT sheets: ink on the wallpaper. --blink-sheet-bg stays available
+ *     (default transparent) so a treatment can add a wash without turning the
+ *     sheet into glass/card. Shared halo so white ink survives any wallpaper.
+ *     The frame chrome gets a faint dark duplicate beneath it (drop-shadow)
+ *     for the same reason. -------------------------------------------------- */
 body[data-sheet="dotted"],
 body[data-sheet="bracket"],
 body[data-sheet="marginalia"] {
@@ -432,10 +434,20 @@ body[data-sheet="marginalia"] {
 body[data-sheet="dotted"] .cm-content,
 body[data-sheet="dotted"] .blink-reader,
 body[data-sheet="bracket"] .cm-content,
-body[data-sheet="bracket"] .blink-reader,
+body[data-sheet="bracket"] .blink-reader {
+  text-shadow: var(--blink-halo);
+}
+/* Marginalia sits on mixed wallpaper + faint glass. A tight ink stroke reads
+ * on both sky and mountain; a wide glow would fog the type into gray. */
 body[data-sheet="marginalia"] .cm-content,
 body[data-sheet="marginalia"] .blink-reader {
-  text-shadow: var(--blink-halo);
+  text-shadow:
+    -1px 0 0 rgba(0, 0, 0, 0.78),
+    1px 0 0 rgba(0, 0, 0, 0.78),
+    0 -1px 0 rgba(0, 0, 0, 0.78),
+    0 1px 0 rgba(0, 0, 0, 0.78),
+    0 2px 6px rgba(0, 0, 0, 0.55);
+  font-weight: 500;
 }
 
 /* --- dotted: a cut-out. A 1.5px dotted outline inset ~4px with ~8px radius,
@@ -484,7 +496,8 @@ body[data-sheet="bracket"]::before {
 }
 
 /* --- marginalia: barest. A single 2px vertical rule down the left edge; text
- *     hangs off it. ---------------------------------------------------------- */
+ *     hangs off it. Optional --blink-sheet-bg paints an inset wash to the
+ *     right of the rule (transparent by default — still no panel). ---------- */
 body[data-sheet="marginalia"]::before {
   content: "";
   position: fixed;
@@ -496,6 +509,60 @@ body[data-sheet="marginalia"]::before {
   pointer-events: none;
   z-index: 2;
   filter: drop-shadow(1px 0 1px rgba(0, 0, 0, 0.7));
+}
+body[data-sheet="marginalia"]::after {
+  content: "";
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  left: 18px;
+  /* Reading gutter: denser at the rule, open to the landscape on the right.
+   * Optional --blink-sheet-bg still tints the whole field. */
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.16) 46%,
+      rgba(0, 0, 0, 0) 82%
+    ),
+    var(--blink-sheet-bg);
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 0;
+}
+body[data-sheet="marginalia"] #editor,
+body[data-sheet="marginalia"] .blink-reader {
+  position: relative;
+  z-index: 1;
+}
+
+/* Adaptive ink: native samples the wallpaper behind the panel (no Screen
+ * Recording) and pushes a vertical gradient. background-attachment:fixed maps
+ * each glyph to the slice of sky/mountain it actually sits on. */
+body[data-sheet="marginalia"][data-adaptive-ink] .cm-content,
+body[data-sheet="marginalia"][data-adaptive-ink] .cm-line,
+body[data-sheet="marginalia"][data-adaptive-ink] .cm-line span,
+body[data-sheet="marginalia"][data-adaptive-ink] .blink-reader,
+body[data-sheet="marginalia"][data-adaptive-ink] .blink-reader * {
+  color: transparent !important;
+  background-image: var(--blink-ink-fill);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow:
+    0 0 1px rgba(0, 0, 0, 0.45),
+    0 0 1px rgba(255, 255, 255, 0.28);
+}
+body[data-sheet="marginalia"][data-adaptive-ink] :is(code, pre),
+body[data-sheet="marginalia"][data-adaptive-ink] :is(code, pre) * {
+  color: var(--blink-code-text) !important;
+  background-image: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  background-color: var(--blink-code-bg);
 }
 
 /* ===========================================================================
@@ -677,6 +744,9 @@ async function main() {
   }
   if (!/var\(--blink-halo\)/.test(html)) {
     throw new Error("Output is missing the flat-sheet text halo (--blink-halo)");
+  }
+  if (!/data-adaptive-ink/.test(html)) {
+    throw new Error("Output is missing adaptive wallpaper ink CSS");
   }
   if (!/setSheet/.test(html)) {
     throw new Error("Bundle is missing window.blink.setSheet");

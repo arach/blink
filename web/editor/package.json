@@ -5,13 +5,15 @@
   "type": "module",
   "description": "Vanilla CodeMirror 6 editor surface for Blink v2 native panels (WKWebView host).",
   "scripts": {
-    "build": "node build.mjs",
+    "build": "node build.mjs && node build-source.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@codemirror/commands": "^6.6.0",
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/language": "^6.10.2",
+    "@codemirror/legacy-modes": "^6.5.3",
+    "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.4.1",
     "@codemirror/view": "^6.28.0",
     "@lezer/highlight": "^1.2.0",

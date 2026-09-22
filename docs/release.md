@@ -25,7 +25,7 @@ Modeled on `@arach/lattices`' pipeline. All scripts live in `tools/release/`.
    `BLINK_NOTARY_PROFILE`). See `Config/signing.env.example`.
 3. **npm** — `npm login` as `arach` (publishes `@arach/blink` with provenance).
 4. **Hudson** — the app build needs the `hudson` dependency resolvable
-   (`../hudson` checkout, or `BLINK_HUDSON_SOURCE=git` + a read token). The CLI
+   (`../hudson` checkout, or `BLINK_HUDSON_SOURCE=git` for the pinned public revision). The CLI
    build doesn't link Hudson but still needs the manifest to resolve.
 
 ## Cutting a release
@@ -78,3 +78,15 @@ fallback; browser login is not part of the release procedure.
 - **Apple Silicon only.** The CLI + app are `arm64`. Universal (`lipo`
   arm64 + x86_64) is a follow-up; the npm shim errors clearly on Intel.
 - No auto-update inside the app yet; `blink-app update` re-pulls the DMG.
+
+## Blink 2.1 compatibility
+
+Blink for Mac and the CLI continue to support macOS 14 and later. The iOS
+companion now requires iOS/iPadOS 26. For release builds, use
+`BLINK_HUDSON_SOURCE=git`: Package.swift pins the compatible published Hudson
+revision instead of following a moving main branch. Local development still
+defaults to the sibling checkout. Package.resolved records transitive revisions.
+
+The 2.1 release adds read-only source companions, adaptive wallpaper ink for
+marginalia, and Homebrew tap tooling. The iOS companion fixes discovery retry
+and refactors its reader and connection UI.
