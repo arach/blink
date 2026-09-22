@@ -136,8 +136,10 @@ Rules:
   `web/editor/README.md`.
 - `sources.roots` is deliberately empty by default. A note stores a portable
   locator such as `blink/Sources/BlinkCore/Note.swift`; this map supplies the
-  local absolute meaning of `blink`. On first activation of an unknown root,
-  Blink offers a folder picker and records the approved mapping here. Reads are
+  local absolute meaning of `blink`. Automatic activation leaves unknown roots
+  unopened and logs the missing mapping. Use the note's **Show Code Companions**
+  action (toggle Hide first if necessary) to explicitly open the folder picker
+  and record an approved mapping here. Reads are
   contained after resolving symlinks, limited to regular UTF-8 files, and capped
   by `maxPreviewBytes`.
 
