@@ -14,6 +14,7 @@ enum BlinkActivityID: String, CaseIterable, Identifiable {
 
     case searchNotes = "popover.search"
     case openSelectedNote = "popover.open-selected-note"
+    case openSourceFile = "files.open-source"
     case createFromCapture = "popover.create-from-capture"
     case dictateCapture = "popover.dictate"
 
@@ -165,6 +166,7 @@ struct BlinkActivityCatalog {
         var openGuide: Action?
         var revealNotesFolder: Action?
         var openConfigFile: Action?
+        var openSourceFile: Action?
 
         var toggleCurrentNoteMode: Action?
         var toggleCurrentNoteFocus: Action?
@@ -188,6 +190,7 @@ struct BlinkActivityCatalog {
             openGuide: Action? = nil,
             revealNotesFolder: Action? = nil,
             openConfigFile: Action? = nil,
+            openSourceFile: Action? = nil,
             toggleCurrentNoteMode: Action? = nil,
             toggleCurrentNoteFocus: Action? = nil,
             chooseCurrentNoteStyle: Action? = nil,
@@ -207,6 +210,7 @@ struct BlinkActivityCatalog {
             self.openGuide = openGuide
             self.revealNotesFolder = revealNotesFolder
             self.openConfigFile = openConfigFile
+            self.openSourceFile = openSourceFile
             self.toggleCurrentNoteMode = toggleCurrentNoteMode
             self.toggleCurrentNoteFocus = toggleCurrentNoteFocus
             self.chooseCurrentNoteStyle = chooseCurrentNoteStyle
@@ -344,6 +348,18 @@ private extension BlinkActivityCatalog {
                 scope: .panel,
                 keywords: ["wiki", "backlink", "click"],
                 shortcut: fixed("Click [[link]]")
+            ),
+            BlinkActivity(
+                id: .openSourceFile,
+                title: "Open Source File",
+                description: "Inspect a local code or text file in a read-only floating panel.",
+                symbolName: "chevron.left.forwardslash.chevron.right",
+                group: .findAndOpen,
+                scope: .application,
+                keywords: ["code", "file", "source", "viewer", "read only"],
+                shortcut: fixed("⌘O"),
+                availability: actionAvailability(h.openSourceFile),
+                execution: h.openSourceFile
             ),
             BlinkActivity(
                 id: .openSettings,

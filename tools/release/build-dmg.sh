@@ -52,7 +52,8 @@ echo "==> Building Blink v$VERSION (release)"
 
 # The note panels load this bundle from Resources; build it if it's stale/missing.
 EDITOR_HTML="$ROOT/web/editor/dist/editor.html"
-if [ ! -f "$EDITOR_HTML" ]; then
+SOURCE_VIEWER_HTML="$ROOT/web/editor/dist/source-viewer.html"
+if [ ! -f "$EDITOR_HTML" ] || [ ! -f "$SOURCE_VIEWER_HTML" ]; then
     echo "==> Building editor bundle..."
     (cd "$ROOT/web/editor" && bun install && bun run build)
 fi
@@ -75,6 +76,7 @@ for resource_bundle in "$(dirname "$BIN_PATH")"/*.bundle; do
     ditto "$resource_bundle" "$BUNDLE/Contents/Resources/$(basename "$resource_bundle")"
 done
 cp "$EDITOR_HTML" "$BUNDLE/Contents/Resources/editor.html"
+cp "$SOURCE_VIEWER_HTML" "$BUNDLE/Contents/Resources/source-viewer.html"
 ICON="$ROOT/assets/AppIcon.icns"
 [ -f "$ICON" ] && cp "$ICON" "$BUNDLE/Contents/Resources/AppIcon.icns"
 

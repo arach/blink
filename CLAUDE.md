@@ -92,10 +92,12 @@ Other useful references:
 ## Where changes belong
 
 - `Sources/BlinkApp` — AppDelegate/status item/popover, command palette,
-  AppModel, PanelManager, NotePanel, config hot reload, and WebBridge.
+  AppModel, PanelManager, NotePanel, read-only SourcePanel companions, config hot
+  reload, and the note/source web bridges.
 - `Sources/BlinkCore` — pure Swift with no AppKit: note model and identity,
   frontmatter, atomic file storage, NoteStore, treatments, workspaces, and grid
-  math / panel physics.
+  math / panel physics. Portable `blink.companions` source references and their
+  contained, device-local root resolution also live here.
 - `Sources/BlinkCLI` — `swift-argument-parser` CLI over BlinkCore. `BlinkPaths`
   keeps the app and CLI on the same locations.
 - `Sources/BlinkPeer` — encrypted Multipeer Connectivity discovery, pairing,
@@ -110,10 +112,12 @@ Other useful references:
 - `Tests/BlinkCoreTests` — narrow tests for storage, frontmatter, identity,
   workspaces, grid placement, and panel physics; run the matching suite for
   domain changes.
-- `web/editor` — vanilla CodeMirror 6 (no React), bundled into one
-  `dist/editor.html` and hosted by each note panel. Load-bearing bridge contract:
+- `web/editor` — vanilla CodeMirror 6 (no React), bundled into
+  `dist/editor.html` for note panels and `dist/source-viewer.html` for read-only
+  source panels. Load-bearing note bridge contract:
   `ready` / user-only `contentChanged` / `saveRequested` → native;
-  `setContent` / `getContent` / `focus` ← native.
+  `setContent` / `getContent` / `focus` ← native. The source bridge has no
+  getter, change message, save request, or native write callback.
 - Generic panel or web-bridge primitives should be shaped for eventual
   HudsonKit upstreaming once proven here.
 
