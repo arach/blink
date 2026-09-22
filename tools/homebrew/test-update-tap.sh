@@ -69,7 +69,7 @@ CASK="$TAP_DIR/Casks/blink.rb"
 test -f "$FORMULA"
 test -f "$CASK"
 test -f "$TAP_DIR/README.md"
-grep -Fq 'version "2.0.0-alpha.3"' "$FORMULA"
+grep -Fq 'version "2.0.0-alpha.3"' "$CASK"
 grep -Fq '/v2.0.0-alpha.3/blink-macos-arm64"' "$FORMULA"
 grep -Fq '/v#{version}/Blink.dmg"' "$CASK"
 if grep -Rq '@@[A-Z_]*@@' "$TAP_DIR"; then
