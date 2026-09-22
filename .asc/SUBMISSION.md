@@ -1,6 +1,6 @@
 # Blink Mobile — App Store Connect submission prep
 
-**Last checked:** 2026-08-30 14:55 EDT  
+**Last checked:** 2026-08-30 14:55 EDT
 **Bundle ID:** `dev.arach.blink.mobile` (Developer Portal ID `MF8456KF59`)  
 **Team / public provider:** `2U83JFPW66`  
 **Version / build:** `0.1.0` / `1`  
