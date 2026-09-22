@@ -238,6 +238,11 @@ export function installBlinkGlobal(
       for (const [key, value] of Object.entries(vars)) {
         root.setProperty(key, value);
       }
+      if (Object.prototype.hasOwnProperty.call(vars, "--blink-ink-fill")) {
+        const fill = vars["--blink-ink-fill"];
+        if (fill) document.body.setAttribute("data-adaptive-ink", "");
+        else document.body.removeAttribute("data-adaptive-ink");
+      }
     },
 
     resetTheme(): void {
@@ -253,6 +258,7 @@ export function installBlinkGlobal(
       for (const name of toRemove) {
         root.removeProperty(name);
       }
+      document.body.removeAttribute("data-adaptive-ink");
     },
 
     setSheet(name: string): void {

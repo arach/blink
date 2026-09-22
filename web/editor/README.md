@@ -136,16 +136,17 @@ owns the name set and the idempotent, validated DOM write.
 | `card` | native glass ON | An index card: near-opaque warm dark paper (`--blink-card-bg`, `#1c1917`) with a subtle asset-free grain, printed-feeling serif reader type (`--blink-card-serif`, Charter/Georgia), generous padding. |
 | `dotted` | **flat** (glass OFF) | A cut-out: transparent page, a 1.5px dotted outline inset ~4px with ~8px radius, ink text. |
 | `bracket` | **flat** (glass OFF) | Architect's framing: transparent, four corner brackets (~18px arms, 2px stroke); text floats free. |
-| `marginalia` | **flat** (glass OFF) | Barest: transparent, a single 2px vertical rule down the left edge; text hangs off it. |
+| `marginalia` | native glass ON | A single 2px vertical rule down the left edge; text hangs off it. Optional `--blink-sheet-bg` paints an inset wash to the right of the rule (transparent by default). |
 
 Both surfaces (editor **and** reader) honor the sheet — writing on a dotted
 cut-out looks the same as reading one.
 
 ### Legibility floor (flat sheets)
 
-The three **flat** sheets (`dotted`/`bracket`/`marginalia`) put ink directly on
-the user's wallpaper, which can be any color. So every flat sheet's text carries
-a dark halo, exposed as a themable CSS var:
+The two **flat** sheets (`dotted`/`bracket`) put ink directly on the user's
+wallpaper, which can be any color. `marginalia` keeps the same left-rule chrome
+and halo, but native glass stays on so the desktop can frost. Flat-sheet text
+carries a dark halo, exposed as a themable CSS var:
 
 ```
 --blink-halo: 0 0 1px rgba(0,0,0,.9), 0 1px 2px rgba(0,0,0,.7), 0 0 12px rgba(0,0,0,.45);

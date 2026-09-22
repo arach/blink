@@ -13,11 +13,12 @@
  *   card        — an index card: near-opaque warm dark paper with subtle grain.
  *   dotted      — a cut-out: transparent, a dotted outline, ink text.
  *   bracket     — architect's framing: transparent, four corner brackets.
- *   marginalia  — barest: transparent, a single vertical rule down the left.
+ *   marginalia  — a single vertical rule down the left, on native glass.
  *
- * Sheets 3–5 (dotted/bracket/marginalia) are "flat": the native glass is off,
- * so ink lands directly on the user's wallpaper. Their legibility floor is the
- * text halo declared in PAGE_CSS via `--blink-halo`.
+ * Sheets dotted/bracket are "flat": the native glass is off, so ink lands
+ * directly on the user's wallpaper. Their legibility floor is the text halo
+ * declared in PAGE_CSS via `--blink-halo`. Marginalia keeps that rule + halo
+ * but sits on glass so a treatment can frost the desktop.
  */
 
 /** The five sheet template names. */
