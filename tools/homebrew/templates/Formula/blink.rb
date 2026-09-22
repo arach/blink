@@ -2,7 +2,6 @@ class Blink < Formula
   desc "Command-line interface for Blink spatial notes"
   homepage "https://blink.arach.dev/"
   url "https://github.com/@@REPO@@/releases/download/v@@VERSION@@/blink-macos-arm64"
-  version "@@VERSION@@"
   sha256 "@@CLI_SHA256@@"
   license "MIT"
 
