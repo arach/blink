@@ -5,14 +5,14 @@ import PackageDescription
 // Scout). Set BLINK_HUDSON_SOURCE=git to resolve it from GitHub instead.
 let hudsonSource = Context.environment["BLINK_HUDSON_SOURCE"] ?? "path"
 let hudsonDependency: Package.Dependency = hudsonSource == "git"
-    ? .package(url: "git@github.com:arach/hudson.git", branch: "main")
+    ? .package(url: "https://github.com/arach/hudson.git", revision: "1cbe6e6ee1a35f46c65baf3c42bdf4066a7ae2c4")
     : .package(path: "../hudson")
 
 let package = Package(
     name: "Blink",
     platforms: [
         .macOS(.v14),
-        .iOS(.v17),
+        .iOS("26.0"),
     ],
     products: [
         .executable(name: "BlinkApp", targets: ["BlinkApp"]),

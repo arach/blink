@@ -15,6 +15,8 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 DIST_DIR="$ROOT/dist"
 REPO="${BLINK_RELEASE_REPO:-arach/blink}"
 TARGET="${BLINK_RELEASE_TARGET:-main}"
+# Release against the compatible pinned revision, not an arbitrary sibling checkout.
+export BLINK_HUDSON_SOURCE="${BLINK_HUDSON_SOURCE:-git}"
 VERSION="${BLINK_VERSION:-$(node -p "require(process.argv[1]).version" "$ROOT/packages/npm/package.json" 2>/dev/null || echo '2.0.0')}"
 TAG="v${VERSION}"
 DRY_RUN=0

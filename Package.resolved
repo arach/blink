@@ -1,6 +1,14 @@
 {
-  "originHash" : "5b0ba95acdcc6a1d71f4773c132ca786cf3dc92fa1581c73929f3e2359d368cf",
+  "originHash" : "81f94826c12a4018cd5ae8eeb257c143e1cb8b022e82f677bd5ee3e6e6287139",
   "pins" : [
+    {
+      "identity" : "hudson",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/arach/hudson.git",
+      "state" : {
+        "revision" : "1cbe6e6ee1a35f46c65baf3c42bdf4066a7ae2c4"
+      }
+    },
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
