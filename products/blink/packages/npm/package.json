@@ -1,0 +1,60 @@
+{
+  "name": "@arach/blink",
+  "version": "2.3.0",
+  "description": "Canvas spatial notes for macOS — native floating panels and a compatible blink CLI over local Markdown.",
+  "homepage": "https://lattices.dev/canvas",
+  "bugs": {
+    "url": "https://github.com/lattices-dev/lattices/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lattices-dev/lattices.git",
+    "directory": "products/blink/packages/npm"
+  },
+  "license": "MIT",
+  "type": "module",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "bin": {
+    "canvas": "bin/blink.mjs",
+    "canvas-app": "bin/blink-app.mjs",
+    "blink": "bin/blink.mjs",
+    "blink-app": "bin/blink-app.mjs"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "README.md"
+  ],
+  "keywords": [
+    "canvas",
+    "blink",
+    "notes",
+    "macos",
+    "menubar",
+    "cli",
+    "agents",
+    "ai-agents",
+    "spatial",
+    "markdown",
+    "local-first",
+    "productivity",
+    "swift",
+    "floating-notes"
+  ],
+  "scripts": {
+    "prepack": "bash ../../tools/release/build-cli.sh",
+    "test": "node --test test/*.test.mjs"
+  }
+}
